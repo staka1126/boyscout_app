@@ -1,0 +1,36 @@
+name: boyscout_app
+description: ビーバー隊 隊務管理アプリ
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # 状態管理
+  flutter_riverpod: ^2.5.1
+
+  # ローカルDB (Android/iOS: sqflite, Linux/Windows/Web: sqflite_common_ffi)
+  sqflite: ^2.3.3
+  sqflite_common_ffi: ^2.3.3
+  path: ^1.9.0
+
+  # ナビゲーション
+  go_router: ^14.2.0
+
+  # ユーティリティ
+  intl: ^0.19.0
+  uuid: ^4.4.0
+  collection: ^1.18.0
+  shared_preferences: ^2.3.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true

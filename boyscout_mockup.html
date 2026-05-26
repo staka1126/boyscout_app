@@ -1,0 +1,467 @@
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font-sans)}
+.app{display:flex;height:100%;min-height:600px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;background:var(--color-background-primary)}
+.sidebar{width:200px;flex-shrink:0;border-right:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary);display:flex;flex-direction:column}
+.sidebar-logo{padding:20px 16px 16px;border-bottom:0.5px solid var(--color-border-tertiary)}
+.sidebar-logo .troop{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.sidebar-logo .unit{font-size:11px;color:var(--color-text-tertiary);margin-top:2px}
+.nav{padding:12px 8px;flex:1}
+.nav-item{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--border-radius-md);cursor:pointer;font-size:13px;color:var(--color-text-secondary);transition:background 0.15s}
+.nav-item:hover{background:var(--color-background-primary)}
+.nav-item.active{background:var(--color-background-primary);color:var(--color-text-primary);font-weight:500}
+.nav-item i{font-size:16px}
+.nav-section{font-size:11px;color:var(--color-text-tertiary);padding:12px 10px 4px;letter-spacing:0.04em}
+.sidebar-footer{padding:12px 8px;border-top:0.5px solid var(--color-border-tertiary)}
+.user-row{display:flex;align-items:center;gap:8px;padding:6px 10px}
+.avatar{width:28px;height:28px;border-radius:50%;background:#E1F5EE;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:#085041;flex-shrink:0}
+.user-info .name{font-size:12px;font-weight:500;color:var(--color-text-primary)}
+.user-info .role{font-size:11px;color:var(--color-text-tertiary)}
+.main{flex:1;overflow-y:auto;display:flex;flex-direction:column}
+.topbar{padding:16px 24px;border-bottom:0.5px solid var(--color-border-tertiary);display:flex;align-items:center;justify-content:space-between;background:var(--color-background-primary)}
+.page-title{font-size:16px;font-weight:500;color:var(--color-text-primary)}
+.topbar-actions{display:flex;align-items:center;gap:8px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--border-radius-md);border:0.5px solid var(--color-border-secondary);font-size:13px;cursor:pointer;background:transparent;color:var(--color-text-primary);transition:background 0.15s}
+.btn:hover{background:var(--color-background-secondary)}
+.btn-primary{background:#1D9E75;border-color:#1D9E75;color:#fff}
+.btn-primary:hover{background:#0F6E56;border-color:#0F6E56}
+.content{padding:24px;flex:1}
+.screen{display:none}
+.screen.active{display:block}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+.metric{background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:14px 16px}
+.metric-label{font-size:12px;color:var(--color-text-secondary);margin-bottom:6px}
+.metric-value{font-size:22px;font-weight:500;color:var(--color-text-primary)}
+.metric-sub{font-size:11px;color:var(--color-text-tertiary);margin-top:3px}
+.section-title{font-size:14px;font-weight:500;color:var(--color-text-primary);margin-bottom:12px}
+.card{background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);overflow:hidden;margin-bottom:20px}
+.events-list{}
+.event-row{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:0.5px solid var(--color-border-tertiary);cursor:pointer;transition:background 0.12s}
+.event-row:last-child{border-bottom:none}
+.event-row:hover{background:var(--color-background-secondary)}
+.event-date{width:40px;text-align:center;flex-shrink:0}
+.event-date .day{font-size:18px;font-weight:500;color:var(--color-text-primary);line-height:1}
+.event-date .mon{font-size:11px;color:var(--color-text-tertiary)}
+.event-info{flex:1}
+.event-title{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.event-meta{font-size:12px;color:var(--color-text-secondary);margin-top:2px}
+.event-right{display:flex;align-items:center;gap:8px}
+.badge{display:inline-flex;align-items:center;padding:3px 8px;border-radius:99px;font-size:11px;font-weight:500}
+.badge-green{background:#EAF3DE;color:#27500A}
+.badge-blue{background:#E6F1FB;color:#0C447C}
+.badge-amber{background:#FAEEDA;color:#633806}
+.badge-gray{background:#F1EFE8;color:#444441}
+.badge-red{background:#FCEBEB;color:#791F1F}
+.attend-pct{font-size:12px;color:var(--color-text-secondary)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.scout-list-header{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 80px;gap:8px;padding:10px 16px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary)}
+.scout-list-header span{font-size:11px;color:var(--color-text-tertiary);font-weight:500}
+.scout-row{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 80px;gap:8px;padding:10px 16px;border-bottom:0.5px solid var(--color-border-tertiary);align-items:center;transition:background 0.12s;cursor:pointer}
+.scout-row:last-child{border-bottom:none}
+.scout-row:hover{background:var(--color-background-secondary)}
+.scout-name-cell{display:flex;align-items:center;gap:10px}
+.s-avatar{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;flex-shrink:0}
+.s-name{font-size:13px;font-weight:500;color:var(--color-text-primary)}
+.s-grade{font-size:11px;color:var(--color-text-tertiary)}
+.scout-cell{font-size:13px;color:var(--color-text-secondary)}
+.leaf-pills{display:flex;gap:3px;flex-wrap:wrap}
+.leaf{width:14px;height:14px;border-radius:50%;display:inline-block}
+.attend-bar-wrap{background:var(--color-background-secondary);border-radius:99px;height:4px;width:100%;margin-top:4px}
+.attend-bar{background:#1D9E75;border-radius:99px;height:4px}
+.filter-bar{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.filter-bar input{flex:1;padding:7px 12px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:13px;background:var(--color-background-secondary);color:var(--color-text-primary)}
+.filter-bar select{padding:7px 10px;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);font-size:13px;background:var(--color-background-secondary);color:var(--color-text-primary)}
+.attend-grid{}
+.attend-header{display:grid;grid-template-columns:180px 1fr;gap:0;border-bottom:0.5px solid var(--color-border-tertiary)}
+.attend-header .ah-name{padding:10px 16px;font-size:11px;color:var(--color-text-tertiary);font-weight:500;background:var(--color-background-secondary)}
+.attend-header .ah-status{padding:10px 16px;font-size:13px;font-weight:500;color:var(--color-text-primary);background:var(--color-background-secondary)}
+.attend-member{display:grid;grid-template-columns:180px 1fr;border-bottom:0.5px solid var(--color-border-tertiary)}
+.attend-member:last-child{border-bottom:none}
+.am-name{padding:11px 16px;font-size:13px;color:var(--color-text-primary);display:flex;align-items:center;gap:8px}
+.am-type{font-size:11px;color:var(--color-text-tertiary)}
+.am-ctrl{padding:10px 16px;display:flex;align-items:center;gap:8px}
+.toggle-group{display:flex;border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);overflow:hidden}
+.tg-btn{padding:5px 10px;font-size:12px;cursor:pointer;background:transparent;border:none;color:var(--color-text-secondary);transition:background 0.12s}
+.tg-btn.on{background:#EAF3DE;color:#27500A;font-weight:500}
+.tg-btn.off{background:#FCEBEB;color:#791F1F;font-weight:500}
+.tg-btn.pend{background:var(--color-background-secondary);color:var(--color-text-secondary)}
+</style>
+
+<h2 class="sr-only">ビーバー隊 隊務管理アプリ モックアップ（ダッシュボード・スカウト・出欠の3画面）</h2>
+
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-logo">
+      <div class="troop">第1ビーバー隊</div>
+      <div class="unit">第12団</div>
+    </div>
+    <nav class="nav">
+      <div class="nav-item active" onclick="show('dashboard',this)"><i class="ti ti-home" aria-hidden="true"></i>ダッシュボード</div>
+      <div class="nav-section">管理</div>
+      <div class="nav-item" onclick="show('leaders',this)"><i class="ti ti-user-crowned" aria-hidden="true"></i>リーダー</div>
+      <div class="nav-item" onclick="show('scouts',this)"><i class="ti ti-users" aria-hidden="true"></i>スカウト</div>
+      <div class="nav-item" onclick="show('leaders',this)"><i class="ti ti-user-crowned" aria-hidden="true"></i>保護者</div>
+      <div class="nav-item" onclick="show('leaders',this)"><i class="ti ti-user-crowned" aria-hidden="true"></i>団委員</div>
+      <div class="nav-item" onclick="show('events',this)"><i class="ti ti-calendar" aria-hidden="true"></i>イベント</div>
+      <div class="nav-section">レポート</div>
+      <div class="nav-item" onclick="sendPrompt('木の葉章レポート画面のモックアップを作成して')"><i class="ti ti-chart-bar" aria-hidden="true"></i>木の葉章 ↗</div>
+      <div class="nav-item" onclick="sendPrompt('小枝章履歴画面のモックアップを作成して')"><i class="ti ti-award" aria-hidden="true"></i>小枝章 ↗</div>
+      <div class="nav-section">設定</div>
+      <div class="nav-item"><i class="ti ti-settings" aria-hidden="true"></i>システム設定</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-row">
+        <div class="avatar">田中</div>
+        <div class="user-info">
+          <div class="name">田中 一郎</div>
+          <div class="role">隊長</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="page-title" id="page-title">ダッシュボード</div>
+      <div class="topbar-actions">
+        <button class="btn" id="topbar-sub-btn" style="display:none"></button>
+        <button class="btn btn-primary" id="topbar-main-btn"><i class="ti ti-plus" aria-hidden="true"></i><span id="topbar-main-label">イベントを追加</span></button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div class="screen active" id="screen-dashboard">
+        <div class="metrics">
+          <div class="metric">
+            <div class="metric-label">今月のイベント</div>
+            <div class="metric-value">3</div>
+            <div class="metric-sub">予定2件 完了1件</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">スカウト総数</div>
+            <div class="metric-value">12</div>
+            <div class="metric-sub">活動中12名</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">平均出席率</div>
+            <div class="metric-value">78%</div>
+            <div class="metric-sub">前月比 +4%</div>
+          </div>
+          <div class="metric">
+            <div class="metric-label">小枝章 授与待ち</div>
+            <div class="metric-value">2</div>
+            <div class="metric-sub">スカウト2名</div>
+          </div>
+        </div>
+
+        <div class="two-col">
+          <div>
+            <div class="section-title">直近のイベント</div>
+            <div class="card">
+              <div class="events-list">
+                <div class="event-row">
+                  <div class="event-date"><div class="day">18</div><div class="mon">5月</div></div>
+                  <div class="event-info">
+                    <div class="event-title">5月 隊集会</div>
+                    <div class="event-meta"><i class="ti ti-map-pin" style="font-size:12px" aria-hidden="true"></i> 中央公園 集会所　10:00〜12:00</div>
+                  </div>
+                  <div class="event-right"><span class="badge badge-green">完了</span></div>
+                </div>
+                <div class="event-row">
+                  <div class="event-date"><div class="day">25</div><div class="mon">5月</div></div>
+                  <div class="event-info">
+                    <div class="event-title">団集会</div>
+                    <div class="event-meta"><i class="ti ti-map-pin" style="font-size:12px" aria-hidden="true"></i> 第12団 集会室　09:00〜11:30</div>
+                  </div>
+                  <div class="event-right"><span class="badge badge-blue">予定</span></div>
+                </div>
+                <div class="event-row">
+                  <div class="event-date"><div class="day">8</div><div class="mon">6月</div></div>
+                  <div class="event-info">
+                    <div class="event-title">春のキャンプ</div>
+                    <div class="event-meta"><i class="ti ti-map-pin" style="font-size:12px" aria-hidden="true"></i> 緑の里オートキャンプ場</div>
+                  </div>
+                  <div class="event-right"><span class="badge badge-blue">予定</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="section-title">出席率（直近イベント）</div>
+            <div class="card">
+              <div style="padding:14px 16px">
+                <div style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:10px">5月 隊集会</div>
+                <div style="display:flex;flex-direction:column;gap:10px">
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                      <span style="color:var(--color-text-secondary)">山田 太郎</span><span style="color:var(--color-text-primary);font-weight:500">出席</span>
+                    </div>
+                    <div class="attend-bar-wrap"><div class="attend-bar" style="width:100%"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                      <span style="color:var(--color-text-secondary)">佐藤 花子</span><span style="color:var(--color-text-primary);font-weight:500">出席</span>
+                    </div>
+                    <div class="attend-bar-wrap"><div class="attend-bar" style="width:100%"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                      <span style="color:var(--color-text-secondary)">鈴木 健二</span><span style="color:#791F1F;font-weight:500">欠席</span>
+                    </div>
+                    <div class="attend-bar-wrap"><div class="attend-bar" style="width:0%"></div></div>
+                  </div>
+                  <div>
+                    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px">
+                      <span style="color:var(--color-text-secondary)">中村 さくら</span><span style="color:var(--color-text-primary);font-weight:500">出席</span>
+                    </div>
+                    <div class="attend-bar-wrap"><div class="attend-bar" style="width:100%"></div></div>
+                  </div>
+                </div>
+                <div style="margin-top:14px;padding-top:12px;border-top:0.5px solid var(--color-border-tertiary);font-size:12px;color:var(--color-text-secondary)">出席率 9/12名 (75%)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="screen-scouts">
+        <div class="filter-bar">
+          <input type="text" placeholder="氏名で検索...">
+          <select><option>すべての分類</option><option>ビッグビーバー</option><option>ビーバー</option><option>仮入隊</option><option>体験</option></select>
+          <button class="btn"><i class="ti ti-download" aria-hidden="true"></i>CSV</button>
+        </div>
+        <div class="card">
+          <div class="scout-list-header">
+            <span>氏名</span><span>分類</span><span>木の葉章</span><span>出席率</span><span></span>
+          </div>
+          <div class="scout-row">
+            <div class="scout-name-cell">
+              <div class="s-avatar" style="background:#E1F5EE;color:#085041">山</div>
+              <div><div class="s-name">山田 太郎</div><div class="s-grade">小1</div></div>
+            </div>
+            <div class="scout-cell"><span class="badge badge-blue">ビッグビーバー</span></div>
+            <div class="scout-cell">
+              <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">8枚</div>
+              <div class="leaf-pills" style="margin-top:4px">
+                <span class="leaf" style="background:#E24B4A" title="健康"></span>
+                <span class="leaf" style="background:#EF9F27" title="表現"></span>
+                <span class="leaf" style="background:#639922" title="自然"></span>
+              </div>
+            </div>
+            <div class="scout-cell">
+              <div style="font-size:12px">88%</div>
+              <div class="attend-bar-wrap"><div class="attend-bar" style="width:88%"></div></div>
+            </div>
+            <div class="scout-cell" style="text-align:right"><button class="btn" style="font-size:12px;padding:4px 10px"><i class="ti ti-edit" style="font-size:14px" aria-hidden="true"></i></button></div>
+          </div>
+          <div class="scout-row">
+            <div class="scout-name-cell">
+              <div class="s-avatar" style="background:#FBEAF0;color:#72243E">佐</div>
+              <div><div class="s-name">佐藤 花子</div><div class="s-grade">小2</div></div>
+            </div>
+            <div class="scout-cell"><span class="badge badge-green">ビーバー</span></div>
+            <div class="scout-cell">
+              <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">14枚</div>
+              <div class="leaf-pills" style="margin-top:4px">
+                <span class="leaf" style="background:#E24B4A"></span>
+                <span class="leaf" style="background:#EF9F27"></span>
+                <span class="leaf" style="background:#EAB308"></span>
+                <span class="leaf" style="background:#639922"></span>
+                <span class="leaf" style="background:#378ADD"></span>
+              </div>
+            </div>
+            <div class="scout-cell">
+              <div style="font-size:12px">100%</div>
+              <div class="attend-bar-wrap"><div class="attend-bar" style="width:100%"></div></div>
+            </div>
+            <div class="scout-cell" style="text-align:right"><button class="btn" style="font-size:12px;padding:4px 10px"><i class="ti ti-edit" style="font-size:14px" aria-hidden="true"></i></button></div>
+          </div>
+          <div class="scout-row">
+            <div class="scout-name-cell">
+              <div class="s-avatar" style="background:#FAEEDA;color:#633806">鈴</div>
+              <div><div class="s-name">鈴木 健二</div><div class="s-grade">小1</div></div>
+            </div>
+            <div class="scout-cell"><span class="badge badge-amber">仮入隊</span></div>
+            <div class="scout-cell">
+              <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">3枚</div>
+              <div class="leaf-pills" style="margin-top:4px">
+                <span class="leaf" style="background:#E24B4A"></span>
+                <span class="leaf" style="background:#639922"></span>
+              </div>
+            </div>
+            <div class="scout-cell">
+              <div style="font-size:12px">60%</div>
+              <div class="attend-bar-wrap"><div class="attend-bar" style="width:60%"></div></div>
+            </div>
+            <div class="scout-cell" style="text-align:right"><button class="btn" style="font-size:12px;padding:4px 10px"><i class="ti ti-edit" style="font-size:14px" aria-hidden="true"></i></button></div>
+          </div>
+          <div class="scout-row">
+            <div class="scout-name-cell">
+              <div class="s-avatar" style="background:#EEEDFE;color:#3C3489">中</div>
+              <div><div class="s-name">中村 さくら</div><div class="s-grade">小3</div></div>
+            </div>
+            <div class="scout-cell"><span class="badge badge-blue">ビッグビーバー</span></div>
+            <div class="scout-cell">
+              <div style="font-size:13px;font-weight:500;color:var(--color-text-primary)">11枚</div>
+              <div class="leaf-pills" style="margin-top:4px">
+                <span class="leaf" style="background:#E24B4A"></span>
+                <span class="leaf" style="background:#EF9F27"></span>
+                <span class="leaf" style="background:#378ADD"></span>
+              </div>
+            </div>
+            <div class="scout-cell">
+              <div style="font-size:12px">75%</div>
+              <div class="attend-bar-wrap"><div class="attend-bar" style="width:75%"></div></div>
+            </div>
+            <div class="scout-cell" style="text-align:right"><button class="btn" style="font-size:12px;padding:4px 10px"><i class="ti ti-edit" style="font-size:14px" aria-hidden="true"></i></button></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="screen-events">
+        <div class="card">
+          <div class="events-list">
+            <div class="event-row">
+              <div class="event-date"><div class="day">18</div><div class="mon">5月</div></div>
+              <div class="event-info">
+                <div class="event-title">5月 隊集会</div>
+                <div class="event-meta">隊集会　中央公園 集会所　10:00〜12:00</div>
+              </div>
+              <div class="event-right">
+                <span class="attend-pct">9/12名</span>
+                <span class="badge badge-green">完了</span>
+                <button class="btn" style="font-size:12px;padding:4px 10px"><i class="ti ti-edit" style="font-size:14px" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <div class="event-row">
+              <div class="event-date"><div class="day">25</div><div class="mon">5月</div></div>
+              <div class="event-info">
+                <div class="event-title">団集会</div>
+                <div class="event-meta">団集会　第12団 集会室　09:00〜11:30</div>
+              </div>
+              <div class="event-right">
+                <span class="attend-pct">12/12名</span>
+                <span class="badge badge-blue">予定</span>
+                <button class="btn" style="font-size:12px;padding:4px 10px" onclick="show('attend',null)"><i class="ti ti-checkbox" style="font-size:14px" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <div class="event-row">
+              <div class="event-date"><div class="day">8</div><div class="mon">6月</div></div>
+              <div class="event-info">
+                <div class="event-title">春のキャンプ</div>
+                <div class="event-meta">キャンプ　緑の里オートキャンプ場　1泊2日</div>
+              </div>
+              <div class="event-right">
+                <span class="attend-pct">—</span>
+                <span class="badge badge-blue">予定</span>
+                <button class="btn" style="font-size:12px;padding:4px 10px"><i class="ti ti-edit" style="font-size:14px" aria-hidden="true"></i></button>
+              </div>
+            </div>
+            <div class="event-row">
+              <div class="event-date"><div class="day">22</div><div class="mon">4月</div></div>
+              <div class="event-info">
+                <div class="event-title">4月 隊集会</div>
+                <div class="event-meta">隊集会　中央公園 集会所　10:00〜12:00</div>
+              </div>
+              <div class="event-right">
+                <span class="attend-pct">10/12名</span>
+                <span class="badge badge-green">完了</span>
+                <button class="btn" style="font-size:12px;padding:4px 10px"><i class="ti ti-edit" style="font-size:14px" aria-hidden="true"></i></button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="screen" id="screen-attend">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+          <div>
+            <div style="font-size:15px;font-weight:500;color:var(--color-text-primary)">団集会</div>
+            <div style="font-size:13px;color:var(--color-text-secondary);margin-top:2px"><i class="ti ti-calendar" style="font-size:13px" aria-hidden="true"></i> 2025年5月25日　09:00〜11:30　第12団 集会室</div>
+          </div>
+          <div style="margin-left:auto;display:flex;gap:8px">
+            <span class="badge badge-blue">予定</span>
+            <button class="btn btn-primary" style="font-size:12px"><i class="ti ti-check" style="font-size:14px" aria-hidden="true"></i>完了にする</button>
+          </div>
+        </div>
+
+        <div style="font-size:12px;color:var(--color-text-secondary);margin-bottom:12px">出席 <strong style="color:var(--color-text-primary)">10</strong> / 欠席 <strong style="color:var(--color-text-primary)">1</strong> / 未定 <strong style="color:var(--color-text-primary)">1</strong></div>
+
+        <div class="card">
+          <div class="attend-header">
+            <div class="ah-name">氏名</div>
+            <div class="ah-status">出欠ステータス</div>
+          </div>
+          <div style="padding:8px 16px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary)">
+            <span style="font-size:11px;color:var(--color-text-tertiary);font-weight:500;letter-spacing:0.04em">リーダー</span>
+          </div>
+          <div class="attend-member">
+            <div class="am-name"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:#E1F5EE;color:#085041">田</div>田中 一郎<span class="am-type">隊長</span></div>
+            <div class="am-ctrl"><div class="toggle-group"><button class="tg-btn on">出席</button><button class="tg-btn">欠席</button><button class="tg-btn">未定</button></div></div>
+          </div>
+          <div class="attend-member">
+            <div class="am-name"><div class="avatar" style="width:24px;height:24px;font-size:10px;background:#EEEDFE;color:#3C3489">高</div>高橋 次郎<span class="am-type">副長</span></div>
+            <div class="am-ctrl"><div class="toggle-group"><button class="tg-btn on">出席</button><button class="tg-btn">欠席</button><button class="tg-btn">未定</button></div></div>
+          </div>
+          <div style="padding:8px 16px;border-bottom:0.5px solid var(--color-border-tertiary);background:var(--color-background-secondary)">
+            <span style="font-size:11px;color:var(--color-text-tertiary);font-weight:500;letter-spacing:0.04em">スカウト</span>
+          </div>
+          <div class="attend-member">
+            <div class="am-name"><div class="s-avatar" style="width:24px;height:24px;font-size:10px;background:#E1F5EE;color:#085041">山</div>山田 太郎</div>
+            <div class="am-ctrl"><div class="toggle-group"><button class="tg-btn on">出席</button><button class="tg-btn">欠席</button><button class="tg-btn">未定</button></div></div>
+          </div>
+          <div class="attend-member">
+            <div class="am-name"><div class="s-avatar" style="width:24px;height:24px;font-size:10px;background:#FBEAF0;color:#72243E">佐</div>佐藤 花子</div>
+            <div class="am-ctrl"><div class="toggle-group"><button class="tg-btn on">出席</button><button class="tg-btn">欠席</button><button class="tg-btn">未定</button></div></div>
+          </div>
+          <div class="attend-member">
+            <div class="am-name"><div class="s-avatar" style="width:24px;height:24px;font-size:10px;background:#FAEEDA;color:#633806">鈴</div>鈴木 健二</div>
+            <div class="am-ctrl"><div class="toggle-group"><button class="tg-btn">出席</button><button class="tg-btn off">欠席</button><button class="tg-btn">未定</button></div></div>
+          </div>
+          <div class="attend-member">
+            <div class="am-name"><div class="s-avatar" style="width:24px;height:24px;font-size:10px;background:#EEEDFE;color:#3C3489">中</div>中村 さくら</div>
+            <div class="am-ctrl"><div class="toggle-group"><button class="tg-btn">出席</button><button class="tg-btn">欠席</button><button class="tg-btn pend">未定</button></div></div>
+          </div>
+          <div style="padding:12px 16px;border-top:0.5px solid var(--color-border-tertiary)">
+            <button class="btn" style="font-size:12px"><i class="ti ti-plus" style="font-size:14px" aria-hidden="true"></i>メンバーを追加</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const titles = {dashboard:'ダッシュボード',scouts:'スカウト',events:'イベント',attend:'出欠管理'};
+const mainLabels = {dashboard:'イベントを追加',scouts:'スカウトを追加',events:'イベントを追加',attend:'メンバーを追加'};
+function show(id, navEl) {
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById('screen-'+id).classList.add('active');
+  document.getElementById('page-title').textContent = titles[id];
+  document.getElementById('topbar-main-label').textContent = mainLabels[id];
+  if(navEl){
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    navEl.classList.add('active');
+  }
+  const attendBtn = document.getElementById('topbar-sub-btn');
+  if(id==='attend'){
+    attendBtn.style.display='inline-flex';
+    attendBtn.innerHTML='<i class="ti ti-mail" aria-hidden="true"></i>完了報告メール';
+  } else {
+    attendBtn.style.display='none';
+  }
+}
+document.querySelectorAll('.tg-btn').forEach(btn=>{
+  btn.addEventListener('click',function(){
+    const grp = this.closest('.toggle-group');
+    grp.querySelectorAll('.tg-btn').forEach(b=>{b.classList.remove('on','off','pend')});
+    if(this.textContent==='出席') this.classList.add('on');
+    else if(this.textContent==='欠席') this.classList.add('off');
+    else this.classList.add('pend');
+  });
+});
+</script>

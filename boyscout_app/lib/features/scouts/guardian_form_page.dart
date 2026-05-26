@@ -1,0 +1,166 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import '../../data/models/models.dart';
+import '../../data/repositories/repositories.dart';
+import '../../data/providers/app_state_provider.dart';
+
+class GuardianFormPage extends ConsumerStatefulWidget {
+  final String? guardianId;
+  final String? linkScoutId;
+  const GuardianFormPage({super.key, this.guardianId, this.linkScoutId});
+
+  @override
+  ConsumerState<GuardianFormPage> createState() => _GuardianFormPageState();
+}
+
+class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  String? _gender;
+  String? _relationship;
+  bool _saving = false;
+  Guardian? _original;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.guardianId != null) _load();
+  }
+
+  Future<void> _load() async {
+    final gs = await ref.read(guardianRepositoryProvider).getAll();
+    final g = gs.where((x) => x.id == widget.guardianId).firstOrNull;
+    if (g != null && mounted) {
+      _original = g;
+      _nameCtrl.text = g.name;
+      _emailCtrl.text = g.email ?? '';
+      _phoneCtrl.text = g.phone ?? '';
+      _gender = g.gender;
+      setState(() {});
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+
+    final repo = ref.read(guardianRepositoryProvider);
+    try {
+      Guardian g;
+      if (_original == null) {
+        g = await repo.create(
+          name: _nameCtrl.text.trim(),
+          gender: _gender,
+          email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        );
+      } else {
+        g = _original!.copyWith(
+          name: _nameCtrl.text.trim(),
+          gender: _gender,
+          email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
+          phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+        );
+        await repo.update(g);
+      }
+      if (widget.linkScoutId != null) {
+        await repo.link(
+            scoutId: widget.linkScoutId!,
+            guardianId: g.id,
+            relationship: _relationship);
+      }
+      if (mounted) context.pop();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('保存失敗: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+          title: Text(widget.guardianId == null ? '保護者追加' : '保護者編集')),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(labelText: '氏名 *'),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? '必須です' : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _gender,
+                decoration: const InputDecoration(labelText: '性別'),
+                items: const [
+                  DropdownMenuItem(value: 'male', child: Text('男性')),
+                  DropdownMenuItem(value: 'female', child: Text('女性')),
+                  DropdownMenuItem(value: 'other', child: Text('その他')),
+                ],
+                onChanged: (v) => setState(() => _gender = v),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _emailCtrl,
+                decoration:
+                    const InputDecoration(labelText: 'メールアドレス'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneCtrl,
+                decoration: const InputDecoration(labelText: '電話番号'),
+                keyboardType: TextInputType.phone,
+              ),
+              if (widget.linkScoutId != null) ...[
+                const SizedBox(height: 24),
+                DropdownButtonFormField<String>(
+                  value: _relationship,
+                  decoration: const InputDecoration(labelText: '続柄'),
+                  items: const [
+                    DropdownMenuItem(value: 'father', child: Text('父')),
+                    DropdownMenuItem(value: 'mother', child: Text('母')),
+                    DropdownMenuItem(value: 'other', child: Text('その他')),
+                  ],
+                  onChanged: (v) => setState(() => _relationship = v),
+                ),
+              ],
+              const SizedBox(height: 32),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('保存する'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _emailCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
+  }
+}
