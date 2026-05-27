@@ -6,6 +6,8 @@ import '../../core/constants/app_constants.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../dashboard/dashboard_page.dart';
+import '../events/events_page.dart';
 
 class EventFormPage extends ConsumerStatefulWidget {
   final String? eventId;
@@ -38,8 +40,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
   Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final e =
-          await ref.read(eventRepositoryProvider).getById(widget.eventId!);
+      final e = await ref.read(eventRepositoryProvider).getById(widget.eventId!);
       if (e != null && mounted) {
         _original = e;
         _titleCtrl.text = e.title;
@@ -59,10 +60,8 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('読み込み失敗: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('読み込み失敗: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -97,22 +96,15 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
           title: _titleCtrl.text.trim(),
           eventType: _eventType,
           eventDate: _eventDate!,
-          location: _locationCtrl.text.trim().isEmpty
-              ? null
-              : _locationCtrl.text.trim(),
+          location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
           startTime: _startTime != null ? _fmtTime(_startTime!) : null,
           endTime: _endTime != null ? _fmtTime(_endTime!) : null,
-          notes: _notesCtrl.text.trim().isEmpty
-              ? null
-              : _notesCtrl.text.trim(),
+          notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         );
 
-        // デフォルト出席者を生成（エラーでもイベント保存は成功扱い）
         try {
-          final users =
-              await ref.read(userRepositoryProvider).getByTroop(troopId);
-          final scouts =
-              await ref.read(scoutRepositoryProvider).getByTroop(troopId);
+          final users = await ref.read(userRepositoryProvider).getByTroop(troopId);
+          final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
           await ref.read(attendanceRepositoryProvider).createDefaults(
                 eventId: saved.id,
                 users: users,
@@ -126,26 +118,25 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
           title: _titleCtrl.text.trim(),
           eventType: _eventType,
           eventDate: _eventDate!,
-          location: _locationCtrl.text.trim().isEmpty
-              ? null
-              : _locationCtrl.text.trim(),
+          location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
           startTime: _startTime != null ? _fmtTime(_startTime!) : null,
           endTime: _endTime != null ? _fmtTime(_endTime!) : null,
-          notes: _notesCtrl.text.trim().isEmpty
-              ? null
-              : _notesCtrl.text.trim(),
+          notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         );
         await eventRepo.update(updated);
         saved = updated;
       }
 
-      if (mounted) context.go('/events/${saved.id}');
+      if (mounted) {
+        // ダッシュボードとイベント一覧を更新
+        ref.invalidate(dashboardProvider);
+        ref.invalidate(eventsProvider);
+        context.pop();
+      }
     } catch (e, st) {
       debugPrint('イベント保存エラー: $e\n$st');
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('保存失敗: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('保存失敗: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -186,16 +177,14 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
                       children: [
                         TextFormField(
                           controller: _titleCtrl,
-                          decoration:
-                              const InputDecoration(labelText: 'タイトル *'),
+                          decoration: const InputDecoration(labelText: 'タイトル *'),
                           validator: (v) =>
                               (v == null || v.trim().isEmpty) ? '必須です' : null,
                         ),
                         const SizedBox(height: 12),
                         DropdownButtonFormField<EventType>(
                           value: _eventType,
-                          decoration:
-                              const InputDecoration(labelText: '種別 *'),
+                          decoration: const InputDecoration(labelText: '種別 *'),
                           items: EventType.values
                               .map((t) => DropdownMenuItem(
                                   value: t, child: Text(t.label)))
@@ -214,19 +203,15 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
                             if (d != null) setState(() => _eventDate = d);
                           },
                           child: InputDecorator(
-                            decoration:
-                                const InputDecoration(labelText: '開催日 *'),
+                            decoration: const InputDecoration(labelText: '開催日 *'),
                             child: Text(
                               _eventDate != null
-                                  ? DateFormat('yyyy/MM/dd (E)', 'ja')
-                                      .format(_eventDate!)
+                                  ? DateFormat('yyyy/MM/dd (E)', 'ja').format(_eventDate!)
                                   : '日付を選択',
                               style: TextStyle(
                                   color: _eventDate != null
                                       ? null
-                                      : Theme.of(context)
-                                          .colorScheme
-                                          .onSurfaceVariant),
+                                      : Theme.of(context).colorScheme.onSurfaceVariant),
                             ),
                           ),
                         ),
@@ -243,8 +228,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
                                 if (t != null) setState(() => _startTime = t);
                               },
                               child: InputDecorator(
-                                decoration: const InputDecoration(
-                                    labelText: '開始時間'),
+                                decoration: const InputDecoration(labelText: '開始時間'),
                                 child: Text(_startTime != null
                                     ? _fmtTime(_startTime!)
                                     : '選択'),
@@ -263,8 +247,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
                                 if (t != null) setState(() => _endTime = t);
                               },
                               child: InputDecorator(
-                                decoration: const InputDecoration(
-                                    labelText: '終了時間'),
+                                decoration: const InputDecoration(labelText: '終了時間'),
                                 child: Text(_endTime != null
                                     ? _fmtTime(_endTime!)
                                     : '選択'),
@@ -282,8 +265,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
                         const SizedBox(height: 12),
                         TextFormField(
                           controller: _notesCtrl,
-                          decoration:
-                              const InputDecoration(labelText: '備考'),
+                          decoration: const InputDecoration(labelText: '備考'),
                           maxLines: 3,
                         ),
                         const SizedBox(height: 32),

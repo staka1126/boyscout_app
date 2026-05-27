@@ -53,10 +53,16 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _saving = true);
 
+    final troopId = ref.read(currentTroopIdProvider);
+    if (troopId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('先に団情報を登録してください')));
+      return;
+    }
+
+    setState(() => _saving = true);
     final repo = ref.read(scoutRepositoryProvider);
-    final troopId = ref.read(currentTroopIdProvider)!;
 
     try {
       if (_original == null) {
@@ -81,7 +87,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
           leafBadgeOffset: int.tryParse(_offsetCtrl.text) ?? 0,
         ));
       }
-      if (mounted) context.pop();
+      if (mounted) context.pop(); // push で来たので pop で戻る
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -110,7 +116,8 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                     TextFormField(
                       controller: _nameCtrl,
                       decoration: const InputDecoration(labelText: '氏名 *'),
-                      validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                      validator: (v) =>
+                          (v == null || v.trim().isEmpty) ? '必須です' : null,
                     ),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
@@ -142,7 +149,8 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _enrollmentYearCtrl,
-                      decoration: const InputDecoration(labelText: '小学校入学年度'),
+                      decoration:
+                          const InputDecoration(labelText: '小学校入学年度'),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 12),
@@ -157,14 +165,19 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                         if (d != null) setState(() => _joinedAt = d);
                       },
                       child: InputDecorator(
-                        decoration: const InputDecoration(labelText: '入隊日'),
-                        child: Text(_joinedAt != null
-                            ? DateFormat('yyyy/MM/dd').format(_joinedAt!)
-                            : '選択してください',
-                            style: TextStyle(
-                                color: _joinedAt != null
-                                    ? null
-                                    : Theme.of(context).colorScheme.onSurfaceVariant)),
+                        decoration:
+                            const InputDecoration(labelText: '入隊日'),
+                        child: Text(
+                          _joinedAt != null
+                              ? DateFormat('yyyy/MM/dd').format(_joinedAt!)
+                              : '選択してください',
+                          style: TextStyle(
+                              color: _joinedAt != null
+                                  ? null
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant),
+                        ),
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -184,7 +197,8 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2))
+                              child:
+                                  CircularProgressIndicator(strokeWidth: 2))
                           : Text(isNew ? '追加する' : '保存する'),
                     ),
                   ],

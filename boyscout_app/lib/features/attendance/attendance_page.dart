@@ -62,7 +62,6 @@ class AttendancePage extends ConsumerWidget {
         ),
         body: Column(
           children: [
-            // サマリバー
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -89,7 +88,6 @@ class AttendancePage extends ConsumerWidget {
                     style: Theme.of(context).textTheme.labelMedium),
               ]),
             ),
-            // リスト
             Expanded(
               child: ListView(
                 children: [
@@ -201,11 +199,7 @@ class _AttendanceTile extends StatelessWidget {
             ],
           ),
         ),
-        // トグルボタン（アイコンのみで幅を節約）
-        _ToggleGroup(
-          current: attendance.status,
-          onChanged: onChanged,
-        ),
+        _ToggleGroup(current: attendance.status, onChanged: onChanged),
         if (onRemove != null) ...[
           const SizedBox(width: 4),
           IconButton(
@@ -221,7 +215,7 @@ class _AttendanceTile extends StatelessWidget {
   }
 }
 
-// ─── ToggleGroup（アイコン＋短いラベル） ──────────────────────
+// ─── ToggleGroup ─────────────────────────────────────────────
 class _ToggleGroup extends StatelessWidget {
   final AttendanceStatus current;
   final ValueChanged<AttendanceStatus> onChanged;
@@ -283,9 +277,7 @@ class _ToggleBtn extends StatelessWidget {
           width: 32,
           height: 32,
           decoration: BoxDecoration(
-            color: active
-                ? activeColor.withAlpha(40)
-                : Colors.transparent,
+            color: active ? activeColor.withAlpha(40) : Colors.transparent,
             border: Border.all(
                 color: active ? activeColor : Colors.grey.shade300,
                 width: 1),
@@ -340,22 +332,22 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
   MemberType _type = MemberType.other;
 
   Future<List<Scout>> _loadExtraScouts() async {
-    final troopId = ref.read(currentTroopIdProvider)!;
-    final all =
-        await ref.read(scoutRepositoryProvider).getByTroop(troopId);
+    final troopId = ref.read(currentTroopIdProvider);
+    if (troopId == null) return <Scout>[];
+    final all = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
     final existing = await ref
         .read(attendanceRepositoryProvider)
         .getByEvent(widget.event.id);
     final existingIds = existing.map((a) => a.memberId).toSet();
     return all
         .where((s) =>
-            !s.category.isDefaultAttendee &&
-            !existingIds.contains(s.id))
+            !s.category.isDefaultAttendee && !existingIds.contains(s.id))
         .toList();
   }
 
   Future<List<CommitteeMember>> _loadCommittee() async {
-    final troopId = ref.read(currentTroopIdProvider)!;
+    final troopId = ref.read(currentTroopIdProvider);
+    if (troopId == null) return <CommitteeMember>[];
     final all = await ref
         .read(committeeRepositoryProvider)
         .getByTroop(troopId);
@@ -420,16 +412,12 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
           const SizedBox(height: 12),
           SegmentedButton<MemberType>(
             segments: const [
-              ButtonSegment(
-                  value: MemberType.scout, label: Text('スカウト')),
-              ButtonSegment(
-                  value: MemberType.committee, label: Text('団委員')),
-              ButtonSegment(
-                  value: MemberType.other, label: Text('その他')),
+              ButtonSegment(value: MemberType.scout, label: Text('スカウト')),
+              ButtonSegment(value: MemberType.committee, label: Text('団委員')),
+              ButtonSegment(value: MemberType.other, label: Text('その他')),
             ],
             selected: {_type},
-            onSelectionChanged: (s) =>
-                setState(() => _type = s.first),
+            onSelectionChanged: (s) => setState(() => _type = s.first),
           ),
           const SizedBox(height: 16),
           Expanded(
@@ -449,14 +437,12 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                     ? FutureBuilder<List<Scout>>(
                         future: _loadExtraScouts(),
                         builder: (_, snap) {
-                          if (!snap.hasData) {
+                          if (!snap.hasData)
                             return const Center(
                                 child: CircularProgressIndicator());
-                          }
-                          if (snap.data!.isEmpty) {
+                          if (snap.data!.isEmpty)
                             return const Center(
                                 child: Text('追加できるスカウトはいません'));
-                          }
                           return ListView.builder(
                             controller: controller,
                             itemCount: snap.data!.length,
@@ -474,14 +460,12 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                     : FutureBuilder<List<CommitteeMember>>(
                         future: _loadCommittee(),
                         builder: (_, snap) {
-                          if (!snap.hasData) {
+                          if (!snap.hasData)
                             return const Center(
                                 child: CircularProgressIndicator());
-                          }
-                          if (snap.data!.isEmpty) {
+                          if (snap.data!.isEmpty)
                             return const Center(
                                 child: Text('追加できる団委員はいません'));
-                          }
                           return ListView.builder(
                             controller: controller,
                             itemCount: snap.data!.length,

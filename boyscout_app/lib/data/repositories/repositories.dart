@@ -240,8 +240,7 @@ class GuardianRepository {
 
   Future<void> update(Guardian g) async {
     final db = await _db.database;
-    await db.update('guardians', g.toMap(),
-        where: 'id = ?', whereArgs: [g.id]);
+    await db.update('guardians', g.toMap(), where: 'id = ?', whereArgs: [g.id]);
   }
 
   Future<void> link({
@@ -345,7 +344,7 @@ class EventRepository {
     return (await db.query('events',
             where: 'troop_id = ?',
             whereArgs: [troopId],
-            orderBy: 'event_date DESC'))
+            orderBy: 'event_date ASC'))
         .map(Event.fromMap)
         .toList();
   }
@@ -356,7 +355,7 @@ class EventRepository {
     return (await db.query('events',
             where: 'troop_id = ? AND event_date >= ?',
             whereArgs: [troopId, since.toIso8601String().split('T').first],
-            orderBy: 'event_date DESC'))
+            orderBy: 'event_date ASC'))
         .map(Event.fromMap)
         .toList();
   }
@@ -449,7 +448,6 @@ class AttendanceRepository {
     required List<Scout> scouts,
   }) async {
     final db = await _db.database;
-
     for (final u in users) {
       try {
         await db.insert(
@@ -467,7 +465,6 @@ class AttendanceRepository {
         );
       } catch (_) {}
     }
-
     for (final s in scouts) {
       if (!s.category.isDefaultAttendee) continue;
       try {

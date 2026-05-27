@@ -6,18 +6,25 @@ import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 
+// ─── Provider（トップレベルで定義） ──────────────────────────
+final _scoutDetailProvider =
+    FutureProvider.family<Scout?, String>((ref, id) async {
+  return ref.read(scoutRepositoryProvider).getById(id);
+});
+
 class ScoutDetailPage extends ConsumerWidget {
   final String id;
   const ScoutDetailPage({super.key, required this.id});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final scoutAsync = FutureProvider<Scout?>((r) =>
-        r.read(scoutRepositoryProvider).getById(id));
+    final async = ref.watch(_scoutDetailProvider(id));
 
-    return ref.watch(scoutAsync).when(
-      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) => Scaffold(body: Center(child: Text('エラー: $e'))),
+    return async.when(
+      loading: () =>
+          const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) =>
+          Scaffold(body: Center(child: Text('エラー: $e'))),
       data: (scout) {
         if (scout == null) {
           return Scaffold(
@@ -25,6 +32,7 @@ class ScoutDetailPage extends ConsumerWidget {
             body: const Center(child: Text('スカウトが見つかりません')),
           );
         }
+
         final cs = Theme.of(context).colorScheme;
         final user = ref.watch(currentUserProvider).valueOrNull;
 
@@ -35,7 +43,10 @@ class ScoutDetailPage extends ConsumerWidget {
               if (user?.role.canEdit ?? false)
                 IconButton(
                   icon: const Icon(Icons.edit_outlined),
-                  onPressed: () => context.go('/scouts/$id/edit'),
+                  onPressed: () async {
+                    await context.push('/scouts/$id/edit');
+                    ref.invalidate(_scoutDetailProvider(id));
+                  },
                 ),
               if (user?.role.canEdit ?? false)
                 IconButton(
@@ -64,18 +75,20 @@ class ScoutDetailPage extends ConsumerWidget {
                       ),
                     ),
                     const SizedBox(width: 16),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(scout.name,
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w700)),
-                        const SizedBox(height: 4),
-                        _chip(context, scout.category.label, cs.secondaryContainer,
-                            cs.onSecondaryContainer),
-                      ],
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(scout.name,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w700)),
+                          const SizedBox(height: 4),
+                          _chip(context, scout.category.label,
+                              cs.secondaryContainer, cs.onSecondaryContainer),
+                        ],
+                      ),
                     ),
                   ]),
                 ),
@@ -93,26 +106,25 @@ class ScoutDetailPage extends ConsumerWidget {
                   _InfoRow('小学校入学年度', '${scout.enrollmentYear}年'),
               ]),
               const SizedBox(height: 12),
-              // 木の葉章
+              // 木の葉章・小枝章
               _infoCard(context, '木の葉章・小枝章', [
                 _InfoRow('木の葉章（活動取得）', '${scout.leafBadges}枚'),
                 _InfoRow('入隊時補正', '${scout.leafBadgeOffset}枚'),
-                _InfoRow('合計', '${scout.totalLeafBadges}枚',
-                    highlight: true),
+                _InfoRow('合計', '${scout.totalLeafBadges}枚', highlight: true),
                 _InfoRow('小枝章（授与済み）', '${scout.twigBadges}本'),
                 if (scout.pendingTwigBadges > 0)
                   _InfoRow('小枝章（授与待ち）', '${scout.pendingTwigBadges}本',
                       highlight: true),
               ]),
               const SizedBox(height: 12),
-              // 木の葉章 ビジュアル
+              // 木の葉章 進捗
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('木の葉章',
+                      Text('木の葉章 進捗',
                           style: Theme.of(context)
                               .textTheme
                               .labelLarge
@@ -133,9 +145,11 @@ class ScoutDetailPage extends ConsumerWidget {
   Widget _chip(BuildContext context, String label, Color bg, Color fg) =>
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+        decoration:
+            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
         child: Text(label,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
+            style: TextStyle(
+                fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
       );
 
   Widget _infoCard(BuildContext context, String title, List<Widget> rows) {
@@ -150,7 +164,8 @@ class ScoutDetailPage extends ConsumerWidget {
                 style: Theme.of(context)
                     .textTheme
                     .labelLarge
-                    ?.copyWith(color: Theme.of(context).colorScheme.primary)),
+                    ?.copyWith(
+                        color: Theme.of(context).colorScheme.primary)),
             const SizedBox(height: 8),
             ...rows,
           ],
@@ -178,7 +193,9 @@ class ScoutDetailPage extends ConsumerWidget {
         title: const Text('スカウトを削除'),
         content: Text('${scout.name} を削除しますか？この操作は取り消せません。'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('キャンセル')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('キャンセル')),
           FilledButton(
             onPressed: () => Navigator.pop(context, true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
@@ -190,7 +207,7 @@ class ScoutDetailPage extends ConsumerWidget {
 
     if (ok == true && context.mounted) {
       await ref.read(scoutRepositoryProvider).delete(scout.id);
-      context.go('/scouts');
+      context.pop();
     }
   }
 }
@@ -232,8 +249,7 @@ class _LeafBadgeProgress extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final total = scout.totalLeafBadges;
-    final inCurrent = total % 10;
+    final inCurrent = scout.totalLeafBadges % 10;
     final cs = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

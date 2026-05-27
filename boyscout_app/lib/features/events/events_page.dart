@@ -6,9 +6,10 @@ import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../dashboard/dashboard_page.dart';
 
 // ─── Provider ────────────────────────────────────────────────
-final _eventsProvider = FutureProvider<List<Event>>((ref) async {
+final eventsProvider = FutureProvider<List<Event>>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
   if (troopId == null) return [];
   return ref.read(eventRepositoryProvider).getByTroop(troopId);
@@ -25,10 +26,20 @@ class EventsPage extends ConsumerStatefulWidget {
 class _EventsPageState extends ConsumerState<EventsPage> {
   EventStatus? _filterStatus;
 
+  void _refresh() {
+    ref.invalidate(eventsProvider);
+    ref.invalidate(dashboardProvider);
+  }
+
+  Future<void> _goAdd() async {
+    await context.push('/events/new');
+    _refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(_eventsProvider);
-    final user = ref.watch(currentUserProvider).valueOrNull;
+    final async = ref.watch(eventsProvider);
+    final troopId = ref.watch(currentTroopIdProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -44,8 +55,9 @@ class _EventsPageState extends ConsumerState<EventsPage> {
             onSelected: (v) => setState(() => _filterStatus = v),
             itemBuilder: (_) => [
               const PopupMenuItem(value: null, child: Text('すべて')),
-              ...EventStatus.values.map((s) =>
-                  PopupMenuItem(value: s, child: Text(s.label))),
+              ...EventStatus.values.map(
+                (s) => PopupMenuItem(value: s, child: Text(s.label)),
+              ),
             ],
           ),
         ],
@@ -54,45 +66,55 @@ class _EventsPageState extends ConsumerState<EventsPage> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
         data: (events) {
-          final filtered = _filterStatus == null
-              ? events
-              : events.where((e) => e.status == _filterStatus).toList();
-
-          if (filtered.isEmpty) {
+          if (troopId == null) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.event_outlined,
-                      size: 48, color: Theme.of(context).colorScheme.outline),
-                  const SizedBox(height: 8),
-                  const Text('イベントがありません'),
+                  Icon(Icons.warning_amber_outlined,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.outline),
                   const SizedBox(height: 12),
-                  if (user?.role.canEdit ?? false)
-                    FilledButton.icon(
-                      onPressed: () => context.go('/events/new'),
-                      icon: const Icon(Icons.add),
-                      label: const Text('イベントを追加'),
-                    ),
+                  const Text('先に団情報を登録してください'),
+                  const SizedBox(height: 16),
+                  FilledButton(
+                    onPressed: () => context.go('/settings/troop'),
+                    child: const Text('団情報を登録する'),
+                  ),
                 ],
               ),
             );
           }
 
+          final filtered = _filterStatus == null
+              ? events
+              : events.where((e) => e.status == _filterStatus).toList();
+
+          if (filtered.isEmpty) {
+            return const Center(
+              child: Text('イベントがありません',
+                  style: TextStyle(color: Colors.grey)),
+            );
+          }
+
           return RefreshIndicator(
-            onRefresh: () => ref.refresh(_eventsProvider.future),
+            onRefresh: () async => _refresh(),
             child: ListView.separated(
               padding: const EdgeInsets.all(16),
               itemCount: filtered.length,
               separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _EventCard(event: filtered[i]),
+              itemBuilder: (_, i) => _EventCard(
+                event: filtered[i],
+                onReturn: _refresh,
+              ),
             ),
           );
         },
       ),
-      floatingActionButton: (user?.role.canEdit ?? false)
+      floatingActionButton: troopId != null
           ? FloatingActionButton(
-              onPressed: () => context.go('/events/new'),
+              onPressed: _goAdd,
+              tooltip: 'イベントを追加',
               child: const Icon(Icons.add),
             )
           : null,
@@ -103,7 +125,8 @@ class _EventsPageState extends ConsumerState<EventsPage> {
 // ─── EventCard ───────────────────────────────────────────────
 class _EventCard extends StatelessWidget {
   final Event event;
-  const _EventCard({required this.event});
+  final VoidCallback onReturn;
+  const _EventCard({required this.event, required this.onReturn});
 
   @override
   Widget build(BuildContext context) {
@@ -111,11 +134,13 @@ class _EventCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        onTap: () => context.go('/events/${event.id}'),
+        onTap: () async {
+          await context.push('/events/${event.id}');
+          onReturn();
+        },
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Row(children: [
-            // 日付
             Container(
               width: 48,
               padding: const EdgeInsets.symmetric(vertical: 8),
@@ -123,19 +148,21 @@ class _EventCard extends StatelessWidget {
                 color: cs.primaryContainer,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Column(children: [
-                Text(DateFormat('d').format(event.eventDate),
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: cs.onPrimaryContainer)),
-                Text(DateFormat('MMM', 'ja').format(event.eventDate),
-                    style: TextStyle(
-                        fontSize: 11, color: cs.onPrimaryContainer)),
-              ]),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(DateFormat('d').format(event.eventDate),
+                      style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w800,
+                          color: cs.onPrimaryContainer)),
+                  Text(DateFormat('M月').format(event.eventDate),
+                      style: TextStyle(
+                          fontSize: 11, color: cs.onPrimaryContainer)),
+                ],
+              ),
             ),
             const SizedBox(width: 12),
-            // 情報
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,7 +182,8 @@ class _EventCard extends StatelessWidget {
                       _meta(context, Icons.place_outlined, event.location!),
                     if (event.startTime != null)
                       _meta(context, Icons.schedule_outlined,
-                          '${event.startTime}${event.endTime != null ? " ~ ${event.endTime}" : ""}'),
+                          '${event.startTime}'
+                          '${event.endTime != null ? " ~ ${event.endTime}" : ""}'),
                   ]),
                 ],
               ),
@@ -170,7 +198,9 @@ class _EventCard extends StatelessWidget {
   Widget _meta(BuildContext context, IconData icon, String text) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 12, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(icon,
+              size: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant),
           const SizedBox(width: 3),
           Text(text,
               style: TextStyle(
@@ -199,9 +229,11 @@ class _EventCard extends StatelessWidget {
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Text(status.label,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
+          style:
+              TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
     );
   }
 }

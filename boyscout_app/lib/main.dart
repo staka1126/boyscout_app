@@ -6,9 +6,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'data/local/database_helper.dart';
-
-// Linux/Windows ではウィンドウサイズを制御できる
-import 'package:flutter/services.dart';
+import 'data/providers/app_state_provider.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +30,24 @@ class BoyScoutApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // 起動時にDBから団IDを復元する
+    final troopInit = ref.watch(initTroopProvider);
+
     final router = ref.watch(appRouterProvider);
+
+    // 初期化中はスプラッシュを表示
+    if (troopInit.isLoading) {
+      return MaterialApp(
+        theme: AppTheme.light(),
+        darkTheme: AppTheme.dark(),
+        themeMode: ThemeMode.system,
+        debugShowCheckedModeBanner: false,
+        home: const Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+
     return MaterialApp.router(
       title: 'ビーバー隊',
       theme: AppTheme.light(),

@@ -7,7 +7,8 @@ import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
 
-final _dashboardProvider = FutureProvider<_DashboardData>((ref) async {
+// public にして他画面から invalidate できるようにする
+final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
   if (troopId == null) return _DashboardData.empty();
   final events = await ref.read(eventRepositoryProvider).getRecent(troopId);
@@ -55,7 +56,7 @@ class DashboardPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(_dashboardProvider);
+    final async = ref.watch(dashboardProvider);
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -64,7 +65,7 @@ class DashboardPage extends ConsumerWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_outlined),
-            onPressed: () => ref.invalidate(_dashboardProvider),
+            onPressed: () => ref.invalidate(dashboardProvider),
           ),
         ],
       ),
@@ -72,7 +73,7 @@ class DashboardPage extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
         data: (data) => RefreshIndicator(
-          onRefresh: () => ref.refresh(_dashboardProvider.future),
+          onRefresh: () => ref.refresh(dashboardProvider.future),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -134,11 +135,16 @@ class DashboardPage extends ConsumerWidget {
               ]),
               const SizedBox(height: 8),
               if (data.events.isEmpty)
-                _EmptyCard(
-                  icon: Icons.event_outlined,
-                  message: 'イベントがありません',
-                  action: 'イベントを追加',
-                  onAction: () => context.go('/events/new'),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    '直近のイベントはありません',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 14,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 )
               else
                 Card(
@@ -184,7 +190,6 @@ class DashboardPage extends ConsumerWidget {
   }
 }
 
-// ─── MetricCard ──────────────────────────────────────────────
 class _MetricCard extends StatelessWidget {
   final String label;
   final String value;
@@ -246,7 +251,6 @@ class _MetricCard extends StatelessWidget {
   }
 }
 
-// ─── EventListTile ───────────────────────────────────────────
 class _EventListTile extends StatelessWidget {
   final Event event;
   const _EventListTile({required this.event});
@@ -255,7 +259,6 @@ class _EventListTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
-      // leading に Column を使わず RichText で日付を表示
       leading: _DateBadge(date: event.eventDate),
       title: Text(event.title,
           style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
@@ -273,7 +276,6 @@ class _EventListTile extends StatelessWidget {
   }
 }
 
-// ─── DateBadge（Column を使わず RichText で縦並び）─────────────
 class _DateBadge extends StatelessWidget {
   final DateTime date;
   const _DateBadge({required this.date});
@@ -317,7 +319,6 @@ class _DateBadge extends StatelessWidget {
   }
 }
 
-// ─── StatusChip ──────────────────────────────────────────────
 class _StatusChip extends StatelessWidget {
   final EventStatus status;
   const _StatusChip({required this.status});
@@ -346,40 +347,6 @@ class _StatusChip extends StatelessWidget {
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
       child: Text(status.label,
           style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
-    );
-  }
-}
-
-// ─── EmptyCard ───────────────────────────────────────────────
-class _EmptyCard extends StatelessWidget {
-  final IconData icon;
-  final String message;
-  final String action;
-  final VoidCallback onAction;
-
-  const _EmptyCard({
-    required this.icon,
-    required this.message,
-    required this.action,
-    required this.onAction,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40, color: Theme.of(context).colorScheme.outline),
-            const SizedBox(height: 8),
-            Text(message, style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 12),
-            OutlinedButton(onPressed: onAction, child: Text(action)),
-          ],
-        ),
-      ),
     );
   }
 }
