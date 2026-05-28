@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
@@ -18,7 +19,6 @@ class _BadgesData {
   final List<TwigBadgeHistory> history;
   _BadgesData({required this.scouts, required this.history});
 
-  /// 小枝章授与待ち：ビーバー・ビッグビーバーのみ
   List<_PendingTwig> get pendingList {
     final result = <_PendingTwig>[];
     for (final s in scouts) {
@@ -30,12 +30,11 @@ class _BadgesData {
     return result;
   }
 
-  /// 入隊タブ：ビーバー・ビッグビーバーかつ入隊日未入力
   List<Scout> get enrollmentTargets {
-    final targets = scouts.where((s) =>
-        s.isActive &&
-        s.category.isTwigBadgeEligible &&
-        s.joinedAt == null).toList();
+    final targets = scouts
+        .where((s) =>
+            s.isActive && s.category.isTwigBadgeEligible && s.joinedAt == null)
+        .toList();
     targets.sort((a, b) => a.name.compareTo(b.name));
     return targets;
   }
@@ -68,9 +67,13 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
     final async = ref.watch(badgesProvider);
     return Scaffold(
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/settings'),
+        ),
         title: const Text('表彰管理'),
         bottom: TabBar(controller: _tab, tabs: const [
-          Tab(text: '入隊'),
+          Tab(text: '入隊式'),
           Tab(text: '小枝章'),
           Tab(text: '木の葉章'),
         ]),
@@ -94,7 +97,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
   }
 }
 
-// ─── 入隊タブ ────────────────────────────────────────────────
+// ─── 入隊式タブ ────────────────────────────────────────────────
 class _EnrollmentTab extends StatelessWidget {
   final List<Scout> scouts;
   const _EnrollmentTab({required this.scouts});
@@ -105,7 +108,7 @@ class _EnrollmentTab extends StatelessWidget {
       return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
         SizedBox(height: 8),
-        Text('入隊式が未入力のスカウトはいません'),
+        Text('入隊式がまだのスカウトはいません'),
       ]));
     }
     return ListView.separated(
@@ -124,7 +127,8 @@ class _EnrollmentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Card(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    return Card(child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Row(children: [
         CircleAvatar(radius: 20, backgroundColor: cs.primaryContainer,
           child: Text(scout.name.isNotEmpty ? scout.name[0] : '?',
