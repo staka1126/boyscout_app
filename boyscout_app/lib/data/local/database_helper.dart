@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
@@ -16,7 +17,6 @@ class DatabaseHelper {
   }
 
   Future<Database> _open() async {
-    // Linux / Windows / macOS はFFI経由で初期化
     if (!kIsWeb &&
         (defaultTargetPlatform == TargetPlatform.linux ||
             defaultTargetPlatform == TargetPlatform.windows ||
@@ -25,13 +25,17 @@ class DatabaseHelper {
       databaseFactory = databaseFactoryFfi;
     }
 
-    final dbPath = await getDatabasesPath();
-    final path = join(dbPath, AppConstants.dbName);
-    return openDatabase(
-      path,
-      version: AppConstants.dbVersion,
-      onCreate: _create,
-    );
+    final String dbDir;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.linux) {
+      final home = Platform.environment['HOME'] ?? '/tmp';
+      dbDir = '$home/.local/share/boyscout_app';
+      await Directory(dbDir).create(recursive: true);
+    } else {
+      dbDir = await getDatabasesPath();
+    }
+
+    final path = join(dbDir, AppConstants.dbName);
+    return openDatabase(path, version: AppConstants.dbVersion, onCreate: _create);
   }
 
   Future<void> _create(Database db, int version) async {
@@ -47,13 +51,14 @@ class DatabaseHelper {
       )
     ''');
 
+    // email は UNIQUE 制約なし・NULL 許容に変更
     await db.execute('''
       CREATE TABLE users (
         id TEXT PRIMARY KEY,
         troop_id TEXT NOT NULL,
         name TEXT NOT NULL,
         gender TEXT,
-        email TEXT NOT NULL UNIQUE,
+        email TEXT,
         phone TEXT,
         role TEXT NOT NULL,
         is_active INTEGER NOT NULL DEFAULT 1,

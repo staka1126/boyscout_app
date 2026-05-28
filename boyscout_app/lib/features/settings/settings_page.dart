@@ -2,8 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../../data/models/models.dart';
-import '../../data/repositories/repositories.dart';
+import '../../data/local/database_helper.dart';
 import '../../data/providers/app_state_provider.dart';
 
 class SettingsPage extends ConsumerWidget {
@@ -11,14 +10,12 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final troopId = ref.watch(currentTroopIdProvider);
     final userAsync = ref.watch(currentUserProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('設定')),
       body: ListView(
         children: [
-          // ユーザー情報
           userAsync.when(
             loading: () => const ListTile(title: Text('読み込み中...')),
             error: (_, __) => const SizedBox(),
@@ -26,16 +23,11 @@ class SettingsPage extends ConsumerWidget {
                 ? const SizedBox()
                 : ListTile(
                     leading: CircleAvatar(
-                      backgroundColor:
-                          Theme.of(context).colorScheme.primaryContainer,
-                      child: Text(
-                        user.name.isNotEmpty ? user.name[0] : '?',
-                        style: TextStyle(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onPrimaryContainer,
-                            fontWeight: FontWeight.w700),
-                      ),
+                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                      child: Text(user.name.isNotEmpty ? user.name[0] : '?',
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimaryContainer,
+                              fontWeight: FontWeight.w700)),
                     ),
                     title: Text(user.name,
                         style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -43,35 +35,21 @@ class SettingsPage extends ConsumerWidget {
                   ),
           ),
           const Divider(),
-          _SectionHeader('団・リーダー管理'),
-          ListTile(
-            leading: const Icon(Icons.home_outlined),
-            title: const Text('団情報'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/troop'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.manage_accounts_outlined),
-            title: const Text('リーダー管理'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/users/new'),
-          ),
-          ListTile(
-            leading: const Icon(Icons.family_restroom_outlined),
-            title: const Text('保護者管理'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.go('/settings/guardians/new'),
-          ),
+          _tile(context, Icons.home_outlined, '団情報', '/settings/troop'),
+          _tile(context, Icons.manage_accounts_outlined, 'リーダー管理', '/settings/users'),
+          _tile(context, Icons.people_outline, 'スカウト管理', '/scouts'),
+          _tile(context, Icons.family_restroom_outlined, '保護者管理', '/settings/guardians'),
+          _tile(context, Icons.groups_outlined, '団委員ほか管理', '/settings/committee'),
+          _tile(context, Icons.event_outlined, 'イベント管理', '/events'),
+          _tile(context, Icons.military_tech_outlined, '表彰管理', '/badges'),
           const Divider(),
-          _SectionHeader('アプリ設定'),
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('バージョン情報'),
-            trailing:
-                const Text('1.0.0', style: TextStyle(color: Colors.grey)),
+            trailing: const Text('1.0.0', style: TextStyle(color: Colors.grey)),
           ),
           ListTile(
-            leading: const Icon(Icons.delete_outline, color: Colors.red),
+            leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
             title: const Text('データをすべて削除',
                 style: TextStyle(color: Colors.red)),
             onTap: () => _confirmClearData(context, ref),
@@ -81,45 +59,83 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
+  Widget _tile(BuildContext context, IconData icon, String title, String path) =>
+      ListTile(
+        leading: Icon(icon),
+        title: Text(title),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.go(path),
+      );
+
   Future<void> _confirmClearData(BuildContext context, WidgetRef ref) async {
-    final ok = await showDialog<bool>(
+    final ok1 = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('データを削除'),
-        content: const Text('すべてのデータが削除されます。この操作は取り消せません。'),
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('データをすべて削除'),
+        content: const Text(
+            '団・スカウト・イベント・出欠・表彰など\nすべてのデータが完全に削除されます。\n\nこの操作は取り消せません。'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.pop(context, false),
+              onPressed: () => Navigator.of(dlgCtx).pop(false),
               child: const Text('キャンセル')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('削除'),
+            onPressed: () => Navigator.of(dlgCtx).pop(true),
+            child: const Text('削除する'),
           ),
         ],
       ),
     );
-    if (ok == true) {
+    if (ok1 != true || !context.mounted) return;
+
+    final ok2 = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('本当に削除しますか？'),
+        content: const Text('本当にすべてのデータを削除してよいですか？\n復元する方法はありません。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dlgCtx).pop(false),
+              child: const Text('キャンセル')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dlgCtx).pop(true),
+            child: const Text('完全に削除する'),
+          ),
+        ],
+      ),
+    );
+    if (ok2 != true || !context.mounted) return;
+
+    try {
+      final db = await DatabaseHelper.instance.database;
+      await db.transaction((txn) async {
+        await txn.execute('DELETE FROM twig_badge_history');
+        await txn.execute('DELETE FROM attendances');
+        await txn.execute('DELETE FROM event_leaf_badges');
+        await txn.execute('DELETE FROM events');
+        await txn.execute('DELETE FROM scout_guardians');
+        await txn.execute('DELETE FROM committee_members');
+        await txn.execute('DELETE FROM guardians');
+        await txn.execute('DELETE FROM scouts');
+        await txn.execute('DELETE FROM users');
+        await txn.execute('DELETE FROM troops');
+      });
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.clear();
+
       if (context.mounted) {
         ref.read(currentTroopIdProvider.notifier).state = null;
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('すべてのデータを削除しました')));
         context.go('/settings');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
-}
-
-class _SectionHeader extends StatelessWidget {
-  final String title;
-  const _SectionHeader(this.title);
-
-  @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-        child: Text(title,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-                letterSpacing: 0.8)),
-      );
 }

@@ -50,8 +50,7 @@ class TroopRepository {
       updatedAt: now,
     );
     final db = await _db.database;
-    await db.insert('troops', troop.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('troops', troop.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     return troop;
   }
 }
@@ -62,34 +61,17 @@ class UserRepository {
 
   Future<List<AppUser>> getByTroop(String troopId) async {
     final db = await _db.database;
-    return (await db.query('users',
-            where: 'troop_id = ?',
-            whereArgs: [troopId],
-            orderBy: 'name'))
-        .map(AppUser.fromMap)
-        .toList();
+    return (await db.query('users', where: 'troop_id = ?', whereArgs: [troopId], orderBy: 'name'))
+        .map(AppUser.fromMap).toList();
   }
 
   Future<AppUser> create({
-    required String troopId,
-    required String name,
-    required String email,
-    required UserRole role,
-    String? gender,
-    String? phone,
+    required String troopId, required String name, required String email,
+    required UserRole role, String? gender, String? phone,
   }) async {
     final now = DateTime.now();
-    final u = AppUser(
-      id: _uuid.v4(),
-      troopId: troopId,
-      name: name,
-      email: email,
-      role: role,
-      gender: gender,
-      phone: phone,
-      createdAt: now,
-      updatedAt: now,
-    );
+    final u = AppUser(id: _uuid.v4(), troopId: troopId, name: name, email: email,
+        role: role, gender: gender, phone: phone, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('users', u.toMap());
     return u;
@@ -119,12 +101,8 @@ class ScoutRepository {
 
   Future<List<Scout>> getByTroop(String troopId) async {
     final db = await _db.database;
-    return (await db.query('scouts',
-            where: 'troop_id = ?',
-            whereArgs: [troopId],
-            orderBy: 'name'))
-        .map(Scout.fromMap)
-        .toList();
+    return (await db.query('scouts', where: 'troop_id = ?', whereArgs: [troopId], orderBy: 'name'))
+        .map(Scout.fromMap).toList();
   }
 
   Future<Scout?> getById(String id) async {
@@ -134,29 +112,13 @@ class ScoutRepository {
   }
 
   Future<Scout> create({
-    required String troopId,
-    required String name,
-    required ScoutCategory category,
-    String? gender,
-    String? grade,
-    int? enrollmentYear,
-    DateTime? joinedAt,
-    int leafBadgeOffset = 0,
+    required String troopId, required String name, required ScoutCategory category,
+    String? gender, String? grade, int? enrollmentYear, DateTime? joinedAt, int leafBadgeOffset = 0,
   }) async {
     final now = DateTime.now();
-    final s = Scout(
-      id: _uuid.v4(),
-      troopId: troopId,
-      name: name,
-      gender: gender,
-      grade: grade,
-      category: category,
-      enrollmentYear: enrollmentYear,
-      joinedAt: joinedAt,
-      leafBadgeOffset: leafBadgeOffset,
-      createdAt: now,
-      updatedAt: now,
-    );
+    final s = Scout(id: _uuid.v4(), troopId: troopId, name: name, gender: gender,
+        grade: grade, category: category, enrollmentYear: enrollmentYear,
+        joinedAt: joinedAt, leafBadgeOffset: leafBadgeOffset, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('scouts', s.toMap());
     return s;
@@ -171,8 +133,7 @@ class ScoutRepository {
     final db = await _db.database;
     final a = await db.query('attendances',
         where: 'member_id = ? AND member_type = "scout"', whereArgs: [id]);
-    final sg = await db.query('scout_guardians',
-        where: 'scout_id = ?', whereArgs: [id]);
+    final sg = await db.query('scout_guardians', where: 'scout_id = ?', whereArgs: [id]);
     return a.isEmpty && sg.isEmpty;
   }
 
@@ -185,6 +146,14 @@ class ScoutRepository {
     final db = await _db.database;
     await db.rawUpdate(
         'UPDATE scouts SET leaf_badges = leaf_badges + ?, updated_at = ? WHERE id = ?',
+        [count, DateTime.now().toIso8601String(), scoutId]);
+  }
+
+  /// 木の葉章を減算（0未満にならないようガード）
+  Future<void> subtractLeafBadges(String scoutId, int count) async {
+    final db = await _db.database;
+    await db.rawUpdate(
+        'UPDATE scouts SET leaf_badges = MAX(0, leaf_badges - ?), updated_at = ? WHERE id = ?',
         [count, DateTime.now().toIso8601String(), scoutId]);
   }
 
@@ -202,9 +171,7 @@ class GuardianRepository {
 
   Future<List<Guardian>> getAll() async {
     final db = await _db.database;
-    return (await db.query('guardians', orderBy: 'name'))
-        .map(Guardian.fromMap)
-        .toList();
+    return (await db.query('guardians', orderBy: 'name')).map(Guardian.fromMap).toList();
   }
 
   Future<List<Guardian>> getByScout(String scoutId) async {
@@ -217,22 +184,10 @@ class GuardianRepository {
     return rows.map(Guardian.fromMap).toList();
   }
 
-  Future<Guardian> create({
-    required String name,
-    String? gender,
-    String? email,
-    String? phone,
-  }) async {
+  Future<Guardian> create({required String name, String? gender, String? email, String? phone}) async {
     final now = DateTime.now();
-    final g = Guardian(
-      id: _uuid.v4(),
-      name: name,
-      gender: gender,
-      email: email,
-      phone: phone,
-      createdAt: now,
-      updatedAt: now,
-    );
+    final g = Guardian(id: _uuid.v4(), name: name, gender: gender, email: email, phone: phone,
+        createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('guardians', g.toMap());
     return g;
@@ -243,38 +198,22 @@ class GuardianRepository {
     await db.update('guardians', g.toMap(), where: 'id = ?', whereArgs: [g.id]);
   }
 
-  Future<void> link({
-    required String scoutId,
-    required String guardianId,
-    String? relationship,
-  }) async {
+  Future<void> link({required String scoutId, required String guardianId, String? relationship}) async {
     final db = await _db.database;
-    await db.insert(
-      'scout_guardians',
-      {
-        'id': _uuid.v4(),
-        'scout_id': scoutId,
-        'guardian_id': guardianId,
-        'relationship': relationship,
-      },
-      conflictAlgorithm: ConflictAlgorithm.ignore,
-    );
+    await db.insert('scout_guardians',
+        {'id': _uuid.v4(), 'scout_id': scoutId, 'guardian_id': guardianId, 'relationship': relationship},
+        conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
-  Future<void> unlink({
-    required String scoutId,
-    required String guardianId,
-  }) async {
+  Future<void> unlink({required String scoutId, required String guardianId}) async {
     final db = await _db.database;
     await db.delete('scout_guardians',
-        where: 'scout_id = ? AND guardian_id = ?',
-        whereArgs: [scoutId, guardianId]);
+        where: 'scout_id = ? AND guardian_id = ?', whereArgs: [scoutId, guardianId]);
   }
 
   Future<bool> canDelete(String id) async {
     final db = await _db.database;
-    final sg = await db.query('scout_guardians',
-        where: 'guardian_id = ?', whereArgs: [id]);
+    final sg = await db.query('scout_guardians', where: 'guardian_id = ?', whereArgs: [id]);
     return sg.isEmpty;
   }
 
@@ -290,34 +229,17 @@ class CommitteeRepository {
 
   Future<List<CommitteeMember>> getByTroop(String troopId) async {
     final db = await _db.database;
-    return (await db.query('committee_members',
-            where: 'troop_id = ?',
-            whereArgs: [troopId],
-            orderBy: 'name'))
-        .map(CommitteeMember.fromMap)
-        .toList();
+    return (await db.query('committee_members', where: 'troop_id = ?', whereArgs: [troopId], orderBy: 'name'))
+        .map(CommitteeMember.fromMap).toList();
   }
 
   Future<CommitteeMember> create({
-    required String troopId,
-    required String name,
-    required CommitteeCategory category,
-    String? gender,
-    String? email,
-    String? phone,
+    required String troopId, required String name, required CommitteeCategory category,
+    String? gender, String? email, String? phone,
   }) async {
     final now = DateTime.now();
-    final cm = CommitteeMember(
-      id: _uuid.v4(),
-      troopId: troopId,
-      name: name,
-      gender: gender,
-      category: category,
-      email: email,
-      phone: phone,
-      createdAt: now,
-      updatedAt: now,
-    );
+    final cm = CommitteeMember(id: _uuid.v4(), troopId: troopId, name: name, gender: gender,
+        category: category, email: email, phone: phone, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('committee_members', cm.toMap());
     return cm;
@@ -325,8 +247,7 @@ class CommitteeRepository {
 
   Future<void> update(CommitteeMember cm) async {
     final db = await _db.database;
-    await db.update('committee_members', cm.toMap(),
-        where: 'id = ?', whereArgs: [cm.id]);
+    await db.update('committee_members', cm.toMap(), where: 'id = ?', whereArgs: [cm.id]);
   }
 
   Future<void> delete(String id) async {
@@ -341,12 +262,8 @@ class EventRepository {
 
   Future<List<Event>> getByTroop(String troopId) async {
     final db = await _db.database;
-    return (await db.query('events',
-            where: 'troop_id = ?',
-            whereArgs: [troopId],
-            orderBy: 'event_date ASC'))
-        .map(Event.fromMap)
-        .toList();
+    return (await db.query('events', where: 'troop_id = ?', whereArgs: [troopId], orderBy: 'event_date ASC'))
+        .map(Event.fromMap).toList();
   }
 
   Future<List<Event>> getRecent(String troopId) async {
@@ -356,8 +273,7 @@ class EventRepository {
             where: 'troop_id = ? AND event_date >= ?',
             whereArgs: [troopId, since.toIso8601String().split('T').first],
             orderBy: 'event_date ASC'))
-        .map(Event.fromMap)
-        .toList();
+        .map(Event.fromMap).toList();
   }
 
   Future<Event?> getById(String id) async {
@@ -367,30 +283,13 @@ class EventRepository {
   }
 
   Future<Event> create({
-    required String troopId,
-    required String title,
-    required EventType eventType,
-    required DateTime eventDate,
-    String? location,
-    String? startTime,
-    String? endTime,
-    String? notes,
+    required String troopId, required String title, required EventType eventType,
+    required DateTime eventDate, String? location, String? startTime, String? endTime, String? notes,
   }) async {
     final now = DateTime.now();
-    final e = Event(
-      id: _uuid.v4(),
-      troopId: troopId,
-      title: title,
-      eventType: eventType,
-      status: EventStatus.planned,
-      eventDate: eventDate,
-      location: location,
-      startTime: startTime,
-      endTime: endTime,
-      notes: notes,
-      createdAt: now,
-      updatedAt: now,
-    );
+    final e = Event(id: _uuid.v4(), troopId: troopId, title: title, eventType: eventType,
+        status: EventStatus.planned, eventDate: eventDate, location: location,
+        startTime: startTime, endTime: endTime, notes: notes, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('events', e.toMap());
     return e;
@@ -405,8 +304,7 @@ class EventRepository {
     final db = await _db.database;
     final ev = await getById(id);
     if (ev == null || ev.status == EventStatus.completed) return false;
-    final rows = await db.query('attendances',
-        where: 'event_id = ?', whereArgs: [id]);
+    final rows = await db.query('attendances', where: 'event_id = ?', whereArgs: [id]);
     return rows.isEmpty;
   }
 
@@ -417,16 +315,13 @@ class EventRepository {
 
   Future<List<EventLeafBadge>> getLeafBadges(String eventId) async {
     final db = await _db.database;
-    return (await db.query('event_leaf_badges',
-            where: 'event_id = ?', whereArgs: [eventId]))
-        .map(EventLeafBadge.fromMap)
-        .toList();
+    return (await db.query('event_leaf_badges', where: 'event_id = ?', whereArgs: [eventId]))
+        .map(EventLeafBadge.fromMap).toList();
   }
 
   Future<void> upsertLeafBadge(EventLeafBadge b) async {
     final db = await _db.database;
-    await db.insert('event_leaf_badges', b.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace);
+    await db.insert('event_leaf_badges', b.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 }
 
@@ -436,65 +331,41 @@ class AttendanceRepository {
 
   Future<List<Attendance>> getByEvent(String eventId) async {
     final db = await _db.database;
-    return (await db.query('attendances',
-            where: 'event_id = ?', whereArgs: [eventId]))
-        .map(Attendance.fromMap)
-        .toList();
+    return (await db.query('attendances', where: 'event_id = ?', whereArgs: [eventId]))
+        .map(Attendance.fromMap).toList();
   }
 
   Future<void> createDefaults({
-    required String eventId,
-    required List<AppUser> users,
-    required List<Scout> scouts,
+    required String eventId, required List<AppUser> users, required List<Scout> scouts,
   }) async {
     final db = await _db.database;
     for (final u in users) {
       try {
-        await db.insert(
-          'attendances',
-          Attendance(
-            id: _uuid.v4(),
-            eventId: eventId,
-            memberType: MemberType.user,
-            memberId: u.id,
-            memberName: u.name,
-            status: AttendanceStatus.pending,
-            isDefault: true,
-          ).toMap(),
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
+        await db.insert('attendances', Attendance(id: _uuid.v4(), eventId: eventId,
+            memberType: MemberType.user, memberId: u.id, memberName: u.name,
+            status: AttendanceStatus.pending, isDefault: true).toMap(),
+            conflictAlgorithm: ConflictAlgorithm.ignore);
       } catch (_) {}
     }
     for (final s in scouts) {
       if (!s.category.isDefaultAttendee) continue;
       try {
-        await db.insert(
-          'attendances',
-          Attendance(
-            id: _uuid.v4(),
-            eventId: eventId,
-            memberType: MemberType.scout,
-            memberId: s.id,
-            memberName: s.name,
-            status: AttendanceStatus.pending,
-            isDefault: true,
-          ).toMap(),
-          conflictAlgorithm: ConflictAlgorithm.ignore,
-        );
+        await db.insert('attendances', Attendance(id: _uuid.v4(), eventId: eventId,
+            memberType: MemberType.scout, memberId: s.id, memberName: s.name,
+            status: AttendanceStatus.pending, isDefault: true).toMap(),
+            conflictAlgorithm: ConflictAlgorithm.ignore);
       } catch (_) {}
     }
   }
 
   Future<void> add(Attendance a) async {
     final db = await _db.database;
-    await db.insert('attendances', a.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.ignore);
+    await db.insert('attendances', a.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
   }
 
   Future<void> updateStatus(String id, AttendanceStatus status) async {
     final db = await _db.database;
-    await db.update('attendances', {'status': status.value},
-        where: 'id = ?', whereArgs: [id]);
+    await db.update('attendances', {'status': status.value}, where: 'id = ?', whereArgs: [id]);
   }
 
   Future<void> remove(String id) async {
@@ -517,9 +388,7 @@ class AttendanceRepository {
     return {
       for (final r in rows)
         r['member_id'] as String:
-            (r['t'] as int) == 0
-                ? 0.0
-                : (r['p'] as int) / (r['t'] as int),
+            (r['t'] as int) == 0 ? 0.0 : (r['p'] as int) / (r['t'] as int),
     };
   }
 }
@@ -530,12 +399,9 @@ class TwigBadgeRepository {
 
   Future<List<TwigBadgeHistory>> getByScout(String scoutId) async {
     final db = await _db.database;
-    return (await db.query('twig_badge_history',
-            where: 'scout_id = ?',
-            whereArgs: [scoutId],
-            orderBy: 'created_at DESC'))
-        .map(TwigBadgeHistory.fromMap)
-        .toList();
+    return (await db.query('twig_badge_history', where: 'scout_id = ?',
+            whereArgs: [scoutId], orderBy: 'created_at DESC'))
+        .map(TwigBadgeHistory.fromMap).toList();
   }
 
   Future<List<TwigBadgeHistory>> getAll(String troopId) async {
@@ -545,26 +411,15 @@ class TwigBadgeRepository {
       JOIN scouts s ON s.id = t.scout_id
       WHERE s.troop_id = ?
       ORDER BY t.created_at DESC
-    ''', [troopId]))
-        .map(TwigBadgeHistory.fromMap)
-        .toList();
+    ''', [troopId])).map(TwigBadgeHistory.fromMap).toList();
   }
 
   Future<TwigBadgeHistory> create({
-    required String scoutId,
-    required String scoutName,
-    String? eventId,
+    required String scoutId, required String scoutName, String? eventId,
   }) async {
     final now = DateTime.now();
-    final h = TwigBadgeHistory(
-      id: _uuid.v4(),
-      scoutId: scoutId,
-      scoutName: scoutName,
-      eventId: eventId,
-      status: 'pending',
-      createdAt: now,
-      updatedAt: now,
-    );
+    final h = TwigBadgeHistory(id: _uuid.v4(), scoutId: scoutId, scoutName: scoutName,
+        eventId: eventId, status: 'pending', createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('twig_badge_history', h.toMap());
     return h;
@@ -573,14 +428,14 @@ class TwigBadgeRepository {
   Future<void> markAwarded(String id) async {
     final db = await _db.database;
     final now = DateTime.now();
-    await db.update(
-        'twig_badge_history',
-        {
-          'status': 'awarded',
-          'awarded_at': now.toIso8601String().split('T').first,
-          'updated_at': now.toIso8601String(),
-        },
-        where: 'id = ?',
-        whereArgs: [id]);
+    await db.update('twig_badge_history',
+        {'status': 'awarded', 'awarded_at': now.toIso8601String().split('T').first, 'updated_at': now.toIso8601String()},
+        where: 'id = ?', whereArgs: [id]);
+  }
+
+  /// イベントで生成した小枝章履歴を削除（完了取り消し時）
+  Future<void> deleteByEvent(String eventId) async {
+    final db = await _db.database;
+    await db.delete('twig_badge_history', where: 'event_id = ?', whereArgs: [eventId]);
   }
 }

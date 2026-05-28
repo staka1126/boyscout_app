@@ -4,13 +4,21 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
-import '../../data/providers/app_state_provider.dart';
+import '../badges/badges_page.dart';
+import 'scouts_page.dart';
 
-// ─── Provider（トップレベルで定義） ──────────────────────────
 final _scoutDetailProvider =
-    FutureProvider.family<Scout?, String>((ref, id) async {
-  return ref.read(scoutRepositoryProvider).getById(id);
+    FutureProvider.family<_ScoutDetailData, String>((ref, id) async {
+  final scout = await ref.read(scoutRepositoryProvider).getById(id);
+  final guardians = await ref.read(guardianRepositoryProvider).getByScout(id);
+  return _ScoutDetailData(scout: scout, guardians: guardians);
 });
+
+class _ScoutDetailData {
+  final Scout? scout;
+  final List<Guardian> guardians;
+  _ScoutDetailData({required this.scout, required this.guardians});
+}
 
 class ScoutDetailPage extends ConsumerWidget {
   final String id;
@@ -21,91 +29,68 @@ class ScoutDetailPage extends ConsumerWidget {
     final async = ref.watch(_scoutDetailProvider(id));
 
     return async.when(
-      loading: () =>
-          const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) =>
-          Scaffold(body: Center(child: Text('エラー: $e'))),
-      data: (scout) {
+      loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
+      error: (e, _) => Scaffold(body: Center(child: Text('エラー: $e'))),
+      data: (data) {
+        final scout = data.scout;
         if (scout == null) {
-          return Scaffold(
-            appBar: AppBar(),
-            body: const Center(child: Text('スカウトが見つかりません')),
-          );
+          return Scaffold(appBar: AppBar(), body: const Center(child: Text('スカウトが見つかりません')));
         }
 
         final cs = Theme.of(context).colorScheme;
-        final user = ref.watch(currentUserProvider).valueOrNull;
 
         return Scaffold(
           appBar: AppBar(
             title: Text(scout.name),
             actions: [
-              if (user?.role.canEdit ?? false)
-                IconButton(
-                  icon: const Icon(Icons.edit_outlined),
-                  onPressed: () async {
-                    await context.push('/scouts/$id/edit');
-                    ref.invalidate(_scoutDetailProvider(id));
-                  },
-                ),
-              if (user?.role.canEdit ?? false)
-                IconButton(
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => _confirmDelete(context, ref, scout),
-                ),
+              IconButton(
+                icon: const Icon(Icons.edit_outlined),
+                onPressed: () async {
+                  await context.push('/scouts/$id/edit');
+                  ref.invalidate(_scoutDetailProvider(id));
+                  ref.invalidate(scoutsProvider);
+                  ref.invalidate(badgesProvider);
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete_outline),
+                onPressed: () => _confirmDelete(context, ref, scout),
+              ),
             ],
           ),
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
               // ヘッダー
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Row(children: [
-                    CircleAvatar(
-                      radius: 32,
-                      backgroundColor: cs.primaryContainer,
-                      child: Text(
-                        scout.name.isNotEmpty ? scout.name[0] : '?',
-                        style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: cs.onPrimaryContainer),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(scout.name,
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleLarge
-                                  ?.copyWith(fontWeight: FontWeight.w700)),
-                          const SizedBox(height: 4),
-                          _chip(context, scout.category.label,
-                              cs.secondaryContainer, cs.onSecondaryContainer),
-                        ],
-                      ),
-                    ),
-                  ]),
-                ),
-              ),
+              Card(child: Padding(padding: const EdgeInsets.all(20),
+                child: Row(children: [
+                  CircleAvatar(radius: 32, backgroundColor: cs.primaryContainer,
+                    child: Text(scout.name.isNotEmpty ? scout.name[0] : '?',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.w700,
+                            color: cs.onPrimaryContainer))),
+                  const SizedBox(width: 16),
+                  Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                    Text(scout.name, style: Theme.of(context).textTheme.titleLarge
+                        ?.copyWith(fontWeight: FontWeight.w700)),
+                    const SizedBox(height: 4),
+                    _chip(context, scout.category.label, cs.secondaryContainer, cs.onSecondaryContainer),
+                  ])),
+                ]))),
               const SizedBox(height: 12),
+
               // 基本情報
-              _infoCard(context, '基本情報', [
-                if (scout.grade != null) _InfoRow('学年', scout.grade!),
-                if (scout.gender != null)
-                  _InfoRow('性別',
-                      scout.gender == 'male' ? '男性' : scout.gender == 'female' ? '女性' : 'その他'),
-                if (scout.joinedAt != null)
-                  _InfoRow('入隊日', DateFormat('yyyy/MM/dd').format(scout.joinedAt!)),
-                if (scout.enrollmentYear != null)
-                  _InfoRow('小学校入学年度', '${scout.enrollmentYear}年'),
-              ]),
+              if ([scout.grade, scout.gender, scout.joinedAt, scout.enrollmentYear].any((v) => v != null))
+                _infoCard(context, '基本情報', [
+                  if (scout.grade != null) _InfoRow('学年', scout.grade!),
+                  if (scout.gender != null)
+                    _InfoRow('性別', scout.gender == 'male' ? '男性' : scout.gender == 'female' ? '女性' : 'その他'),
+                  if (scout.joinedAt != null)
+                    _InfoRow('入隊日', DateFormat('yyyy/MM/dd').format(scout.joinedAt!)),
+                  if (scout.enrollmentYear != null)
+                    _InfoRow('小学校入学年度', '${scout.enrollmentYear}年'),
+                ]),
               const SizedBox(height: 12),
+
               // 木の葉章・小枝章
               _infoCard(context, '木の葉章・小枝章', [
                 _InfoRow('木の葉章（活動取得）', '${scout.leafBadges}枚'),
@@ -113,28 +98,62 @@ class ScoutDetailPage extends ConsumerWidget {
                 _InfoRow('合計', '${scout.totalLeafBadges}枚', highlight: true),
                 _InfoRow('小枝章（授与済み）', '${scout.twigBadges}本'),
                 if (scout.pendingTwigBadges > 0)
-                  _InfoRow('小枝章（授与待ち）', '${scout.pendingTwigBadges}本',
-                      highlight: true),
+                  _InfoRow('小枝章（授与待ち）', '${scout.pendingTwigBadges}本', highlight: true),
               ]),
               const SizedBox(height: 12),
-              // 木の葉章 進捗
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('木の葉章 進捗',
-                          style: Theme.of(context)
-                              .textTheme
-                              .labelLarge
-                              ?.copyWith(color: cs.primary)),
-                      const SizedBox(height: 12),
-                      _LeafBadgeProgress(scout: scout),
-                    ],
-                  ),
-                ),
-              ),
+
+              // 進捗
+              Card(child: Padding(padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('木の葉章 進捗', style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(color: cs.primary)),
+                  const SizedBox(height: 12),
+                  _LeafBadgeProgress(scout: scout),
+                ]))),
+              const SizedBox(height: 12),
+
+              // 保護者
+              Card(child: Padding(padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Text('保護者', style: Theme.of(context).textTheme.labelLarge
+                        ?.copyWith(color: cs.primary)),
+                    const Spacer(),
+                    TextButton.icon(
+                      icon: const Icon(Icons.link, size: 16),
+                      label: const Text('紐付け'),
+                      onPressed: () => _showLinkSheet(context, ref, scout, data.guardians),
+                    ),
+                  ]),
+                  const SizedBox(height: 8),
+                  if (data.guardians.isEmpty)
+                    const Text('保護者が登録されていません',
+                        style: TextStyle(color: Colors.grey))
+                  else
+                    ...data.guardians.map((g) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(children: [
+                        CircleAvatar(radius: 16, backgroundColor: cs.secondaryContainer,
+                          child: Text(g.name.isNotEmpty ? g.name[0] : '?',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700,
+                                  color: cs.onSecondaryContainer))),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text(g.name, style: const TextStyle(fontWeight: FontWeight.w500)),
+                          if (g.phone != null || g.email != null)
+                            Text([if (g.email != null) g.email!, if (g.phone != null) g.phone!].join('　'),
+                                style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                        ])),
+                        IconButton(
+                          icon: Icon(Icons.link_off, size: 18, color: cs.error),
+                          tooltip: '紐付けを解除',
+                          onPressed: () => _confirmUnlink(context, ref, scout, g),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ]),
+                    )),
+                ]))),
             ],
           ),
         );
@@ -145,104 +164,199 @@ class ScoutDetailPage extends ConsumerWidget {
   Widget _chip(BuildContext context, String label, Color bg, Color fg) =>
       Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration:
-            BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-        child: Text(label,
-            style: TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600, color: fg)),
-      );
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
+        child: Text(label, style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: fg)));
 
   Widget _infoCard(BuildContext context, String title, List<Widget> rows) {
     if (rows.isEmpty) return const SizedBox();
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title,
-                style: Theme.of(context)
-                    .textTheme
-                    .labelLarge
-                    ?.copyWith(
-                        color: Theme.of(context).colorScheme.primary)),
-            const SizedBox(height: 8),
-            ...rows,
-          ],
-        ),
-      ),
-    );
+    return Card(child: Padding(padding: const EdgeInsets.all(16),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(title, style: Theme.of(context).textTheme.labelLarge
+            ?.copyWith(color: Theme.of(context).colorScheme.primary)),
+        const SizedBox(height: 8),
+        ...rows,
+      ])));
   }
 
-  Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, Scout scout) async {
-    final canDelete =
-        await ref.read(scoutRepositoryProvider).canDelete(scout.id);
-    if (!context.mounted) return;
+  // 保護者紐付けシート
+  Future<void> _showLinkSheet(BuildContext context, WidgetRef ref,
+      Scout scout, List<Guardian> linked) async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _LinkGuardianSheet(scout: scout, linked: linked, ref: ref),
+    );
+    ref.invalidate(_scoutDetailProvider(id));
+  }
 
+  // 紐付け解除確認
+  Future<void> _confirmUnlink(BuildContext context, WidgetRef ref,
+      Scout scout, Guardian guardian) async {
+    final ok = await showDialog<bool>(context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('紐付けを解除'),
+        content: Text('${scout.name} と ${guardian.name} の紐付けを解除しますか？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dlgCtx).pop(true),
+            child: const Text('解除'),
+          ),
+        ],
+      ));
+    if (ok == true) {
+      await ref.read(guardianRepositoryProvider).unlink(
+          scoutId: scout.id, guardianId: guardian.id);
+      ref.invalidate(_scoutDetailProvider(id));
+    }
+  }
+
+  Future<void> _confirmDelete(BuildContext context, WidgetRef ref, Scout scout) async {
+    final canDelete = await ref.read(scoutRepositoryProvider).canDelete(scout.id);
+    if (!context.mounted) return;
     if (!canDelete) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('出欠履歴または保護者紐付けがあるため削除できません')),
-      );
+          const SnackBar(content: Text('出欠履歴または保護者紐付けがあるため削除できません')));
       return;
     }
-
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
+    final ok = await showDialog<bool>(context: context,
+      builder: (dlgCtx) => AlertDialog(
         title: const Text('スカウトを削除'),
         content: Text('${scout.name} を削除しますか？この操作は取り消せません。'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('キャンセル')),
+          TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
           FilledButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.of(dlgCtx).pop(true),
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             child: const Text('削除'),
           ),
         ],
-      ),
-    );
-
+      ));
     if (ok == true && context.mounted) {
       await ref.read(scoutRepositoryProvider).delete(scout.id);
-      context.pop();
+      ref.invalidate(scoutsProvider);
+      ref.invalidate(badgesProvider);
+      context.go('/scouts');
     }
   }
 }
 
+// ─── 保護者紐付けシート ───────────────────────────────────────
+class _LinkGuardianSheet extends ConsumerStatefulWidget {
+  final Scout scout;
+  final List<Guardian> linked;
+  final WidgetRef ref;
+  const _LinkGuardianSheet({required this.scout, required this.linked, required this.ref});
+
+  @override
+  ConsumerState<_LinkGuardianSheet> createState() => _LinkGuardianSheetState();
+}
+
+class _LinkGuardianSheetState extends ConsumerState<_LinkGuardianSheet> {
+  List<Guardian>? _all;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    final all = await ref.read(guardianRepositoryProvider).getAll();
+    if (mounted) setState(() => _all = all);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final linkedIds = widget.linked.map((g) => g.id).toSet();
+    final unlinked = _all?.where((g) => !linkedIds.contains(g.id)).toList() ?? [];
+
+    return DraggableScrollableSheet(
+      initialChildSize: 0.6, maxChildSize: 0.9, minChildSize: 0.4, expand: false,
+      builder: (_, controller) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('保護者を紐付ける',
+              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 4),
+          Text('${widget.scout.name} に紐付ける保護者を選んでください',
+              style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+          const SizedBox(height: 12),
+          if (_all == null)
+            const Center(child: CircularProgressIndicator())
+          else if (unlinked.isEmpty)
+            const Expanded(child: Center(child: Text('紐付け可能な保護者がいません')))
+          else
+            Expanded(child: ListView.builder(
+              controller: controller,
+              itemCount: unlinked.length,
+              itemBuilder: (_, i) {
+                final g = unlinked[i];
+                return ListTile(
+                  leading: CircleAvatar(
+                    backgroundColor: Theme.of(context).colorScheme.secondaryContainer,
+                    child: Text(g.name.isNotEmpty ? g.name[0] : '?',
+                        style: TextStyle(fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSecondaryContainer)),
+                  ),
+                  title: Text(g.name),
+                  subtitle: g.phone != null || g.email != null
+                      ? Text([if (g.email != null) g.email!, if (g.phone != null) g.phone!].join('　'),
+                          style: const TextStyle(fontSize: 11))
+                      : null,
+                  trailing: const Icon(Icons.link),
+                  onTap: () => _link(g),
+                );
+              },
+            )),
+          const SizedBox(height: 8),
+          SizedBox(width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.person_add_outlined, size: 16),
+              label: const Text('新しい保護者を追加して紐付け'),
+              onPressed: () {
+                Navigator.pop(context);
+                // 保護者追加は settings/guardians/new から行う
+              },
+            )),
+          const SizedBox(height: 8),
+        ]),
+      ),
+    );
+  }
+
+  Future<void> _link(Guardian guardian) async {
+    await ref.read(guardianRepositoryProvider).link(
+        scoutId: widget.scout.id, guardianId: guardian.id);
+    if (mounted) Navigator.pop(context);
+  }
+}
+
+// ─── InfoRow ─────────────────────────────────────────────────
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
   final bool highlight;
-
   const _InfoRow(this.label, this.value, {this.highlight = false});
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+    return Padding(padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(children: [
-        SizedBox(
-          width: 140,
-          child: Text(label,
-              style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-        ),
-        Expanded(
-          child: Text(value,
-              style: TextStyle(
-                  fontSize: 14,
-                  fontWeight:
-                      highlight ? FontWeight.w700 : FontWeight.w400,
-                  color: highlight ? cs.primary : cs.onSurface)),
-        ),
-      ]),
-    );
+        SizedBox(width: 140, child: Text(label,
+            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant))),
+        Expanded(child: Text(value, style: TextStyle(
+            fontSize: 14,
+            fontWeight: highlight ? FontWeight.w700 : FontWeight.w400,
+            color: highlight ? cs.primary : cs.onSurface))),
+      ]));
   }
 }
 
+// ─── LeafBadgeProgress ───────────────────────────────────────
 class _LeafBadgeProgress extends StatelessWidget {
   final Scout scout;
   const _LeafBadgeProgress({required this.scout});
@@ -250,37 +364,21 @@ class _LeafBadgeProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final inCurrent = scout.totalLeafBadges % 10;
-    final cs = Theme.of(context).colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('次の小枝章まで $inCurrent / 10 枚',
-            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(
-          value: inCurrent / 10,
-          minHeight: 8,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 4,
-          runSpacing: 4,
-          children: List.generate(
-            10,
-            (i) => Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: i < inCurrent
-                    ? const Color(0xFF43A047)
-                    : cs.surfaceContainerHighest,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('次の小枝章まで $inCurrent / 10 枚',
+          style: TextStyle(fontSize: 13, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      const SizedBox(height: 8),
+      LinearProgressIndicator(value: inCurrent / 10, minHeight: 8, borderRadius: BorderRadius.circular(4)),
+      const SizedBox(height: 8),
+      Wrap(spacing: 4, runSpacing: 4,
+        children: List.generate(10, (i) => Container(
+          width: 20, height: 20,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: i < inCurrent
+                ? const Color(0xFF43A047)
+                : Theme.of(context).colorScheme.surfaceContainerHighest,
+          )))),
+    ]);
   }
 }

@@ -7,7 +7,6 @@ import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
 
-// public にして他画面から invalidate できるようにする
 final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
   if (troopId == null) return _DashboardData.empty();
@@ -19,15 +18,8 @@ final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
       .where((e) => e.eventDate.month == now.month && e.eventDate.year == now.year)
       .length;
   double avgRate = 0;
-  if (rates.isNotEmpty) {
-    avgRate = rates.values.reduce((a, b) => a + b) / rates.length;
-  }
-  return _DashboardData(
-    events: events,
-    scouts: scouts,
-    thisMonthCount: thisMonthCount,
-    avgAttendanceRate: avgRate,
-  );
+  if (rates.isNotEmpty) avgRate = rates.values.reduce((a, b) => a + b) / rates.length;
+  return _DashboardData(events: events, scouts: scouts, thisMonthCount: thisMonthCount, avgAttendanceRate: avgRate);
 });
 
 class _DashboardData {
@@ -35,20 +27,10 @@ class _DashboardData {
   final List<Scout> scouts;
   final int thisMonthCount;
   final double avgAttendanceRate;
-
-  _DashboardData({
-    required this.events,
-    required this.scouts,
-    required this.thisMonthCount,
-    required this.avgAttendanceRate,
-  });
-
-  factory _DashboardData.empty() =>
-      _DashboardData(events: [], scouts: [], thisMonthCount: 0, avgAttendanceRate: 0);
-
+  _DashboardData({required this.events, required this.scouts, required this.thisMonthCount, required this.avgAttendanceRate});
+  factory _DashboardData.empty() => _DashboardData(events: [], scouts: [], thisMonthCount: 0, avgAttendanceRate: 0);
   int get pendingTwigScouts => scouts.where((s) => s.pendingTwigBadges > 0).length;
-  int get activeScouts =>
-      scouts.where((s) => s.isActive && s.category.isDefaultAttendee).length;
+  int get activeScouts => scouts.where((s) => s.isActive && s.category.isDefaultAttendee).length;
 }
 
 class DashboardPage extends ConsumerWidget {
@@ -63,10 +45,7 @@ class DashboardPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('ビーバー隊'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_outlined),
-            onPressed: () => ref.invalidate(dashboardProvider),
-          ),
+          IconButton(icon: const Icon(Icons.refresh_outlined), onPressed: () => ref.invalidate(dashboardProvider)),
         ],
       ),
       body: async.when(
@@ -74,112 +53,53 @@ class DashboardPage extends ConsumerWidget {
         error: (e, _) => Center(child: Text('エラー: $e')),
         data: (data) => RefreshIndicator(
           onRefresh: () => ref.refresh(dashboardProvider.future),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Row(children: [
-                Expanded(
-                  child: _MetricCard(
-                    label: '今月のイベント',
-                    value: '${data.thisMonthCount}件',
-                    icon: Icons.event,
-                    color: cs.primaryContainer,
-                    iconColor: cs.onPrimaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _MetricCard(
-                    label: 'スカウト数',
-                    value: '${data.activeScouts}名',
-                    icon: Icons.people,
-                    color: cs.secondaryContainer,
-                    iconColor: cs.onSecondaryContainer,
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 12),
-              Row(children: [
-                Expanded(
-                  child: _MetricCard(
-                    label: '平均出席率',
-                    value: '${(data.avgAttendanceRate * 100).round()}%',
-                    icon: Icons.check_circle_outline,
-                    color: cs.tertiaryContainer,
-                    iconColor: cs.onTertiaryContainer,
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _MetricCard(
-                    label: '小枝章 授与待ち',
-                    value: '${data.pendingTwigScouts}名',
-                    icon: Icons.military_tech_outlined,
-                    color: cs.errorContainer,
-                    iconColor: cs.onErrorContainer,
-                  ),
-                ),
-              ]),
-              const SizedBox(height: 24),
-              Row(children: [
-                Text('直近のイベント',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                const Spacer(),
-                TextButton(
-                  onPressed: () => context.go('/events'),
-                  child: const Text('すべて見る'),
-                ),
-              ]),
+          child: ListView(padding: const EdgeInsets.all(16), children: [
+            Row(children: [
+              Expanded(child: _MetricCard(label: '今月のイベント', value: '${data.thisMonthCount}件', icon: Icons.event, color: cs.primaryContainer, iconColor: cs.onPrimaryContainer)),
+              const SizedBox(width: 12),
+              Expanded(child: _MetricCard(label: 'スカウト数', value: '${data.activeScouts}名', icon: Icons.people, color: cs.secondaryContainer, iconColor: cs.onSecondaryContainer)),
+            ]),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(child: _MetricCard(label: '平均出席率', value: '${(data.avgAttendanceRate * 100).round()}%', icon: Icons.check_circle_outline, color: cs.tertiaryContainer, iconColor: cs.onTertiaryContainer)),
+              const SizedBox(width: 12),
+              Expanded(child: _MetricCard(label: '小枝章 授与待ち', value: '${data.pendingTwigScouts}名', icon: Icons.military_tech_outlined, color: cs.errorContainer, iconColor: cs.onErrorContainer)),
+            ]),
+            const SizedBox(height: 24),
+            Row(children: [
+              Text('直近のイベント', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+              const Spacer(),
+              TextButton(onPressed: () => context.go('/events'), child: const Text('すべて見る')),
+            ]),
+            const SizedBox(height: 8),
+            if (data.events.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text('直近のイベントはありません',
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
+                    textAlign: TextAlign.center),
+              )
+            else
+              Card(child: Column(children: [
+                for (int i = 0; i < data.events.take(5).length; i++) ...[
+                  if (i > 0) const Divider(height: 0),
+                  _EventListTile(event: data.events[i]),
+                ],
+              ])),
+            const SizedBox(height: 24),
+            if (data.pendingTwigScouts > 0) ...[
+              Text('小枝章 授与待ち', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              if (data.events.isEmpty)
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    '直近のイベントはありません',
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 14,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                )
-              else
-                Card(
-                  child: Column(
-                    children: [
-                      for (int i = 0; i < data.events.take(5).length; i++) ...[
-                        if (i > 0) const Divider(height: 0),
-                        _EventListTile(event: data.events[i]),
-                      ],
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 24),
-              if (data.pendingTwigScouts > 0) ...[
-                Text('小枝章 授与待ち',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                Card(
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: cs.tertiaryContainer,
-                      child: Icon(Icons.military_tech, color: cs.onTertiaryContainer),
-                    ),
-                    title: Text('${data.pendingTwigScouts}名のスカウトが授与待ちです'),
-                    subtitle: const Text('表彰タブから確認できます'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => context.go('/badges'),
-                  ),
-                ),
-              ],
+              Card(child: ListTile(
+                leading: CircleAvatar(backgroundColor: cs.tertiaryContainer,
+                    child: Icon(Icons.military_tech, color: cs.onTertiaryContainer)),
+                title: Text('${data.pendingTwigScouts}名のスカウトが授与待ちです'),
+                subtitle: const Text('表彰タブから確認できます'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () => context.go('/badges'),
+              )),
             ],
-          ),
+          ]),
         ),
       ),
       floatingActionButton: FloatingActionButton(
@@ -191,62 +111,23 @@ class DashboardPage extends ConsumerWidget {
 }
 
 class _MetricCard extends StatelessWidget {
-  final String label;
-  final String value;
-  final IconData icon;
-  final Color color;
-  final Color iconColor;
-
-  const _MetricCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-    required this.color,
-    required this.iconColor,
-  });
+  final String label; final String value; final IconData icon; final Color color; final Color iconColor;
+  const _MetricCard({required this.label, required this.value, required this.icon, required this.color, required this.iconColor});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(12),
-      ),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Icon(icon, color: iconColor, size: 22),
-          const SizedBox(width: 8),
-          Expanded(
-            child: RichText(
-              overflow: TextOverflow.ellipsis,
-              maxLines: 2,
-              text: TextSpan(
-                children: [
-                  TextSpan(
-                    text: '$value\n',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: iconColor,
-                      height: 1.2,
-                    ),
-                  ),
-                  TextSpan(
-                    text: label,
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: iconColor.withAlpha(200),
-                      height: 1.3,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
+      child: Row(children: [
+        Icon(icon, color: iconColor, size: 22),
+        const SizedBox(width: 8),
+        Expanded(child: RichText(overflow: TextOverflow.ellipsis, maxLines: 2,
+          text: TextSpan(children: [
+            TextSpan(text: '$value\n', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: iconColor, height: 1.2)),
+            TextSpan(text: label, style: TextStyle(fontSize: 10, color: iconColor.withAlpha(200), height: 1.3)),
+          ]))),
+      ]),
     );
   }
 }
@@ -260,16 +141,10 @@ class _EventListTile extends StatelessWidget {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       leading: _DateBadge(date: event.eventDate),
-      title: Text(event.title,
-          style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+      title: Text(event.title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
       subtitle: Text(
-        [
-          event.eventType.label,
-          if (event.location != null) event.location!,
-          if (event.startTime != null) event.startTime!,
-        ].join(' · '),
-        style: const TextStyle(fontSize: 12),
-      ),
+        [event.eventType.label, if (event.location != null) event.location!, if (event.startTime != null) event.startTime!].join(' · '),
+        style: const TextStyle(fontSize: 12)),
       trailing: _StatusChip(status: event.status),
       onTap: () => context.go('/events/${event.id}'),
     );
@@ -285,36 +160,14 @@ class _DateBadge extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     return Container(
       width: 40,
-      decoration: BoxDecoration(
-        color: cs.primaryContainer,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Center(
-        child: RichText(
-          textAlign: TextAlign.center,
-          text: TextSpan(
-            children: [
-              TextSpan(
-                text: '${DateFormat('d').format(date)}\n',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: cs.onPrimaryContainer,
-                  height: 1.2,
-                ),
-              ),
-              TextSpan(
-                text: DateFormat('M月').format(date),
-                style: TextStyle(
-                  fontSize: 9,
-                  color: cs.onPrimaryContainer,
-                  height: 1.2,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(8)),
+      child: Center(child: RichText(textAlign: TextAlign.center,
+        text: TextSpan(children: [
+          TextSpan(text: '${DateFormat('d').format(date)}\n',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onPrimaryContainer, height: 1.2)),
+          TextSpan(text: DateFormat('M月').format(date),
+              style: TextStyle(fontSize: 9, color: cs.onPrimaryContainer, height: 1.2)),
+        ]))),
     );
   }
 }
@@ -335,18 +188,13 @@ class _StatusChip extends StatelessWidget {
       case EventStatus.ongoing:
         bg = cs.primaryContainer;
         fg = cs.onPrimaryContainer;
-      case EventStatus.cancelled:
-        bg = cs.errorContainer;
-        fg = cs.onErrorContainer;
-      default:
+      case EventStatus.planned:
         bg = cs.surfaceContainerHighest;
         fg = cs.onSurfaceVariant;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(20)),
-      child: Text(status.label,
-          style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)),
-    );
+      child: Text(status.label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: fg)));
   }
 }

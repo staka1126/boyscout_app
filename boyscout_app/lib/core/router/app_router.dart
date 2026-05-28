@@ -13,6 +13,10 @@ import '../../features/badges/badges_page.dart';
 import '../../features/settings/settings_page.dart';
 import '../../features/settings/troop_setup_page.dart';
 import '../../features/settings/user_form_page.dart';
+import '../../features/settings/users_list_page.dart';
+import '../../features/settings/guardians_list_page.dart';
+import '../../features/settings/committee_list_page.dart';
+import '../../features/settings/committee_form_page.dart';
 import '../../features/scouts/guardian_form_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -23,65 +27,70 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state, child) => AppShell(child: child),
         routes: [
           GoRoute(path: '/dashboard', builder: (c, s) => const DashboardPage()),
-          GoRoute(
-            path: '/scouts',
-            builder: (c, s) => const ScoutsPage(),
+
+          // スカウト
+          GoRoute(path: '/scouts', builder: (c, s) => const ScoutsPage(),
             routes: [
               GoRoute(path: 'new', builder: (c, s) => const ScoutFormPage()),
-              GoRoute(
-                path: ':id',
+              GoRoute(path: ':id',
                 builder: (c, s) => ScoutDetailPage(id: s.pathParameters['id']!),
                 routes: [
-                  GoRoute(
-                    path: 'edit',
-                    builder: (c, s) =>
-                        ScoutFormPage(scoutId: s.pathParameters['id']),
-                  ),
+                  GoRoute(path: 'edit',
+                      builder: (c, s) => ScoutFormPage(scoutId: s.pathParameters['id'])),
                 ],
               ),
             ],
           ),
-          GoRoute(
-            path: '/events',
-            builder: (c, s) => const EventsPage(),
+
+          // イベント
+          GoRoute(path: '/events', builder: (c, s) => const EventsPage(),
             routes: [
               GoRoute(path: 'new', builder: (c, s) => const EventFormPage()),
-              GoRoute(
-                path: ':id',
+              GoRoute(path: ':id',
                 builder: (c, s) => EventDetailPage(id: s.pathParameters['id']!),
                 routes: [
-                  GoRoute(
-                    path: 'edit',
-                    builder: (c, s) =>
-                        EventFormPage(eventId: s.pathParameters['id']),
-                  ),
-                  GoRoute(
-                    path: 'attendance',
-                    builder: (c, s) =>
-                        AttendancePage(eventId: s.pathParameters['id']!),
-                  ),
+                  GoRoute(path: 'edit',
+                      builder: (c, s) => EventFormPage(eventId: s.pathParameters['id'])),
+                  GoRoute(path: 'attendance',
+                      builder: (c, s) => AttendancePage(eventId: s.pathParameters['id']!)),
                 ],
               ),
             ],
           ),
+
+          // 表彰
           GoRoute(path: '/badges', builder: (c, s) => const BadgesPage()),
-          GoRoute(
-            path: '/settings',
-            builder: (c, s) => const SettingsPage(),
+
+          // 設定
+          GoRoute(path: '/settings', builder: (c, s) => const SettingsPage(),
             routes: [
               GoRoute(path: 'troop', builder: (c, s) => const TroopSetupPage()),
-              GoRoute(
-                path: 'users/new',
-                builder: (c, s) => const UserFormPage(),
+
+              // リーダー
+              GoRoute(path: 'users', builder: (c, s) => const UsersListPage(),
+                routes: [
+                  GoRoute(path: 'new', builder: (c, s) => const UserFormPage()),
+                  GoRoute(path: ':id/edit',
+                      builder: (c, s) => UserFormPage(userId: s.pathParameters['id'])),
+                ],
               ),
-              GoRoute(
-                path: 'users/:id/edit',
-                builder: (c, s) =>
-                    UserFormPage(userId: s.pathParameters['id']),
+
+              // 保護者
+              GoRoute(path: 'guardians', builder: (c, s) => const GuardiansListPage(),
+                routes: [
+                  GoRoute(path: 'new', builder: (c, s) => const GuardianFormPage()),
+                  GoRoute(path: ':id/edit',
+                      builder: (c, s) => GuardianFormPage(guardianId: s.pathParameters['id'])),
+                ],
               ),
-              GoRoute(
-                path: 'guardians/new',
-                builder: (c, s) => const GuardianFormPage(),
+
+              // 団委員
+              GoRoute(path: 'committee', builder: (c, s) => const CommitteeListPage(),
+                routes: [
+                  GoRoute(path: 'new', builder: (c, s) => const CommitteeFormPage()),
+                  GoRoute(path: ':id/edit',
+                      builder: (c, s) => CommitteeFormPage(memberId: s.pathParameters['id'])),
+                ],
               ),
             ],
           ),
@@ -97,11 +106,7 @@ class AppShell extends StatelessWidget {
   const AppShell({super.key, required this.child});
 
   static const _tabs = [
-    '/dashboard',
-    '/scouts',
-    '/events',
-    '/badges',
-    '/settings',
+    '/dashboard', '/scouts', '/events', '/badges', '/settings',
   ];
 
   @override
@@ -116,26 +121,11 @@ class AppShell extends StatelessWidget {
         selectedIndex: idx,
         onDestinationSelected: (i) => context.go(_tabs[i]),
         destinations: const [
-          NavigationDestination(
-              icon: Icon(Icons.dashboard_outlined),
-              selectedIcon: Icon(Icons.dashboard),
-              label: 'ホーム'),
-          NavigationDestination(
-              icon: Icon(Icons.people_outline),
-              selectedIcon: Icon(Icons.people),
-              label: 'スカウト'),
-          NavigationDestination(
-              icon: Icon(Icons.event_outlined),
-              selectedIcon: Icon(Icons.event),
-              label: 'イベント'),
-          NavigationDestination(
-              icon: Icon(Icons.military_tech_outlined),
-              selectedIcon: Icon(Icons.military_tech),
-              label: '表彰'),
-          NavigationDestination(
-              icon: Icon(Icons.settings_outlined),
-              selectedIcon: Icon(Icons.settings),
-              label: '設定'),
+          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'ホーム'),
+          NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'スカウト'),
+          NavigationDestination(icon: Icon(Icons.event_outlined), selectedIcon: Icon(Icons.event), label: 'イベント'),
+          NavigationDestination(icon: Icon(Icons.military_tech_outlined), selectedIcon: Icon(Icons.military_tech), label: '表彰'),
+          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: '設定'),
         ],
       ),
     );

@@ -38,13 +38,17 @@ enum ScoutCategory {
   final String value;
   final String label;
 
-  /// 出欠のデフォルト表示対象か
+  /// デフォルト出席者として自動追加する対象
   bool get isDefaultAttendee =>
       this == bigBeaver ||
       this == beaver ||
       this == provisional ||
       this == experience ||
       this == sibling;
+
+  /// 小枝章の授与対象（ビーバー・ビッグビーバーのみ）
+  bool get isTwigBadgeEligible =>
+      this == bigBeaver || this == beaver;
 
   static ScoutCategory fromValue(String v) =>
       values.firstWhere((e) => e.value == v, orElse: () => ScoutCategory.beaver);
@@ -70,8 +74,7 @@ enum EventType {
 enum EventStatus {
   planned('planned', '予定'),
   ongoing('ongoing', '開催中'),
-  completed('completed', '完了'),
-  cancelled('cancelled', '中止');
+  completed('completed', '完了');
 
   const EventStatus(this.value, this.label);
   final String value;
