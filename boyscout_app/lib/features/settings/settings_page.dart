@@ -4,35 +4,39 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/local/database_helper.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../../data/repositories/repositories.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final userAsync = ref.watch(currentUserProvider);
+    final troopAsync = ref.watch(
+      FutureProvider((ref) => ref.read(troopRepositoryProvider).getFirst()).future);
 
     return Scaffold(
       appBar: AppBar(title: const Text('設定')),
       body: ListView(
         children: [
-          userAsync.when(
-            loading: () => const ListTile(title: Text('読み込み中...')),
-            error: (_, __) => const SizedBox(),
-            data: (user) => user == null
-                ? const SizedBox()
-                : ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                      child: Text(user.name.isNotEmpty ? user.name[0] : '?',
-                          style: TextStyle(
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.w700)),
-                    ),
-                    title: Text(user.name,
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
-                    subtitle: Text(user.role.label),
-                  ),
+          FutureBuilder(
+            future: ref.read(troopRepositoryProvider).getFirst(),
+            builder: (_, snap) {
+              final troop = snap.data;
+              if (troop == null) return const SizedBox();
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  child: Text(troop.name.isNotEmpty ? troop.name[0] : '?',
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          fontWeight: FontWeight.w700)),
+                ),
+                title: Text(troop.name,
+                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: troop.location != null ? Text(troop.location!) : null,
+                onTap: () => context.go('/settings/troop'),
+              );
+            },
           ),
           const Divider(),
           _tile(context, Icons.home_outlined, '団情報', '/settings/troop'),

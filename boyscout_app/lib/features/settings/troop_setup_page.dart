@@ -18,7 +18,6 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
   final _nameCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _contactCtrl = TextEditingController();
-  final _codeCtrl = TextEditingController();
   Troop? _existing;
   bool _saving = false;
 
@@ -35,7 +34,6 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
       _nameCtrl.text = troop.name;
       _locationCtrl.text = troop.location ?? '';
       _contactCtrl.text = troop.contact ?? '';
-      _codeCtrl.text = troop.troopCode ?? '';
       setState(() {});
     }
   }
@@ -50,7 +48,6 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
         name: _nameCtrl.text.trim(),
         location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
         contact: _contactCtrl.text.trim().isEmpty ? null : _contactCtrl.text.trim(),
-        troopCode: _codeCtrl.text.trim().isEmpty ? null : _codeCtrl.text.trim(),
       );
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('troop_id', troop.id);
@@ -87,11 +84,6 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
             ),
             const SizedBox(height: 12),
             TextFormField(
-              controller: _codeCtrl,
-              decoration: const InputDecoration(labelText: '団コード'),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
               controller: _locationCtrl,
               decoration: const InputDecoration(
                   labelText: '所在地', prefixIcon: Icon(Icons.place_outlined)),
@@ -124,7 +116,6 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
     _nameCtrl.dispose();
     _locationCtrl.dispose();
     _contactCtrl.dispose();
-    _codeCtrl.dispose();
     super.dispose();
   }
 }
