@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
+import '../../data/providers/app_state_provider.dart';
 
 final _guardiansProvider = FutureProvider<List<Guardian>>((ref) async {
   return ref.read(guardianRepositoryProvider).getAll();
@@ -14,10 +15,13 @@ class GuardiansListPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_guardiansProvider);
+    final troopId = ref.watch(currentTroopIdProvider);
 
     return Scaffold(
       appBar: AppBar(title: const Text('保護者管理')),
-      body: async.when(
+      body: troopId == null
+          ? _NoTroopView()
+          : async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
         data: (guardians) {
@@ -64,14 +68,16 @@ class GuardiansListPage extends ConsumerWidget {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          await context.push('/settings/guardians/new');
-          ref.invalidate(_guardiansProvider);
-        },
-        tooltip: '保護者を追加',
-        child: const Icon(Icons.person_add_outlined),
-      ),
+      floatingActionButton: troopId != null
+          ? FloatingActionButton(
+              onPressed: () async {
+                await context.push('/settings/guardians/new');
+                ref.invalidate(_guardiansProvider);
+              },
+              tooltip: '保護者を追加',
+              child: const Icon(Icons.person_add_outlined),
+            )
+          : null,
     );
   }
 
@@ -104,5 +110,24 @@ class GuardiansListPage extends ConsumerWidget {
       await ref.read(guardianRepositoryProvider).delete(guardian.id);
       ref.invalidate(_guardiansProvider);
     }
+  }
+}
+
+class _NoTroopView extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Icon(Icons.warning_amber_outlined, size: 48, color: Theme.of(context).colorScheme.outline),
+      const SizedBox(height: 12),
+      const Text('先に団情報を登録してください'),
+      const SizedBox(height: 16),
+      FilledButton(
+        style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 24)),
+        onPressed: () => context.go('/settings/troop'),
+        child: const Text('団情報を登録する'),
+      ),
+    ]));
   }
 }

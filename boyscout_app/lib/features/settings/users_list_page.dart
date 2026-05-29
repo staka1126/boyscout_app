@@ -21,7 +21,9 @@ class UsersListPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: const Text('リーダー管理')),
-      body: async.when(
+      body: troopId == null
+          ? _NoTroopView()
+          : async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
         data: (users) {
@@ -128,5 +130,24 @@ class UsersListPage extends ConsumerWidget {
       await ref.read(userRepositoryProvider).delete(user.id);
       ref.invalidate(_usersProvider);
     }
+  }
+}
+
+class _NoTroopView extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Icon(Icons.warning_amber_outlined, size: 48, color: Theme.of(context).colorScheme.outline),
+      const SizedBox(height: 12),
+      const Text('先に団情報を登録してください'),
+      const SizedBox(height: 16),
+      FilledButton(
+        style: FilledButton.styleFrom(
+            minimumSize: const Size(0, 44),
+            padding: const EdgeInsets.symmetric(horizontal: 24)),
+        onPressed: () => context.go('/settings/troop'),
+        child: const Text('団情報を登録する'),
+      ),
+    ]));
   }
 }

@@ -21,7 +21,8 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
   bool _loading = false;
   bool _saving = false;
 
-  final _nameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
   final _gradeCtrl = TextEditingController();
   final _enrollmentYearCtrl = TextEditingController();
   final _offsetCtrl = TextEditingController();
@@ -32,7 +33,11 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.scoutId != null) _load();
+    if (widget.scoutId != null) {
+      _load();
+    } else {
+      _gradeCtrl.text = '小1'; // 新規作成時のデフォルト
+    }
   }
 
   Future<void> _load() async {
@@ -40,7 +45,8 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
     final s = await ref.read(scoutRepositoryProvider).getById(widget.scoutId!);
     if (s != null && mounted) {
       _original = s;
-      _nameCtrl.text = s.name;
+      _lastNameCtrl.text = s.name.contains(' ') ? s.name.split(' ').first : s.name;
+      _firstNameCtrl.text = s.name.contains(' ') ? s.name.split(' ').skip(1).join(' ') : '';
       _gradeCtrl.text = s.grade ?? '';
       _enrollmentYearCtrl.text = s.enrollmentYear?.toString() ?? '';
       _offsetCtrl.text = s.leafBadgeOffset.toString();
@@ -50,6 +56,8 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
     }
     if (mounted) setState(() => _loading = false);
   }
+
+  String get _fullName => '${_lastNameCtrl.text.trim()} ${_firstNameCtrl.text.trim()}';
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -68,7 +76,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
       if (_original == null) {
         await repo.create(
           troopId: troopId,
-          name: _nameCtrl.text.trim(),
+          name: _fullName,
           category: _category,
           gender: _gender,
           grade: _gradeCtrl.text.trim().isEmpty ? null : _gradeCtrl.text.trim(),
@@ -78,7 +86,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
         );
       } else {
         await repo.update(_original!.copyWith(
-          name: _nameCtrl.text.trim(),
+          name: _fullName,
           category: _category,
           gender: _gender,
           grade: _gradeCtrl.text.trim().isEmpty ? null : _gradeCtrl.text.trim(),
@@ -87,7 +95,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
           leafBadgeOffset: int.tryParse(_offsetCtrl.text) ?? 0,
         ));
       }
-      if (mounted) context.pop(); // push で来たので pop で戻る
+      if (mounted) context.pop();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
@@ -113,27 +121,41 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     _section('基本情報'),
-                    TextFormField(
-                      controller: _nameCtrl,
-                      decoration: const InputDecoration(labelText: '氏名 *'),
-                      validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? '必須です' : null,
-                    ),
+                    Row(children: [
+                      Expanded(
+                        child: TextFormField(
+                          controller: _lastNameCtrl,
+                          decoration: const InputDecoration(labelText: '氏 *'),
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty) ? '必須です' : null,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextFormField(
+                          controller: _firstNameCtrl,
+                          decoration: const InputDecoration(labelText: '名 *'),
+                          validator: (v) =>
+                              (v == null || v.trim().isEmpty) ? '必須です' : null,
+                        ),
+                      ),
+                    ]),
+                    const SizedBox(height: 12),
+                    _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _gender,
-                      decoration: const InputDecoration(labelText: '性別'),
-                      items: const [
-                        DropdownMenuItem(value: 'male', child: Text('男性')),
-                        DropdownMenuItem(value: 'female', child: Text('女性')),
-                        DropdownMenuItem(value: 'other', child: Text('その他')),
-                      ],
-                      onChanged: (v) => setState(() => _gender = v),
-                    ),
-                    const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _gradeCtrl,
+                      value: _gradeCtrl.text.isEmpty ? '小1' : _gradeCtrl.text,
                       decoration: const InputDecoration(labelText: '学年'),
+                      items: const [
+                        DropdownMenuItem(value: '小2', child: Text('小2')),
+                        DropdownMenuItem(value: '小1', child: Text('小1')),
+                        DropdownMenuItem(value: '年長', child: Text('年長')),
+                        DropdownMenuItem(value: '年中', child: Text('年中')),
+                        DropdownMenuItem(value: '年少', child: Text('年少')),
+                        DropdownMenuItem(value: '未就学', child: Text('未就学')),
+                        DropdownMenuItem(value: 'その他', child: Text('その他')),
+                      ],
+                      onChanged: (v) => setState(() => _gradeCtrl.text = v ?? ''),
                     ),
                     const SizedBox(height: 24),
                     _section('分類・入隊情報'),
@@ -149,8 +171,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                     const SizedBox(height: 12),
                     TextFormField(
                       controller: _enrollmentYearCtrl,
-                      decoration:
-                          const InputDecoration(labelText: '小学校入学年度'),
+                      decoration: const InputDecoration(labelText: '小学校入学年度'),
                       keyboardType: TextInputType.number,
                     ),
                     const SizedBox(height: 12),
@@ -165,8 +186,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                         if (d != null) setState(() => _joinedAt = d);
                       },
                       child: InputDecorator(
-                        decoration:
-                            const InputDecoration(labelText: '入隊日'),
+                        decoration: const InputDecoration(labelText: '入隊日'),
                         child: Text(
                           _joinedAt != null
                               ? DateFormat('yyyy/MM/dd').format(_joinedAt!)
@@ -174,9 +194,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                           style: TextStyle(
                               color: _joinedAt != null
                                   ? null
-                                  : Theme.of(context)
-                                      .colorScheme
-                                      .onSurfaceVariant),
+                                  : Theme.of(context).colorScheme.onSurfaceVariant),
                         ),
                       ),
                     ),
@@ -195,10 +213,8 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                       onPressed: _saving ? null : _save,
                       child: _saving
                           ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2))
+                              height: 20, width: 20,
+                              child: CircularProgressIndicator(strokeWidth: 2))
                           : Text(isNew ? '追加する' : '保存する'),
                     ),
                   ],
@@ -211,18 +227,37 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
   Widget _section(String title) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
         child: Text(title,
-            style: Theme.of(context)
-                .textTheme
-                .labelLarge
+            style: Theme.of(context).textTheme.labelLarge
                 ?.copyWith(color: Theme.of(context).colorScheme.primary)),
       );
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _firstNameCtrl.dispose();
     _gradeCtrl.dispose();
     _enrollmentYearCtrl.dispose();
     _offsetCtrl.dispose();
     super.dispose();
+  }
+}
+
+class _GenderRadio extends StatelessWidget {
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  const _GenderRadio({required this.value, required this.onChanged});
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('性別', style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      Row(children: [
+        Radio<String>(value: 'male', groupValue: value, onChanged: onChanged),
+        const Text('男性'),
+        const SizedBox(width: 16),
+        Radio<String>(value: 'female', groupValue: value, onChanged: onChanged),
+        const Text('女性'),
+      ]),
+    ]);
   }
 }

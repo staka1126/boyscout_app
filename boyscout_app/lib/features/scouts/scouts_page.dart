@@ -92,6 +92,9 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
                         const Text('先に団情報を登録してください'),
                         const SizedBox(height: 16),
                         FilledButton(
+                            style: FilledButton.styleFrom(
+                                minimumSize: const Size(0, 44),
+                                padding: const EdgeInsets.symmetric(horizontal: 24)),
                             onPressed: () => context.go('/settings/troop'),
                             child: const Text('団情報を登録する')),
                       ]));

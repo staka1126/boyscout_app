@@ -17,6 +17,7 @@ import '../../features/settings/users_list_page.dart';
 import '../../features/settings/guardians_list_page.dart';
 import '../../features/settings/committee_list_page.dart';
 import '../../features/settings/committee_form_page.dart';
+import '../../features/settings/phonebook_page.dart';
 import '../../features/scouts/guardian_form_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -92,6 +93,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                       builder: (c, s) => CommitteeFormPage(memberId: s.pathParameters['id'])),
                 ],
               ),
+
+              // 電話帳
+              GoRoute(path: 'phonebook', builder: (c, s) => const PhonebookPage()),
             ],
           ),
         ],

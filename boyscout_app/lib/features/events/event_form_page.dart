@@ -33,7 +33,13 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
   @override
   void initState() {
     super.initState();
-    if (widget.eventId != null) _load();
+    if (widget.eventId != null) {
+      _load();
+    } else {
+      // 新規作成時のデフォルト時間
+      _startTime = const TimeOfDay(hour: 9, minute: 30);
+      _endTime = const TimeOfDay(hour: 12, minute: 0);
+    }
   }
 
   Future<void> _load() async {

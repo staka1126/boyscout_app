@@ -16,7 +16,8 @@ class GuardianFormPage extends ConsumerStatefulWidget {
 
 class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
   final _formKey = GlobalKey<FormState>();
-  final _nameCtrl = TextEditingController();
+  final _lastNameCtrl = TextEditingController();
+  final _firstNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   String? _gender;
@@ -35,13 +36,16 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
     final g = gs.where((x) => x.id == widget.guardianId).firstOrNull;
     if (g != null && mounted) {
       _original = g;
-      _nameCtrl.text = g.name;
+      _lastNameCtrl.text = g.name.contains(' ') ? g.name.split(' ').first : g.name;
+      _firstNameCtrl.text = g.name.contains(' ') ? g.name.split(' ').skip(1).join(' ') : '';
       _emailCtrl.text = g.email ?? '';
       _phoneCtrl.text = g.phone ?? '';
       _gender = g.gender;
       setState(() {});
     }
   }
+
+  String get _fullName => '${_lastNameCtrl.text.trim()} ${_firstNameCtrl.text.trim()}';
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
@@ -52,14 +56,14 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
       Guardian g;
       if (_original == null) {
         g = await repo.create(
-          name: _nameCtrl.text.trim(),
+          name: _fullName,
           gender: _gender,
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         );
       } else {
         g = _original!.copyWith(
-          name: _nameCtrl.text.trim(),
+          name: _fullName,
           gender: _gender,
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
@@ -95,28 +99,31 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              TextFormField(
-                controller: _nameCtrl,
-                decoration: const InputDecoration(labelText: '氏名 *'),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? '必須です' : null,
-              ),
+              Row(children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _lastNameCtrl,
+                    decoration: const InputDecoration(labelText: '氏 *'),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? '必須です' : null,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: TextFormField(
+                    controller: _firstNameCtrl,
+                    decoration: const InputDecoration(labelText: '名 *'),
+                    validator: (v) =>
+                        (v == null || v.trim().isEmpty) ? '必須です' : null,
+                  ),
+                ),
+              ]),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                value: _gender,
-                decoration: const InputDecoration(labelText: '性別'),
-                items: const [
-                  DropdownMenuItem(value: 'male', child: Text('男性')),
-                  DropdownMenuItem(value: 'female', child: Text('女性')),
-                  DropdownMenuItem(value: 'other', child: Text('その他')),
-                ],
-                onChanged: (v) => setState(() => _gender = v),
-              ),
+              _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _emailCtrl,
-                decoration:
-                    const InputDecoration(labelText: 'メールアドレス'),
+                decoration: const InputDecoration(labelText: 'メールアドレス'),
                 keyboardType: TextInputType.emailAddress,
               ),
               const SizedBox(height: 12),
@@ -143,8 +150,7 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
                 onPressed: _saving ? null : _save,
                 child: _saving
                     ? const SizedBox(
-                        height: 20,
-                        width: 20,
+                        height: 20, width: 20,
                         child: CircularProgressIndicator(
                             strokeWidth: 2, color: Colors.white))
                     : const Text('保存する'),
@@ -158,9 +164,30 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    _lastNameCtrl.dispose();
+    _firstNameCtrl.dispose();
     _emailCtrl.dispose();
     _phoneCtrl.dispose();
     super.dispose();
+  }
+}
+
+class _GenderRadio extends StatelessWidget {
+  final String? value;
+  final ValueChanged<String?> onChanged;
+  const _GenderRadio({required this.value, required this.onChanged});
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('性別', style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      Row(children: [
+        Radio<String>(value: 'male', groupValue: value, onChanged: onChanged),
+        const Text('男性'),
+        const SizedBox(width: 16),
+        Radio<String>(value: 'female', groupValue: value, onChanged: onChanged),
+        const Text('女性'),
+      ]),
+    ]);
   }
 }
