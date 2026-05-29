@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../dashboard/dashboard_page.dart';
 
 final _committeeProvider = FutureProvider<List<CommitteeMember>>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
@@ -84,6 +85,7 @@ class CommitteeListPage extends ConsumerWidget {
                         onPressed: () async {
                           await context.push('/settings/committee/${m.id}/edit');
                           ref.invalidate(_committeeProvider);
+                          ref.invalidate(dashboardProvider);
                         },
                       ),
                       IconButton(

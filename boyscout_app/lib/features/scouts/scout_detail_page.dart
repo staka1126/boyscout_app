@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../badges/badges_page.dart';
+import '../dashboard/dashboard_page.dart';
 import 'scouts_page.dart';
 
 final _scoutDetailProvider =
@@ -50,6 +51,7 @@ class ScoutDetailPage extends ConsumerWidget {
                   ref.invalidate(_scoutDetailProvider(id));
                   ref.invalidate(scoutsProvider);
                   ref.invalidate(badgesProvider);
+                  ref.invalidate(dashboardProvider);
                 },
               ),
               IconButton(
@@ -79,11 +81,13 @@ class ScoutDetailPage extends ConsumerWidget {
               const SizedBox(height: 12),
 
               // 基本情報
-              if ([scout.grade, scout.gender, scout.joinedAt, scout.enrollmentYear].any((v) => v != null))
+              if ([scout.grade, scout.gender, scout.joinedAt, scout.enrollmentYear, scout.birthday].any((v) => v != null))
                 _infoCard(context, '基本情報', [
                   if (scout.grade != null) _InfoRow('学年', scout.grade!),
                   if (scout.gender != null)
                     _InfoRow('性別', scout.gender == 'male' ? '男性' : scout.gender == 'female' ? '女性' : 'その他'),
+                  if (scout.birthday != null)
+                    _InfoRow('誕生日', DateFormat('yyyy/MM/dd').format(scout.birthday!)),
                   if (scout.joinedAt != null)
                     _InfoRow('入隊日', DateFormat('yyyy/MM/dd').format(scout.joinedAt!)),
                   if (scout.enrollmentYear != null)
@@ -110,6 +114,35 @@ class ScoutDetailPage extends ConsumerWidget {
                   const SizedBox(height: 12),
                   _LeafBadgeProgress(scout: scout),
                 ]))),
+              const SizedBox(height: 12),
+
+              // アレルギー・特記
+              if (scout.allergies.isNotEmpty || scout.specialNotes != null)
+                _infoCard(context, 'アレルギー・特記', [
+                  if (scout.allergies.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('アレルギー',
+                            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                        const SizedBox(height: 6),
+                        Wrap(
+                          spacing: 6, runSpacing: 4,
+                          children: scout.allergies.map((a) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: cs.errorContainer,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(a.label, style: TextStyle(
+                                fontSize: 11, color: cs.onErrorContainer)),
+                          )).toList(),
+                        ),
+                      ]),
+                    ),
+                  if (scout.specialNotes != null)
+                    _InfoRow('特記事項', scout.specialNotes!),
+                ]),
               const SizedBox(height: 12),
 
               // 保護者
@@ -238,6 +271,7 @@ class ScoutDetailPage extends ConsumerWidget {
       await ref.read(scoutRepositoryProvider).delete(scout.id);
       ref.invalidate(scoutsProvider);
       ref.invalidate(badgesProvider);
+      ref.invalidate(dashboardProvider);
       context.go('/scouts');
     }
   }

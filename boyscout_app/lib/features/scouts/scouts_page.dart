@@ -6,6 +6,7 @@ import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../badges/badges_page.dart';
+import '../dashboard/dashboard_page.dart';
 
 final scoutsProvider = FutureProvider<List<Scout>>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
@@ -27,6 +28,7 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
   void _refresh() {
     ref.invalidate(scoutsProvider);
     ref.invalidate(badgesProvider);
+    ref.invalidate(dashboardProvider);
   }
 
   Future<void> _goAdd() async {

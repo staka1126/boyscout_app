@@ -18,6 +18,7 @@ import '../../features/settings/guardians_list_page.dart';
 import '../../features/settings/committee_list_page.dart';
 import '../../features/settings/committee_form_page.dart';
 import '../../features/settings/phonebook_page.dart';
+import '../../features/settings/allergy_list_page.dart';
 import '../../features/scouts/guardian_form_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
@@ -96,6 +97,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
               // 電話帳
               GoRoute(path: 'phonebook', builder: (c, s) => const PhonebookPage()),
+              GoRoute(path: 'allergy', builder: (c, s) => const AllergyListPage()),
             ],
           ),
         ],

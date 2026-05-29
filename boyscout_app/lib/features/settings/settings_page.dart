@@ -47,6 +47,7 @@ class SettingsPage extends ConsumerWidget {
           _tile(context, Icons.event_outlined, 'イベント管理', '/events'),
           _tile(context, Icons.military_tech_outlined, '表彰管理', '/badges'),
           _tile(context, Icons.contact_phone_outlined, '電話帳', '/settings/phonebook'),
+          _tile(context, Icons.no_food_outlined, 'アレルギー情報', '/settings/allergy'),
           const Divider(),
           ListTile(
             leading: const Icon(Icons.info_outline),

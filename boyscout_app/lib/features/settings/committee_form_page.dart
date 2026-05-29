@@ -52,28 +52,53 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
 
   String get _fullName => '${_lastNameCtrl.text.trim()} ${_firstNameCtrl.text.trim()}';
 
+  bool get _isDirty {
+    if (_original == null) {
+      return _lastNameCtrl.text.trim().isNotEmpty || _firstNameCtrl.text.trim().isNotEmpty;
+    }
+    final origLast = _original!.name.contains(' ') ? _original!.name.split(' ').first : _original!.name;
+    final origFirst = _original!.name.contains(' ') ? _original!.name.split(' ').skip(1).join(' ') : '';
+    return _lastNameCtrl.text.trim() != origLast ||
+        _firstNameCtrl.text.trim() != origFirst ||
+        _emailCtrl.text.trim() != (_original!.email ?? '') ||
+        _phoneCtrl.text.trim() != (_original!.phone ?? '') ||
+        _gender != _original!.gender ||
+        _category != _original!.category ||
+        _isRetired != _original!.isRetired;
+  }
+
+  Future<bool> _confirmDiscard() async {
+    if (!_isDirty) return true;
+    return await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('編集内容を破棄しますか？'),
+            content: const Text('保存されていない変更があります。'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('編集を続ける')),
+              FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () => Navigator.of(c).pop(true), child: const Text('破棄する')),
+            ],
+          ),
+        ) ?? false;
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) return;
-
     setState(() => _saving = true);
     try {
       final repo = ref.read(committeeRepositoryProvider);
       if (_original == null) {
         await repo.create(
-          troopId: troopId,
-          name: _fullName,
-          category: _category,
-          gender: _gender,
+          troopId: troopId, name: _fullName, category: _category, gender: _gender,
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         );
       } else {
         await repo.update(_original!.copyWith(
-          name: _fullName,
-          category: _category,
-          gender: _gender,
+          name: _fullName, category: _category, gender: _gender,
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
           isRetired: _isRetired,
@@ -81,10 +106,7 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
       }
       if (mounted) context.pop();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('保存失敗: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存失敗: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -92,79 +114,75 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-          title: Text(widget.memberId == null ? '団委員追加' : '団委員編集')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-            Row(children: [
-              Expanded(
-                child: TextFormField(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmDiscard() && context.mounted) context.pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(widget.memberId == null ? '団委員追加' : '団委員編集')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Expanded(child: TextFormField(
                   controller: _lastNameCtrl,
                   decoration: const InputDecoration(labelText: '氏 *'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? '必須です' : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
+                  validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: TextFormField(
                   controller: _firstNameCtrl,
                   decoration: const InputDecoration(labelText: '名 *'),
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? '必須です' : null,
+                  validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                )),
+              ]),
+              const SizedBox(height: 12),
+              _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<CommitteeCategory>(
+                value: _category,
+                decoration: const InputDecoration(labelText: '分類 *'),
+                items: CommitteeCategory.values
+                    .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
+                    .toList(),
+                onChanged: (v) => setState(() => _category = v!),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _emailCtrl,
+                decoration: const InputDecoration(labelText: 'メールアドレス'),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneCtrl,
+                decoration: const InputDecoration(labelText: '電話番号'),
+                keyboardType: TextInputType.phone,
+              ),
+              if (widget.memberId != null) ...[
+                const SizedBox(height: 4),
+                SwitchListTile(
+                  value: _isRetired,
+                  onChanged: (v) => setState(() => _isRetired = v),
+                  title: const Text('引退'),
+                  subtitle: const Text('引退した団委員は出席者追加の対象外になります'),
+                  contentPadding: EdgeInsets.zero,
                 ),
+              ],
+              const SizedBox(height: 32),
+              FilledButton(
+                onPressed: _saving ? null : _save,
+                child: _saving
+                    ? const SizedBox(height: 20, width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('保存する'),
               ),
             ]),
-            const SizedBox(height: 12),
-            _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<CommitteeCategory>(
-              value: _category,
-              decoration: const InputDecoration(labelText: '分類 *'),
-              items: CommitteeCategory.values
-                  .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
-                  .toList(),
-              onChanged: (v) => setState(() => _category = v!),
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _emailCtrl,
-              decoration: const InputDecoration(labelText: 'メールアドレス'),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _phoneCtrl,
-              decoration: const InputDecoration(labelText: '電話番号'),
-              keyboardType: TextInputType.phone,
-            ),
-            if (widget.memberId != null) ...[
-              const SizedBox(height: 4),
-              SwitchListTile(
-                value: _isRetired,
-                onChanged: (v) => setState(() => _isRetired = v),
-                title: const Text('引退'),
-                subtitle: const Text('引退した団委員は出席者追加の対象外になります'),
-                contentPadding: EdgeInsets.zero,
-              ),
-            ],
-            const SizedBox(height: 32),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 20, width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text('保存する'),
-            ),
-          ]),
+          ),
         ),
       ),
     );

@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../dashboard/dashboard_page.dart';
 
 final _usersProvider = FutureProvider<List<AppUser>>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
@@ -74,6 +75,7 @@ class UsersListPage extends ConsumerWidget {
                         onPressed: () async {
                           await context.push('/settings/users/${u.id}/edit');
                           ref.invalidate(_usersProvider);
+                          ref.invalidate(dashboardProvider);
                         },
                       ),
                       IconButton(

@@ -90,6 +90,9 @@ class Scout {
   final ScoutCategory category;
   final int? enrollmentYear;
   final DateTime? joinedAt;
+  final DateTime? birthday;
+  final List<AllergyType> allergies;
+  final String? specialNotes;
   final int leafBadges;
   final int leafBadgeOffset;
   final int twigBadges;
@@ -100,17 +103,19 @@ class Scout {
   const Scout({
     required this.id, required this.troopId, required this.name, this.gender,
     this.grade, required this.category, this.enrollmentYear, this.joinedAt,
+    this.birthday, this.allergies = const [], this.specialNotes,
     this.leafBadges = 0, this.leafBadgeOffset = 0, this.twigBadges = 0,
     this.isActive = true, required this.createdAt, required this.updatedAt,
   });
 
   int get totalLeafBadges => leafBadges + leafBadgeOffset;
-
-  /// 木の葉章10枚ごとに小枝章1本（分類に関わらず計算）
   int get pendingTwigBadges => (totalLeafBadges ~/ 10) - twigBadges;
-
-  /// 小枝章の授与表示対象（ビーバー・ビッグビーバーのみ）
   bool get isTwigBadgeEligible => category.isTwigBadgeEligible;
+
+  static List<AllergyType> _parseAllergies(String? raw) {
+    if (raw == null || raw.isEmpty) return [];
+    return raw.split(',').map((v) => AllergyType.fromValue(v.trim())).toList();
+  }
 
   factory Scout.fromMap(Map<String, dynamic> m) => Scout(
         id: m['id'] as String, troopId: m['troop_id'] as String,
@@ -119,6 +124,9 @@ class Scout {
         category: ScoutCategory.fromValue(m['category'] as String),
         enrollmentYear: m['enrollment_year'] as int?,
         joinedAt: m['joined_at'] != null ? DateTime.parse(m['joined_at'] as String) : null,
+        birthday: m['birthday'] != null ? DateTime.parse(m['birthday'] as String) : null,
+        allergies: _parseAllergies(m['allergies'] as String?),
+        specialNotes: m['special_notes'] as String?,
         leafBadges: m['leaf_badges'] as int? ?? 0,
         leafBadgeOffset: m['leaf_badge_offset'] as int? ?? 0,
         twigBadges: m['twig_badges'] as int? ?? 0,
@@ -130,6 +138,9 @@ class Scout {
         'id': id, 'troop_id': troopId, 'name': name, 'gender': gender,
         'grade': grade, 'category': category.value, 'enrollment_year': enrollmentYear,
         'joined_at': joinedAt?.toIso8601String().split('T').first,
+        'birthday': birthday?.toIso8601String().split('T').first,
+        'allergies': allergies.isEmpty ? null : allergies.map((a) => a.value).join(','),
+        'special_notes': specialNotes,
         'leaf_badges': leafBadges, 'leaf_badge_offset': leafBadgeOffset,
         'twig_badges': twigBadges, 'is_active': isActive ? 1 : 0,
         'created_at': createdAt.toIso8601String(),
@@ -137,13 +148,16 @@ class Scout {
 
   Scout copyWith({
     String? name, String? gender, String? grade, ScoutCategory? category,
-    int? enrollmentYear, DateTime? joinedAt, int? leafBadges, int? leafBadgeOffset,
-    int? twigBadges, bool? isActive,
+    int? enrollmentYear, DateTime? joinedAt, DateTime? birthday,
+    List<AllergyType>? allergies, String? specialNotes,
+    int? leafBadges, int? leafBadgeOffset, int? twigBadges, bool? isActive,
   }) => Scout(
         id: id, troopId: troopId, name: name ?? this.name, gender: gender ?? this.gender,
         grade: grade ?? this.grade, category: category ?? this.category,
         enrollmentYear: enrollmentYear ?? this.enrollmentYear,
-        joinedAt: joinedAt ?? this.joinedAt, leafBadges: leafBadges ?? this.leafBadges,
+        joinedAt: joinedAt ?? this.joinedAt, birthday: birthday ?? this.birthday,
+        allergies: allergies ?? this.allergies, specialNotes: specialNotes ?? this.specialNotes,
+        leafBadges: leafBadges ?? this.leafBadges,
         leafBadgeOffset: leafBadgeOffset ?? this.leafBadgeOffset,
         twigBadges: twigBadges ?? this.twigBadges, isActive: isActive ?? this.isActive,
         createdAt: createdAt, updatedAt: DateTime.now());

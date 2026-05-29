@@ -50,6 +50,37 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
     }
   }
 
+  bool get _isDirty {
+    if (_original == null) {
+      return _lastNameCtrl.text.trim().isNotEmpty || _firstNameCtrl.text.trim().isNotEmpty;
+    }
+    final origLast = _original!.name.contains(' ') ? _original!.name.split(' ').first : _original!.name;
+    final origFirst = _original!.name.contains(' ') ? _original!.name.split(' ').skip(1).join(' ') : '';
+    return _lastNameCtrl.text.trim() != origLast ||
+        _firstNameCtrl.text.trim() != origFirst ||
+        _emailCtrl.text.trim() != _original!.email ||
+        _phoneCtrl.text.trim() != (_original!.phone ?? '') ||
+        _gender != _original!.gender ||
+        _role != _original!.role ||
+        _isRetired != _original!.isRetired;
+  }
+
+  Future<bool> _confirmDiscard() async {
+    if (!_isDirty) return true;
+    return await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('編集内容を破棄しますか？'),
+            content: const Text('保存されていない変更があります。'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('編集を続ける')),
+              FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () => Navigator.of(c).pop(true), child: const Text('破棄する')),
+            ],
+          ),
+        ) ?? false;
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -117,9 +148,15 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(widget.userId == null ? 'リーダー追加' : 'リーダー編集')),
-      body: SingleChildScrollView(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmDiscard() && context.mounted) context.pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(widget.userId == null ? 'リーダー追加' : 'リーダー編集')),
+        body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
           key: _formKey,
@@ -186,6 +223,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
             ),
           ]),
         ),
+      ),
       ),
     );
   }

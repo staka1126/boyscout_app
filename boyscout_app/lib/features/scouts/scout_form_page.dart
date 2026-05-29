@@ -29,6 +29,9 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
   String? _gender;
   ScoutCategory _category = ScoutCategory.beaver;
   DateTime? _joinedAt;
+  DateTime? _birthday;
+  List<AllergyType> _allergies = [];
+  final _specialNotesCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -53,8 +56,52 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
       _gender = s.gender;
       _category = s.category;
       _joinedAt = s.joinedAt;
+      _birthday = s.birthday;
+      _allergies = List.from(s.allergies);
+      _specialNotesCtrl.text = s.specialNotes ?? '';
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  bool get _isDirty {
+    if (_original == null) {
+      return _lastNameCtrl.text.trim().isNotEmpty ||
+          _firstNameCtrl.text.trim().isNotEmpty;
+    }
+    final origLast = _original!.name.contains(' ')
+        ? _original!.name.split(' ').first : _original!.name;
+    final origFirst = _original!.name.contains(' ')
+        ? _original!.name.split(' ').skip(1).join(' ') : '';
+    return _lastNameCtrl.text.trim() != origLast ||
+        _firstNameCtrl.text.trim() != origFirst ||
+        _gender != _original!.gender ||
+        _gradeCtrl.text != (_original!.grade ?? '') ||
+        _category != _original!.category ||
+        _joinedAt != _original!.joinedAt ||
+        _birthday != _original!.birthday ||
+        _allergies.length != _original!.allergies.length ||
+        _specialNotesCtrl.text.trim() != (_original!.specialNotes ?? '');
+  }
+
+  Future<bool> _confirmDiscard() async {
+    if (!_isDirty) return true;
+    return await showDialog<bool>(
+          context: context,
+          builder: (dlgCtx) => AlertDialog(
+            title: const Text('編集内容を破棄しますか？'),
+            content: const Text('保存されていない変更があります。'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false),
+                  child: const Text('編集を続ける')),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.of(dlgCtx).pop(true),
+                child: const Text('破棄する'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   String get _fullName => '${_lastNameCtrl.text.trim()} ${_firstNameCtrl.text.trim()}';
@@ -82,6 +129,9 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
           grade: _gradeCtrl.text.trim().isEmpty ? null : _gradeCtrl.text.trim(),
           enrollmentYear: int.tryParse(_enrollmentYearCtrl.text),
           joinedAt: _joinedAt,
+          birthday: _birthday,
+          allergies: _allergies,
+          specialNotes: _specialNotesCtrl.text.trim().isEmpty ? null : _specialNotesCtrl.text.trim(),
           leafBadgeOffset: int.tryParse(_offsetCtrl.text) ?? 0,
         );
       } else {
@@ -92,6 +142,9 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
           grade: _gradeCtrl.text.trim().isEmpty ? null : _gradeCtrl.text.trim(),
           enrollmentYear: int.tryParse(_enrollmentYearCtrl.text),
           joinedAt: _joinedAt,
+          birthday: _birthday,
+          allergies: _allergies,
+          specialNotes: _specialNotesCtrl.text.trim().isEmpty ? null : _specialNotesCtrl.text.trim(),
           leafBadgeOffset: int.tryParse(_offsetCtrl.text) ?? 0,
         ));
       }
@@ -109,8 +162,14 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
   @override
   Widget build(BuildContext context) {
     final isNew = widget.scoutId == null;
-    return Scaffold(
-      appBar: AppBar(title: Text(isNew ? 'スカウト追加' : 'スカウト編集')),
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmDiscard() && context.mounted) context.pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(isNew ? 'スカウト追加' : 'スカウト編集')),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
@@ -156,6 +215,39 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                         DropdownMenuItem(value: 'その他', child: Text('その他')),
                       ],
                       onChanged: (v) => setState(() => _gradeCtrl.text = v ?? ''),
+                    ),
+                    const SizedBox(height: 12),
+                    // 誕生日
+                    InkWell(
+                      onTap: () async {
+                        final d = await showDatePicker(
+                          context: context,
+                          initialDate: _birthday ?? DateTime(DateTime.now().year - 5),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                        );
+                        if (d != null) setState(() => _birthday = d);
+                      },
+                      child: InputDecorator(
+                        decoration: const InputDecoration(labelText: '誕生日'),
+                        child: Row(children: [
+                          Expanded(child: Text(
+                            _birthday != null
+                                ? DateFormat('yyyy/MM/dd').format(_birthday!)
+                                : '選択してください',
+                            style: TextStyle(
+                                color: _birthday != null
+                                    ? null
+                                    : Theme.of(context).colorScheme.onSurfaceVariant),
+                          )),
+                          if (_birthday != null)
+                            GestureDetector(
+                              onTap: () => setState(() => _birthday = null),
+                              child: Icon(Icons.clear, size: 16,
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                            ),
+                        ]),
+                      ),
                     ),
                     const SizedBox(height: 24),
                     _section('分類・入隊情報'),
@@ -208,6 +300,38 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                       ),
                       keyboardType: TextInputType.number,
                     ),
+                    const SizedBox(height: 24),
+                    _section('アレルギー・特記'),
+                    Text('アレルギー（該当するものを選択）',
+                        style: Theme.of(context).textTheme.bodySmall
+                            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8, runSpacing: 4,
+                      children: AllergyType.values.map((a) {
+                        final selected = _allergies.contains(a);
+                        return FilterChip(
+                          label: Text(a.label),
+                          selected: selected,
+                          onSelected: (v) => setState(() {
+                            if (v) {
+                              _allergies.add(a);
+                            } else {
+                              _allergies.remove(a);
+                            }
+                          }),
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 16),
+                    TextFormField(
+                      controller: _specialNotesCtrl,
+                      decoration: const InputDecoration(
+                        labelText: '特記事項',
+                        helperText: 'アレルギーの詳細やその他特記事項',
+                      ),
+                      maxLines: 3,
+                    ),
                     const SizedBox(height: 32),
                     FilledButton(
                       onPressed: _saving ? null : _save,
@@ -221,6 +345,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                 ),
               ),
             ),
+      ),
     );
   }
 
@@ -238,6 +363,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
     _gradeCtrl.dispose();
     _enrollmentYearCtrl.dispose();
     _offsetCtrl.dispose();
+    _specialNotesCtrl.dispose();
     super.dispose();
   }
 }

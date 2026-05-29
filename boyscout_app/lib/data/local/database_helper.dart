@@ -35,7 +35,32 @@ class DatabaseHelper {
     }
 
     final path = join(dbDir, AppConstants.dbName);
-    return openDatabase(path, version: AppConstants.dbVersion, onCreate: _create);
+    return openDatabase(
+      path,
+      version: AppConstants.dbVersion,
+      onCreate: _create,
+      onUpgrade: _upgrade,
+    );
+  }
+
+  Future<void> _upgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      for (final sql in [
+        'ALTER TABLE users ADD COLUMN is_retired INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE committee_members ADD COLUMN is_retired INTEGER NOT NULL DEFAULT 0',
+      ]) {
+        try { await db.execute(sql); } catch (_) {}
+      }
+    }
+    if (oldVersion < 3) {
+      for (final sql in [
+        'ALTER TABLE scouts ADD COLUMN birthday TEXT',
+        'ALTER TABLE scouts ADD COLUMN allergies TEXT',
+        'ALTER TABLE scouts ADD COLUMN special_notes TEXT',
+      ]) {
+        try { await db.execute(sql); } catch (_) {}
+      }
+    }
   }
 
   Future<void> _create(Database db, int version) async {
@@ -78,6 +103,9 @@ class DatabaseHelper {
         category TEXT NOT NULL,
         enrollment_year INTEGER,
         joined_at TEXT,
+        birthday TEXT,
+        allergies TEXT,
+        special_notes TEXT,
         leaf_badges INTEGER NOT NULL DEFAULT 0,
         leaf_badge_offset INTEGER NOT NULL DEFAULT 0,
         twig_badges INTEGER NOT NULL DEFAULT 0,

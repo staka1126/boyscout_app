@@ -33,6 +33,13 @@ class _DashboardData {
   factory _DashboardData.empty() => _DashboardData(events: [], scouts: [], thisMonthCount: 0, avgAttendanceRate: 0);
   int get pendingTwigScouts => scouts.where((s) => s.pendingTwigBadges > 0).length;
   int get activeScouts => scouts.where((s) => s.isActive && s.category.isDefaultAttendee).length;
+  List<Scout> get birthdayScouts {
+    final now = DateTime.now();
+    return scouts
+        .where((s) => s.birthday != null && s.birthday!.month == now.month && s.isActive)
+        .toList()
+      ..sort((a, b) => a.birthday!.day.compareTo(b.birthday!.day));
+  }
 }
 
 class DashboardPage extends ConsumerWidget {
@@ -93,17 +100,43 @@ class DashboardPage extends ConsumerWidget {
                 ],
               ])),
             const SizedBox(height: 24),
-            if (data.pendingTwigScouts > 0) ...[
-              Text('小枝章 授与待ち', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            if (data.pendingTwigScouts > 0) ...[  
+            Text('小枝章 授与待ち', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Card(child: ListTile(
+            leading: CircleAvatar(backgroundColor: cs.tertiaryContainer,
+            child: Icon(Icons.military_tech, color: cs.onTertiaryContainer)),
+            title: Text('${data.pendingTwigScouts}名のスカウトが授与待ちです'),
+            subtitle: const Text('表彰タブから確認できます'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.go('/badges'),
+            )),
+              const SizedBox(height: 24),
+            ],
+            if (data.birthdayScouts.isNotEmpty) ...[  
+              Text('今月の誕生日', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
-              Card(child: ListTile(
-                leading: CircleAvatar(backgroundColor: cs.tertiaryContainer,
-                    child: Icon(Icons.military_tech, color: cs.onTertiaryContainer)),
-                title: Text('${data.pendingTwigScouts}名のスカウトが授与待ちです'),
-                subtitle: const Text('表彰タブから確認できます'),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () => context.go('/badges'),
-              )),
+              Card(child: Column(children: [
+                for (int i = 0; i < data.birthdayScouts.length; i++) ...[  
+                  if (i > 0) const Divider(height: 0),
+                  ListTile(
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+                    leading: CircleAvatar(
+                      backgroundColor: const Color(0xFFFFD700).withAlpha(80),
+                      child: const Text('🎂', style: TextStyle(fontSize: 18)),
+                    ),
+                    title: Text(data.birthdayScouts[i].name,
+                        style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+                    subtitle: Text(
+                        '${data.birthdayScouts[i].birthday!.month}月${data.birthdayScouts[i].birthday!.day}日  ${data.birthdayScouts[i].category.label}'),
+                    trailing: Text(
+                      _ageText(data.birthdayScouts[i].birthday!),
+                      style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
+                    ),
+                    onTap: () => context.go('/scouts/${data.birthdayScouts[i].id}'),
+                  ),
+                ],
+              ])),
             ],
           ]),
         ),
@@ -114,6 +147,16 @@ class DashboardPage extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _ageText(DateTime birthday) {
+  final now = DateTime.now();
+  int age = now.year - birthday.year;
+  if (now.month < birthday.month ||
+      (now.month == birthday.month && now.day < birthday.day)) {
+    age--;
+  }
+  return '$age歳';
 }
 
 class _MetricCard extends StatelessWidget {

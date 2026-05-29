@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../dashboard/dashboard_page.dart';
 
 final _guardiansProvider = FutureProvider<List<Guardian>>((ref) async {
   return ref.read(guardianRepositoryProvider).getAll();
@@ -54,6 +55,7 @@ class GuardiansListPage extends ConsumerWidget {
                       onPressed: () async {
                         await context.push('/settings/guardians/${g.id}/edit');
                         ref.invalidate(_guardiansProvider);
+                        ref.invalidate(dashboardProvider);
                       },
                     ),
                     IconButton(

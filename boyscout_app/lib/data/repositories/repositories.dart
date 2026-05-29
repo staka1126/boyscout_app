@@ -113,12 +113,16 @@ class ScoutRepository {
 
   Future<Scout> create({
     required String troopId, required String name, required ScoutCategory category,
-    String? gender, String? grade, int? enrollmentYear, DateTime? joinedAt, int leafBadgeOffset = 0,
+    String? gender, String? grade, int? enrollmentYear, DateTime? joinedAt,
+    DateTime? birthday, List<AllergyType> allergies = const [], String? specialNotes,
+    int leafBadgeOffset = 0,
   }) async {
     final now = DateTime.now();
     final s = Scout(id: _uuid.v4(), troopId: troopId, name: name, gender: gender,
         grade: grade, category: category, enrollmentYear: enrollmentYear,
-        joinedAt: joinedAt, leafBadgeOffset: leafBadgeOffset, createdAt: now, updatedAt: now);
+        joinedAt: joinedAt, birthday: birthday, allergies: allergies,
+        specialNotes: specialNotes,
+        leafBadgeOffset: leafBadgeOffset, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('scouts', s.toMap());
     return s;

@@ -47,10 +47,38 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
 
   String get _fullName => '${_lastNameCtrl.text.trim()} ${_firstNameCtrl.text.trim()}';
 
+  bool get _isDirty {
+    if (_original == null) {
+      return _lastNameCtrl.text.trim().isNotEmpty || _firstNameCtrl.text.trim().isNotEmpty;
+    }
+    final origLast = _original!.name.contains(' ') ? _original!.name.split(' ').first : _original!.name;
+    final origFirst = _original!.name.contains(' ') ? _original!.name.split(' ').skip(1).join(' ') : '';
+    return _lastNameCtrl.text.trim() != origLast ||
+        _firstNameCtrl.text.trim() != origFirst ||
+        _emailCtrl.text.trim() != (_original!.email ?? '') ||
+        _phoneCtrl.text.trim() != (_original!.phone ?? '') ||
+        _gender != _original!.gender;
+  }
+
+  Future<bool> _confirmDiscard() async {
+    if (!_isDirty) return true;
+    return await showDialog<bool>(
+          context: context,
+          builder: (c) => AlertDialog(
+            title: const Text('編集内容を破棄しますか？'),
+            content: const Text('保存されていない変更があります。'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(c).pop(false), child: const Text('編集を続ける')),
+              FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () => Navigator.of(c).pop(true), child: const Text('破棄する')),
+            ],
+          ),
+        ) ?? false;
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
-
     final repo = ref.read(guardianRepositoryProvider);
     try {
       Guardian g;
@@ -71,17 +99,11 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
         await repo.update(g);
       }
       if (widget.linkScoutId != null) {
-        await repo.link(
-            scoutId: widget.linkScoutId!,
-            guardianId: g.id,
-            relationship: _relationship);
+        await repo.link(scoutId: widget.linkScoutId!, guardianId: g.id, relationship: _relationship);
       }
       if (mounted) context.pop();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('保存失敗: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存失敗: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -89,34 +111,31 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-          title: Text(widget.guardianId == null ? '保護者追加' : '保護者編集')),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (await _confirmDiscard() && context.mounted) context.pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(title: Text(widget.guardianId == null ? '保護者追加' : '保護者編集')),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Row(children: [
-                Expanded(
-                  child: TextFormField(
-                    controller: _lastNameCtrl,
-                    decoration: const InputDecoration(labelText: '氏 *'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? '必須です' : null,
-                  ),
-                ),
+                Expanded(child: TextFormField(
+                  controller: _lastNameCtrl,
+                  decoration: const InputDecoration(labelText: '氏 *'),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                )),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: TextFormField(
-                    controller: _firstNameCtrl,
-                    decoration: const InputDecoration(labelText: '名 *'),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? '必須です' : null,
-                  ),
-                ),
+                Expanded(child: TextFormField(
+                  controller: _firstNameCtrl,
+                  decoration: const InputDecoration(labelText: '名 *'),
+                  validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                )),
               ]),
               const SizedBox(height: 12),
               _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
@@ -149,13 +168,11 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
               FilledButton(
                 onPressed: _saving ? null : _save,
                 child: _saving
-                    ? const SizedBox(
-                        height: 20, width: 20,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(height: 20, width: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                     : const Text('保存する'),
               ),
-            ],
+            ]),
           ),
         ),
       ),

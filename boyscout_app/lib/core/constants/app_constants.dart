@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 // ─── DB ─────────────────────────────────────────────────────
 class AppConstants {
   static const String dbName = 'boyscout.db';
-  static const int dbVersion = 1;
+  static const int dbVersion = 3;
 }
 
 // ─── ユーザー種別 ─────────────────────────────────────────────
@@ -146,4 +146,26 @@ enum CommitteeCategory {
 
   static CommitteeCategory fromValue(String v) =>
       values.firstWhere((e) => e.value == v, orElse: () => CommitteeCategory.other);
+}
+
+// ─── アレルギー ────────────────────────────────────────────────
+enum AllergyType {
+  egg('egg', '鶏卵'),
+  dairy('dairy', '牛乳・乳製品'),
+  wheat('wheat', '小麦'),
+  soba('soba', 'ソバ'),
+  peanut('peanut', 'ピーナッツ'),
+  shellfish('shellfish', '甲殻類'),
+  treeNut('tree_nut', '木の実類'),
+  fruit('fruit', '果物類'),
+  fish('fish', '魚類'),
+  meat('meat', '肉類'),
+  other('other', 'その他');
+
+  const AllergyType(this.value, this.label);
+  final String value;
+  final String label;
+
+  static AllergyType fromValue(String v) =>
+      values.firstWhere((e) => e.value == v, orElse: () => AllergyType.other);
 }
