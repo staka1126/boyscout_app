@@ -18,7 +18,7 @@ sizes = {
     'mipmap-mdpi': 48, 'mipmap-hdpi': 72, 'mipmap-xhdpi': 96,
     'mipmap-xxhdpi': 144, 'mipmap-xxxhdpi': 192,
 }
-base = '/home/takaaki/git-work/BoyScout/boyscout_app/android/app/src/main/res'
+base = '/home/takaaki/git-work/boyscout_app/boyscout_app/android/app/src/main/res'
 for folder, px in sizes.items():
     resized = square.resize((px, px), Image.LANCZOS)
     bg = Image.new('RGB', (px, px), (255,255,255))
