@@ -26,7 +26,6 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
   final _titleCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
-  EventType _eventType = EventType.troopMeeting;
   DateTime? _eventDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
@@ -46,7 +45,6 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
         _titleCtrl.text = e.title;
         _locationCtrl.text = e.location ?? '';
         _notesCtrl.text = e.notes ?? '';
-        _eventType = e.eventType;
         _eventDate = e.eventDate;
         if (e.startTime != null) {
           final parts = e.startTime!.split(':');
@@ -94,7 +92,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
         saved = await eventRepo.create(
           troopId: troopId,
           title: _titleCtrl.text.trim(),
-          eventType: _eventType,
+          eventType: EventType.other,
           eventDate: _eventDate!,
           location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
           startTime: _startTime != null ? _fmtTime(_startTime!) : null,
@@ -116,7 +114,6 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
       } else {
         final updated = _original!.copyWith(
           title: _titleCtrl.text.trim(),
-          eventType: _eventType,
           eventDate: _eventDate!,
           location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
           startTime: _startTime != null ? _fmtTime(_startTime!) : null,
@@ -180,16 +177,6 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
                           decoration: const InputDecoration(labelText: 'タイトル *'),
                           validator: (v) =>
                               (v == null || v.trim().isEmpty) ? '必須です' : null,
-                        ),
-                        const SizedBox(height: 12),
-                        DropdownButtonFormField<EventType>(
-                          value: _eventType,
-                          decoration: const InputDecoration(labelText: '種別 *'),
-                          items: EventType.values
-                              .map((t) => DropdownMenuItem(
-                                  value: t, child: Text(t.label)))
-                              .toList(),
-                          onChanged: (v) => setState(() => _eventType = v!),
                         ),
                         const SizedBox(height: 12),
                         InkWell(

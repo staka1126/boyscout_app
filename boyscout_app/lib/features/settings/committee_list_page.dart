@@ -30,47 +30,66 @@ class CommitteeListPage extends ConsumerWidget {
                 child: Text('団委員が登録されていません',
                     style: TextStyle(color: Colors.grey)));
           }
+          // 現役→引退の順
+          final sorted = [...members]..sort((a, b) {
+              if (a.isRetired == b.isRetired) return a.name.compareTo(b.name);
+              return a.isRetired ? 1 : -1;
+            });
           return ListView.separated(
             padding: const EdgeInsets.all(16),
-            itemCount: members.length,
+            itemCount: sorted.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, i) {
-              final m = members[i];
+              final m = sorted[i];
+              final cs = Theme.of(context).colorScheme;
               final subtitle = [
                 m.category.label,
                 if (m.email != null) m.email!,
                 if (m.phone != null) m.phone!,
               ].join('　');
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.tertiaryContainer,
-                    child: Text(m.name.isNotEmpty ? m.name[0] : '?',
-                        style: TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onTertiaryContainer)),
+              return Opacity(
+                opacity: m.isRetired ? 0.5 : 1.0,
+                child: Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: m.isRetired
+                          ? cs.surfaceContainerHighest
+                          : cs.tertiaryContainer,
+                      child: Text(m.name.isNotEmpty ? m.name[0] : '?',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: m.isRetired
+                                  ? cs.onSurfaceVariant
+                                  : cs.onTertiaryContainer)),
+                    ),
+                    title: Row(children: [
+                      Expanded(child: Text(m.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600))),
+                      if (m.isRetired)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Text('引退',
+                              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                        ),
+                    ]),
+                    subtitle: Text(subtitle),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () async {
+                          await context.push('/settings/committee/${m.id}/edit');
+                          ref.invalidate(_committeeProvider);
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, color: cs.error),
+                        onPressed: () => _confirmDelete(context, ref, m),
+                      ),
+                    ]),
                   ),
-                  title: Text(m.name,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text(subtitle),
-                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () async {
-                        await context
-                            .push('/settings/committee/${m.id}/edit');
-                        ref.invalidate(_committeeProvider);
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          color: Theme.of(context).colorScheme.error),
-                      onPressed: () => _confirmDelete(context, ref, m),
-                    ),
-                  ]),
                 ),
               );
             },
@@ -92,6 +111,13 @@ class CommitteeListPage extends ConsumerWidget {
 
   Future<void> _confirmDelete(
       BuildContext context, WidgetRef ref, CommitteeMember member) async {
+    final canDelete = await ref.read(committeeRepositoryProvider).canDelete(member.id);
+    if (!context.mounted) return;
+    if (!canDelete) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('出欠履歴があるため削除できません')));
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (dlgCtx) => AlertDialog(

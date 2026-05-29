@@ -21,6 +21,7 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
   final _phoneCtrl = TextEditingController();
   String? _gender;
   CommitteeCategory _category = CommitteeCategory.committee;
+  bool _isRetired = false;
   CommitteeMember? _original;
   bool _saving = false;
 
@@ -43,6 +44,7 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
       _phoneCtrl.text = m.phone ?? '';
       _gender = m.gender;
       _category = m.category;
+      _isRetired = m.isRetired;
       setState(() {});
     }
   }
@@ -71,6 +73,7 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
           gender: _gender,
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
+          isRetired: _isRetired,
         ));
       }
       if (mounted) context.pop();
@@ -135,6 +138,16 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
               decoration: const InputDecoration(labelText: '電話番号'),
               keyboardType: TextInputType.phone,
             ),
+            if (widget.memberId != null) ...[
+              const SizedBox(height: 4),
+              SwitchListTile(
+                value: _isRetired,
+                onChanged: (v) => setState(() => _isRetired = v),
+                title: const Text('引退'),
+                subtitle: const Text('引退した団委員は出席者追加の対象外になります'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
             const SizedBox(height: 32),
             FilledButton(
               onPressed: _saving ? null : _save,

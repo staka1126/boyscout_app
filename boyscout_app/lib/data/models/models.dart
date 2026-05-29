@@ -44,12 +44,14 @@ class AppUser {
   final String? phone;
   final UserRole role;
   final bool isActive;
+  final bool isRetired;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   const AppUser({
     required this.id, required this.troopId, required this.name, this.gender,
     required this.email, this.phone, required this.role, this.isActive = true,
+    this.isRetired = false,
     required this.createdAt, required this.updatedAt,
   });
 
@@ -59,6 +61,7 @@ class AppUser {
         email: m['email'] as String, phone: m['phone'] as String?,
         role: UserRole.fromValue(m['role'] as String),
         isActive: (m['is_active'] as int? ?? 1) == 1,
+        isRetired: (m['is_retired'] as int? ?? 0) == 1,
         createdAt: DateTime.parse(m['created_at'] as String),
         updatedAt: DateTime.parse(m['updated_at'] as String));
 
@@ -66,13 +69,15 @@ class AppUser {
         'id': id, 'troop_id': troopId, 'name': name, 'gender': gender,
         'email': email, 'phone': phone, 'role': role.value,
         'is_active': isActive ? 1 : 0,
+        'is_retired': isRetired ? 1 : 0,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String()};
 
-  AppUser copyWith({String? name, String? gender, String? phone, UserRole? role, bool? isActive}) =>
+  AppUser copyWith({String? name, String? gender, String? phone, UserRole? role, bool? isActive, bool? isRetired}) =>
       AppUser(id: id, troopId: troopId, name: name ?? this.name, gender: gender ?? this.gender,
           email: email, phone: phone ?? this.phone, role: role ?? this.role,
-          isActive: isActive ?? this.isActive, createdAt: createdAt, updatedAt: DateTime.now());
+          isActive: isActive ?? this.isActive, isRetired: isRetired ?? this.isRetired,
+          createdAt: createdAt, updatedAt: DateTime.now());
 }
 
 // ─── Scout ───────────────────────────────────────────────────
@@ -203,12 +208,14 @@ class CommitteeMember {
   final CommitteeCategory category;
   final String? email;
   final String? phone;
+  final bool isRetired;
   final DateTime createdAt;
   final DateTime updatedAt;
 
   const CommitteeMember({
     required this.id, required this.troopId, required this.name, this.gender,
-    required this.category, this.email, this.phone, required this.createdAt, required this.updatedAt,
+    required this.category, this.email, this.phone, this.isRetired = false,
+    required this.createdAt, required this.updatedAt,
   });
 
   factory CommitteeMember.fromMap(Map<String, dynamic> m) => CommitteeMember(
@@ -216,18 +223,21 @@ class CommitteeMember {
         name: m['name'] as String, gender: m['gender'] as String?,
         category: CommitteeCategory.fromValue(m['category'] as String),
         email: m['email'] as String?, phone: m['phone'] as String?,
+        isRetired: (m['is_retired'] as int? ?? 0) == 1,
         createdAt: DateTime.parse(m['created_at'] as String),
         updatedAt: DateTime.parse(m['updated_at'] as String));
 
   Map<String, dynamic> toMap() => {
         'id': id, 'troop_id': troopId, 'name': name, 'gender': gender,
         'category': category.value, 'email': email, 'phone': phone,
+        'is_retired': isRetired ? 1 : 0,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String()};
 
-  CommitteeMember copyWith({String? name, String? gender, CommitteeCategory? category, String? email, String? phone}) =>
+  CommitteeMember copyWith({String? name, String? gender, CommitteeCategory? category, String? email, String? phone, bool? isRetired}) =>
       CommitteeMember(id: id, troopId: troopId, name: name ?? this.name, gender: gender ?? this.gender,
           category: category ?? this.category, email: email ?? this.email, phone: phone ?? this.phone,
+          isRetired: isRetired ?? this.isRetired,
           createdAt: createdAt, updatedAt: DateTime.now());
 }
 

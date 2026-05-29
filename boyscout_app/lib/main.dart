@@ -49,7 +49,7 @@ class BoyScoutApp extends ConsumerWidget {
     }
 
     return MaterialApp.router(
-      title: 'ビーバー隊',
+      title: 'ビーバーログ',
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
       themeMode: ThemeMode.system,

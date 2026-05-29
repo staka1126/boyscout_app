@@ -28,36 +28,58 @@ class UsersListPage extends ConsumerWidget {
           if (users.isEmpty) {
             return const Center(child: Text('リーダーがいません', style: TextStyle(color: Colors.grey)));
           }
+          // 現役→引退の順
+          final sorted = [...users]..sort((a, b) {
+              if (a.isRetired == b.isRetired) return a.name.compareTo(b.name);
+              return a.isRetired ? 1 : -1;
+            });
           return ListView.separated(
             padding: const EdgeInsets.all(16),
-            itemCount: users.length,
+            itemCount: sorted.length,
             separatorBuilder: (_, __) => const SizedBox(height: 8),
             itemBuilder: (_, i) {
-              final u = users[i];
-              return Card(
-                child: ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-                    child: Text(u.name.isNotEmpty ? u.name[0] : '?',
-                        style: TextStyle(fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onPrimaryContainer)),
+              final u = sorted[i];
+              final cs = Theme.of(context).colorScheme;
+              return Opacity(
+                opacity: u.isRetired ? 0.5 : 1.0,
+                child: Card(
+                  child: ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: u.isRetired
+                          ? cs.surfaceContainerHighest
+                          : cs.primaryContainer,
+                      child: Text(u.name.isNotEmpty ? u.name[0] : '?',
+                          style: TextStyle(fontWeight: FontWeight.w700,
+                              color: u.isRetired ? cs.onSurfaceVariant : cs.onPrimaryContainer)),
+                    ),
+                    title: Row(children: [
+                      Expanded(child: Text(u.name,
+                          style: const TextStyle(fontWeight: FontWeight.w600))),
+                      if (u.isRetired)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(12)),
+                          child: Text('引退',
+                              style: TextStyle(fontSize: 11, color: cs.onSurfaceVariant)),
+                        ),
+                    ]),
+                    subtitle: Text('${u.role.label}　${u.email}'),
+                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined),
+                        onPressed: () async {
+                          await context.push('/settings/users/${u.id}/edit');
+                          ref.invalidate(_usersProvider);
+                        },
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline, color: cs.error),
+                        onPressed: () => _confirmDelete(context, ref, u),
+                      ),
+                    ]),
                   ),
-                  title: Text(u.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                  subtitle: Text('${u.role.label}　${u.email}'),
-                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () async {
-                        await context.push('/settings/users/${u.id}/edit');
-                        ref.invalidate(_usersProvider);
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          color: Theme.of(context).colorScheme.error),
-                      onPressed: () => _confirmDelete(context, ref, u),
-                    ),
-                  ]),
                 ),
               );
             },

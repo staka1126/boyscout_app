@@ -214,7 +214,10 @@ class GuardianRepository {
   Future<bool> canDelete(String id) async {
     final db = await _db.database;
     final sg = await db.query('scout_guardians', where: 'guardian_id = ?', whereArgs: [id]);
-    return sg.isEmpty;
+    if (sg.isNotEmpty) return false;
+    final a = await db.query('attendances',
+        where: 'member_id = ? AND member_type = "guardian"', whereArgs: [id]);
+    return a.isEmpty;
   }
 
   Future<void> delete(String id) async {
@@ -248,6 +251,13 @@ class CommitteeRepository {
   Future<void> update(CommitteeMember cm) async {
     final db = await _db.database;
     await db.update('committee_members', cm.toMap(), where: 'id = ?', whereArgs: [cm.id]);
+  }
+
+  Future<bool> canDelete(String id) async {
+    final db = await _db.database;
+    final a = await db.query('attendances',
+        where: 'member_id = ? AND member_type = "committee"', whereArgs: [id]);
+    return a.isEmpty;
   }
 
   Future<void> delete(String id) async {
@@ -373,6 +383,53 @@ class AttendanceRepository {
     await db.delete('attendances', where: 'id = ?', whereArgs: [id]);
   }
 
+  /// 皆勤賞：指定年度（4/1〜翌3/31）の完了済みイベントに全出席したスカウトを返す
+  /// [year] = 年度開始年（例：2024 → 2024/4/1〜2025/3/31）
+  Future<List<PerfectAttendance>> getPerfectAttendance({
+    required String troopId,
+    required int year,
+  }) async {
+    final db = await _db.database;
+    final from = '$year-04-01';
+    final to   = '${year + 1}-03-31';
+
+    // 期間内の完了済みイベント一覧
+    final events = await db.query('events',
+        where: 'troop_id = ? AND status = ? AND event_date >= ? AND event_date <= ?',
+        whereArgs: [troopId, 'completed', from, to],
+        orderBy: 'event_date ASC');
+    if (events.isEmpty) return [];
+
+    final eventIds = events.map((e) => e['id'] as String).toList();
+
+    // ビーバー・ビッグビーバーのみ対象
+    final scouts = await db.query('scouts',
+        where: 'troop_id = ? AND category IN (?, ?) AND is_active = 1',
+        whereArgs: [troopId, 'beaver', 'big_beaver']);
+    if (scouts.isEmpty) return [];
+
+    final result = <PerfectAttendance>[];
+    for (final sMap in scouts) {
+      final scoutId = sMap['id'] as String;
+      bool perfect = true;
+      for (final eventId in eventIds) {
+        final rows = await db.query('attendances',
+            where: 'event_id = ? AND member_id = ? AND member_type = ? AND status = ?',
+            whereArgs: [eventId, scoutId, 'scout', 'present']);
+        if (rows.isEmpty) { perfect = false; break; }
+      }
+      if (perfect) {
+        result.add(PerfectAttendance(
+          scoutId: scoutId,
+          scoutName: sMap['name'] as String,
+          category: sMap['category'] as String,
+          eventCount: eventIds.length,
+        ));
+      }
+    }
+    return result;
+  }
+
   Future<Map<String, double>> getRates(String troopId) async {
     final db = await _db.database;
     final rows = await db.rawQuery('''
@@ -391,6 +448,15 @@ class AttendanceRepository {
             (r['t'] as int) == 0 ? 0.0 : (r['p'] as int) / (r['t'] as int),
     };
   }
+}
+
+// ─── PerfectAttendance（皆勤賞用データクラス） ─────────────────
+class PerfectAttendance {
+  final String scoutId;
+  final String scoutName;
+  final String category;
+  final int eventCount;
+  PerfectAttendance({required this.scoutId, required this.scoutName, required this.category, required this.eventCount});
 }
 
 // ─── TwigBadgeRepository ─────────────────────────────────────

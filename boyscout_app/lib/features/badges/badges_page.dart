@@ -59,7 +59,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
   @override
   void initState() {
     super.initState();
-    _tab = TabController(length: 3, vsync: this);
+    _tab = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -76,6 +76,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
           Tab(text: '入隊式'),
           Tab(text: '小枝章'),
           Tab(text: '木の葉章'),
+          Tab(text: '皆勤賞'),
         ]),
       ),
       body: async.when(
@@ -85,6 +86,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
           _EnrollmentTab(scouts: data.enrollmentTargets),
           _TwigBadgeTab(data: data, onRefresh: () => ref.invalidate(badgesProvider)),
           _LeafBadgeTab(scouts: data.scouts),
+          _PerfectAttendanceTab(),
         ]),
       ),
     );
@@ -94,6 +96,113 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
   void dispose() {
     _tab.dispose();
     super.dispose();
+  }
+}
+
+// ─── 皆勤賞タブ ─────────────────────────────────────────────
+class _PerfectAttendanceTab extends ConsumerStatefulWidget {
+  const _PerfectAttendanceTab();
+  @override
+  ConsumerState<_PerfectAttendanceTab> createState() => _PerfectAttendanceTabState();
+}
+
+class _PerfectAttendanceTabState extends ConsumerState<_PerfectAttendanceTab> {
+  late int _year;
+  late List<int> _years;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    // 現在の年度（4月始まり）
+    _year = now.month >= 4 ? now.year : now.year - 1;
+    // 過去5年度分を選択肢に
+    _years = List.generate(5, (i) => _year - i);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final troopId = ref.watch(currentTroopIdProvider);
+    return Column(children: [
+      // 年度選択
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        child: Row(children: [
+          const Text('年度', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(width: 12),
+          DropdownButton<int>(
+            value: _year,
+            items: _years.map((y) => DropdownMenuItem(
+              value: y,
+              child: Text('$y年度（$y/4/1 〜 ${y+1}/3/31）'),
+            )).toList(),
+            onChanged: (v) { if (v != null) setState(() => _year = v); },
+          ),
+        ]),
+      ),
+      const SizedBox(height: 8),
+      Expanded(
+        child: troopId == null
+            ? const Center(child: Text('団情報が未登録です'))
+            : FutureBuilder<List<PerfectAttendance>>(
+                future: ref.read(attendanceRepositoryProvider)
+                    .getPerfectAttendance(troopId: troopId, year: _year),
+                builder: (context, snap) {
+                  if (snap.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snap.hasError) return Center(child: Text('エラー: ${snap.error}'));
+                  final list = snap.data ?? [];
+                  if (list.isEmpty) {
+                    return const Center(child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.emoji_events_outlined, size: 48, color: Colors.grey),
+                        SizedBox(height: 8),
+                        Text('皆勤賞に該当するスカウトはいません'),
+                      ],
+                    ));
+                  }
+                  return ListView.separated(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: list.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (_, i) {
+                      final p = list[i];
+                      final cs = Theme.of(context).colorScheme;
+                      return Card(child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        child: Row(children: [
+                          CircleAvatar(
+                            backgroundColor: const Color(0xFFFFD700).withAlpha(80),
+                            child: const Icon(Icons.emoji_events, color: Color(0xFFFFD700)),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(p.scoutName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                            const SizedBox(height: 2),
+                            Text('全${p.eventCount}イベント出席',
+                                style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                          ])),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFFFD700).withAlpha(50),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFFFFD700)),
+                            ),
+                            child: const Text('皆勤賞',
+                                style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+                                    color: Color(0xFF8B6914))),
+                          ),
+                        ]),
+                      ));
+                    },
+                  );
+                },
+              ),
+      ),
+    ]);
   }
 }
 

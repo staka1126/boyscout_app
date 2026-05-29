@@ -74,7 +74,8 @@ enum EventType {
 enum EventStatus {
   planned('planned', '予定'),
   ongoing('ongoing', '開催中'),
-  completed('completed', '完了');
+  completed('completed', '完了'),
+  cancelled('cancelled', '非開催');
 
   const EventStatus(this.value, this.label);
   final String value;

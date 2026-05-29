@@ -10,6 +10,7 @@ import '../../core/constants/app_constants.dart';
 final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
   if (troopId == null) return _DashboardData.empty();
+  final troop = await ref.read(troopRepositoryProvider).getFirst();
   final events = await ref.read(eventRepositoryProvider).getRecent(troopId);
   final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
   final rates = await ref.read(attendanceRepositoryProvider).getRates(troopId);
@@ -19,7 +20,7 @@ final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
       .length;
   double avgRate = 0;
   if (rates.isNotEmpty) avgRate = rates.values.reduce((a, b) => a + b) / rates.length;
-  return _DashboardData(events: events, scouts: scouts, thisMonthCount: thisMonthCount, avgAttendanceRate: avgRate);
+  return _DashboardData(events: events, scouts: scouts, thisMonthCount: thisMonthCount, avgAttendanceRate: avgRate, troopName: troop?.name);
 });
 
 class _DashboardData {
@@ -27,7 +28,8 @@ class _DashboardData {
   final List<Scout> scouts;
   final int thisMonthCount;
   final double avgAttendanceRate;
-  _DashboardData({required this.events, required this.scouts, required this.thisMonthCount, required this.avgAttendanceRate});
+  final String? troopName;
+  _DashboardData({required this.events, required this.scouts, required this.thisMonthCount, required this.avgAttendanceRate, this.troopName});
   factory _DashboardData.empty() => _DashboardData(events: [], scouts: [], thisMonthCount: 0, avgAttendanceRate: 0);
   int get pendingTwigScouts => scouts.where((s) => s.pendingTwigBadges > 0).length;
   int get activeScouts => scouts.where((s) => s.isActive && s.category.isDefaultAttendee).length;
@@ -43,7 +45,11 @@ class DashboardPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('ビーバー隊'),
+        title: async.when(
+          loading: () => const Text('ビーバー隊'),
+          error: (_, __) => const Text('ビーバー隊'),
+          data: (data) => Text(data.troopName != null ? '${data.troopName} ビーバー隊' : 'ビーバー隊'),
+        ),
         actions: [
           IconButton(icon: const Icon(Icons.refresh_outlined), onPressed: () => ref.invalidate(dashboardProvider)),
         ],
@@ -189,6 +195,9 @@ class _StatusChip extends StatelessWidget {
         bg = cs.primaryContainer;
         fg = cs.onPrimaryContainer;
       case EventStatus.planned:
+        bg = cs.surfaceContainerHighest;
+        fg = cs.onSurfaceVariant;
+      case EventStatus.cancelled:
         bg = cs.surfaceContainerHighest;
         fg = cs.onSurfaceVariant;
     }

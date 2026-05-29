@@ -21,6 +21,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
   final _phoneCtrl = TextEditingController();
   String? _gender;
   UserRole _role = UserRole.assistantLeader;
+  bool _isRetired = false;
   AppUser? _original;
   bool _saving = false;
 
@@ -42,6 +43,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
       _phoneCtrl.text = u.phone ?? '';
       _gender = u.gender;
       _role = u.role;
+      _isRetired = u.isRetired;
       setState(() {});
     }
   }
@@ -97,6 +99,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
           gender: _gender,
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
           role: _role,
+          isRetired: _isRetired,
         ));
       }
       if (mounted) context.pop();
@@ -158,6 +161,17 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
               onChanged: (v) => setState(() => _role = v!),
             ),
             const SizedBox(height: 32),
+            if (widget.userId != null) ...[
+              const SizedBox(height: 4),
+              SwitchListTile(
+                value: _isRetired,
+                onChanged: (v) => setState(() => _isRetired = v),
+                title: const Text('引退'),
+                subtitle: const Text('引退したリーダーは出席者追加の対象外になります'),
+                contentPadding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 16),
+            ],
             FilledButton(
               onPressed: _saving ? null : _save,
               child: _saving

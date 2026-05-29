@@ -158,8 +158,6 @@ class _EventCard extends StatelessWidget {
                     ]),
                     const SizedBox(height: 4),
                     Wrap(spacing: 8, children: [
-                      _meta(context, Icons.category_outlined,
-                          event.eventType.label),
                       if (event.location != null)
                         _meta(context, Icons.place_outlined, event.location!),
                       if (event.startTime != null)
@@ -200,6 +198,9 @@ class _EventCard extends StatelessWidget {
         bg = cs.primaryContainer;
         fg = cs.onPrimaryContainer;
       case EventStatus.planned:
+        bg = cs.surfaceContainerHighest;
+        fg = cs.onSurfaceVariant;
+      case EventStatus.cancelled:
         bg = cs.surfaceContainerHighest;
         fg = cs.onSurfaceVariant;
     }
