@@ -1,8 +1,8 @@
-# ビーバー隊 隊務管理アプリ 仕様書
+# ビーバーログ 仕様書
 
 ## 1. 目的
 
-ボーイスカウトのビーバー隊のリーダーが隊務の管理を行うためのアプリケーションです。
+ボーイスカウトのビーバー隊のリーダーが隊務の管理を行うためのアプリケーション「ビーバーログ」です。
 スカウトや活動、表彰の管理を行います。
 
 ## 2. 技術構成
@@ -26,8 +26,8 @@ BottomNavigationBar で以下の5タブを切り替える。
 | ホーム | `/dashboard` | ダッシュボード |
 | スカウト | `/scouts` | スカウト一覧・詳細・追加・編集 |
 | イベント | `/events` | イベント一覧・詳細・追加・編集 |
-| 表彰 | `/badges` | 入隊・小枝章・木の葉章 |
-| 設定 | `/settings` | 団情報・リーダー・保護者管理 |
+| 表彰 | `/badges` | 入隊・小枝章・木の葉章・皆勤賞 |
+| 設定 | `/settings` | 団情報・リーダー・スカウト・保護者・団委員ほか・イベント・表彰管理 |
 
 ## 4. 主要機能
 
@@ -66,20 +66,15 @@ BottomNavigationBar で以下の5タブを切り替える。
 - イベント追加FAB（右下）
 - イベント詳細：
   - ステータス選択（予定・開催中・完了の3ボタン）
-  - 基本情報（種別・日付・時間・場所・備考）
+  - 基本情報（日付・時間・場所・備考）
   - 木の葉章配布設定（5種別をON/OFFで設定）
   - 出欠管理（リーダー・スカウト・その他セクション）
   - 出席者追加FAB（右下、完了済みは非表示）
   - 編集・削除ボタン
 
 #### イベント種別
-| 値 | ラベル |
-|---|---|
-| group_meeting | 団集会 |
-| troop_meeting | 隊集会 |
-| camp | キャンプ |
-| service | 奉仕活動 |
-| other | その他 |
+
+DBには `event_type` カラムが存在するが、UI上は非表示。新規作成時は `other` を固定値として保存。
 
 #### イベントステータス
 | 値 | ラベル | 説明 |
@@ -96,7 +91,11 @@ BottomNavigationBar で以下の5タブを切り替える。
 
 #### 出欠管理
 - デフォルト出席者：登録リーダー全員・スカウト（デフォルト出席分類のみ）
-- 出席者追加：リーダー・スカウト・団委員・その他から選択
+- 出席者追加：リーダー・スカウト・保護者・団委員ほかの4タブから選択
+  - **リーダー**：引退者はデフォルト非表示。「すべて表示」オンで表示
+  - **スカウト**：上進・退団・入隊せずはデフォルト非表示。「すべて表示」オンで表示
+  - **保護者**：ビーバー・ビッグビーバーの保護者、および既に出席者リストに入っているスカウトの保護者のみデフォルト表示。「すべて表示」オンで全保護者を表示
+  - **団委員ほか**：引退者はデフォルト非表示。「すべて表示」オンで表示
 - 出席ステータス：出席（✓）・欠席（×）・未定（—）のアイコントグル
 - 出席者削除：確認ダイアログ付き（完了済みは不可）
 
@@ -105,7 +104,7 @@ BottomNavigationBar で以下の5タブを切り替える。
 - 各種別をON/OFFで設定（count = 1 or 0）
 - 完了後は編集不可
 
-### 4.4 表彰管理（3タブ）
+### 4.4 表彰管理（4タブ）
 
 #### 入隊タブ
 - 表示条件：ビーバーまたはビッグビーバー かつ 入隊日未入力
@@ -115,26 +114,63 @@ BottomNavigationBar で以下の5タブを切り替える。
 - 表示条件：ビーバー・ビッグビーバーかつ `pendingTwigBadges > 0`
 - 授与ボタン → 確認ダイアログ → `twig_badge_history` を awarded に更新・`twig_badges` +1
 - 分類が小枝章対象外の場合は表示しない（木の葉章データは保持）
+- 上進後にビーバーになった場合、蓄積分が一括表示される
 
 #### 木の葉章タブ
 - デフォルト出席対象スカウトを木の葉章合計降順で表示
 - 10枚ごとのプログレスバー
 
+#### 皆勤賞タブ
+- 対象：ビーバー・ビッグビーバーのみ
+- 期間：各年度 4/1〜翌3/31（年度ドロップダウンで過去5年度まで切り替え可能）
+- 条件：期間内の**完了済みイベントすべて**に `status = 'present'` で出席
+- 出席者リストに登録されていない場合は欠席扱い
+- 該当者がいない場合は「該当するスカウトはいません」と表示
+
 ### 4.5 設定
 
+設定画面の先頭に団名を表示。以下の7項目、各項目は一覧画面へ遷移。
+
+| 項目 | 遷移先 |
+|---|---|
+| 団情報 | `/settings/troop` |
+| リーダー管理 | `/settings/users` |
+| スカウト管理 | `/scouts` |
+| 保護者管理 | `/settings/guardians` |
+| 団委員ほか管理 | `/settings/committee` |
+| イベント管理 | `/events` |
+| 表彰管理 | `/badges` |
+
+スカウト管理・イベント管理・表彰管理の AppBar には「設定」へ戻るボタンを表示。
+
 #### 団情報
-- 団名・場所・連絡先・団コードの登録・編集
+- 団名・場所・連絡先の登録・編集（団コードなし）
 
 #### リーダー管理
-- リーダー一覧（氏名・種別・メールアドレス）
+- リーダー一覧（現役→引退の順、氏名・種別・メールアドレス）
 - 追加FAB・編集アイコン・削除アイコン
 - メールアドレスは必須・重複時はダイアログで通知
+- **引退フラグ**：編集画面でスイッチ切り替え。引退者はグレーアウト表示・出席者追加の対象外
+- 削除制約：出欠履歴がある場合は削除不可
+
+#### スカウト管理
+- `/scouts`（スカウト一覧）へ遷移
 - 削除制約：出欠履歴がある場合は削除不可
 
 #### 保護者管理
 - 保護者一覧（氏名・連絡先）
 - 追加FAB・編集アイコン・削除アイコン
 - 削除制約：スカウトと紐付いている場合は削除不可
+- 削除制約：出欠履歴がある場合は削除不可
+
+#### 団委員ほか管理
+- 団委員一覧（現役→引退の順、氏名・分類・連絡先）
+- 追加FAB・編集アイコン・削除アイコン
+- **引退フラグ**：編集画面でスイッチ切り替え。引退者はグレーアウト表示・出席者追加の対象外
+- 削除制約：出欠履歴がある場合は削除不可
+
+#### イベント管理・表彰管理
+- それぞれ `/events`・`/badges` へ遷移
 
 ## 5. データモデル（SQLite）
 
@@ -147,7 +183,6 @@ BottomNavigationBar で以下の5タブを切り替える。
 | name | TEXT NOT NULL | 団名 |
 | location | TEXT | 所在地 |
 | contact | TEXT | 連絡先 |
-| troop_code | TEXT UNIQUE | 団コード |
 | created_at | TEXT | 作成日時 |
 | updated_at | TEXT | 更新日時 |
 
@@ -162,6 +197,7 @@ BottomNavigationBar で以下の5タブを切り替える。
 | phone | TEXT | 電話番号 |
 | role | TEXT NOT NULL | leader / assistant_leader / support |
 | is_active | INTEGER DEFAULT 1 | 有効フラグ |
+| is_retired | INTEGER DEFAULT 0 | 引退フラグ |
 | created_at | TEXT | 作成日時 |
 | updated_at | TEXT | 更新日時 |
 
@@ -218,6 +254,7 @@ BottomNavigationBar で以下の5タブを切り替える。
 | category | TEXT NOT NULL | committee / other_leader / other_troop / ob / other |
 | email | TEXT | メールアドレス |
 | phone | TEXT | 電話番号 |
+| is_retired | INTEGER DEFAULT 0 | 引退フラグ |
 | created_at | TEXT | 作成日時 |
 | updated_at | TEXT | 更新日時 |
 
@@ -227,7 +264,7 @@ BottomNavigationBar で以下の5タブを切り替える。
 | id | TEXT PK | UUID |
 | troop_id | TEXT NOT NULL | FK → troops.id |
 | title | TEXT NOT NULL | タイトル |
-| event_type | TEXT NOT NULL | 種別 |
+| event_type | TEXT NOT NULL | 種別（UI非表示・固定値 `other`） |
 | status | TEXT DEFAULT 'planned' | planned / ongoing / completed |
 | event_date | TEXT NOT NULL | 開催日 |
 | location | TEXT | 場所 |
@@ -253,7 +290,7 @@ BottomNavigationBar で以下の5タブを切り替える。
 |---|---|---|
 | id | TEXT PK | UUID |
 | event_id | TEXT NOT NULL | FK → events.id |
-| member_type | TEXT NOT NULL | user / scout / committee / other |
+| member_type | TEXT NOT NULL | user / scout / guardian / committee / other |
 | member_id | TEXT | メンバーID（other は NULL） |
 | member_name | TEXT NOT NULL | 氏名 |
 | status | TEXT DEFAULT 'pending' | present / absent / pending |
@@ -274,13 +311,23 @@ BottomNavigationBar で以下の5タブを切り替える。
 | created_at | TEXT | 作成日時 |
 | updated_at | TEXT | 更新日時 |
 
-### 5.2 削除制約まとめ
+### 5.2 DBスキーマ変更履歴（ALTER TABLE）
+
+既存DBへの追加が必要なカラム：
+
+```sql
+ALTER TABLE users ADD COLUMN is_retired INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE committee_members ADD COLUMN is_retired INTEGER NOT NULL DEFAULT 0;
+```
+
+### 5.3 削除制約まとめ
 
 | 対象 | 削除不可条件 |
 |---|---|
-| リーダー | attendances に記録がある |
-| スカウト | attendances または scout_guardians に記録がある |
-| 保護者 | scout_guardians に記録がある |
+| リーダー | attendances に記録がある（member_type='user'） |
+| スカウト | attendances に記録がある（member_type='scout'）または scout_guardians に記録がある |
+| 保護者 | scout_guardians に記録がある、または attendances に記録がある（member_type='guardian'） |
+| 団委員 | attendances に記録がある（member_type='committee'） |
 | イベント | status = completed または attendances が空でない |
 
 ## 6. 状態管理・Provider
@@ -295,7 +342,7 @@ BottomNavigationBar で以下の5タブを切り替える。
 | `scoutsProvider` | スカウト一覧（public） |
 | `badgesProvider` | 表彰データ（public） |
 
-画面間のデータ更新は `ref.invalidate()` で行う。  
+画面間のデータ更新は `ref.invalidate()` で行う。
 `push` + `await` で戻ったタイミングに invalidate するパターンを統一。
 
 ## 7. ビジネスロジック
@@ -315,3 +362,27 @@ BottomNavigationBar で以下の5タブを切り替える。
 ### 小枝章授与時
 1. `twig_badge_history` の pending レコードを awarded に更新
 2. `scouts.twig_badges += 1`
+
+### 出席率の計算
+
+`AttendanceRepository.getRates()` で算出。
+
+```
+出席率 = 出席数 / (出席数 + 欠席数)
+```
+
+- **分子**：`status = 'present'`（出席）の件数
+- **分母**：`status IN ('present', 'absent')`（出席 + 欠席）の件数
+- **「未定」は分母に含まない**（未入力は計算対象外）
+- **対象**：リーダー・スカウトのみ（`member_type IN ('user', 'scout')`）
+- **ダッシュボードの平均出席率**：全メンバーの出席率を平均した値
+
+### 皆勤賞判定
+
+`AttendanceRepository.getPerfectAttendance({troopId, year})` で算出。
+
+- **対象**：ビーバー・ビッグビーバー（`is_active = 1`）
+- **期間**：`year/4/1` 〜 `(year+1)/3/31`
+- **条件**：期間内の完了済みイベント（`status = 'completed'`）すべてに `status = 'present'` で出席
+- **欠席扱い**：出席者リストに登録されていない場合も欠席とみなす
+- **完了済みイベントが0件の場合**：対象者なしとして空リストを返す
