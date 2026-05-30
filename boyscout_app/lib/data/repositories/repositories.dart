@@ -161,11 +161,12 @@ class ScoutRepository {
         [count, DateTime.now().toIso8601String(), scoutId]);
   }
 
-  Future<void> incrementTwigBadge(String scoutId) async {
+  /// 小枝章をN本加算する
+  Future<void> addTwigBadges(String scoutId, int count) async {
     final db = await _db.database;
     await db.rawUpdate(
-        'UPDATE scouts SET twig_badges = twig_badges + 1, updated_at = ? WHERE id = ?',
-        [DateTime.now().toIso8601String(), scoutId]);
+        'UPDATE scouts SET twig_badges = twig_badges + ?, updated_at = ? WHERE id = ?',
+        [count, DateTime.now().toIso8601String(), scoutId]);
   }
 }
 
@@ -503,7 +504,7 @@ class TwigBadgeRepository {
         where: 'id = ?', whereArgs: [id]);
   }
 
-  /// イベントで生成した小枝章履歴を削除（完了取り消し時）
+  /// イベントで生成した小枝章履歴を削除（確定取り消し時）
   Future<void> deleteByEvent(String eventId) async {
     final db = await _db.database;
     await db.delete('twig_badge_history', where: 'event_id = ?', whereArgs: [eventId]);

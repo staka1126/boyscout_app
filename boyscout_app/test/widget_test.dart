@@ -35,7 +35,6 @@ Scout _makeScout({
   );
 }
 
-// シンプルなウィジェットをProviderScopeでラップするヘルパー
 Widget _wrap(Widget child, {List<Override> overrides = const []}) {
   return ProviderScope(
     overrides: overrides,
@@ -43,7 +42,7 @@ Widget _wrap(Widget child, {List<Override> overrides = const []}) {
   );
 }
 
-// ─── _GenderRadio風のテスト用ウィジェット ─────────────────────
+// ─── 性別ラジオボタンのテスト用ウィジェット ───────────────────
 
 class _GenderRadioTest extends StatefulWidget {
   final String? initial;
@@ -89,6 +88,40 @@ class _GenderRadioTestState extends State<_GenderRadioTest> {
   }
 }
 
+// ─── 小枝章授与ダイアログのテスト用ウィジェット ───────────────
+
+class _TwigAwardDialogTest extends StatelessWidget {
+  final Scout scout;
+  final int pendingCount;
+  const _TwigAwardDialogTest({required this.scout, required this.pendingCount});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Builder(builder: (ctx) => FilledButton(
+        onPressed: () => showDialog(
+          context: ctx,
+          builder: (dlgCtx) => AlertDialog(
+            title: const Text('小枝章を授与'),
+            content: Text('${scout.name} に小枝章を ${pendingCount}本 授与しますか？'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dlgCtx).pop(false),
+                child: const Text('キャンセル'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.of(dlgCtx).pop(true),
+                child: const Text('授与する'),
+              ),
+            ],
+          ),
+        ),
+        child: const Text('授与'),
+      )),
+    );
+  }
+}
+
 // ─── テスト ───────────────────────────────────────────────────
 
 void main() {
@@ -108,6 +141,13 @@ void main() {
       )));
       expect(find.text('selected:male'), findsNothing);
       expect(find.text('selected:female'), findsNothing);
+    });
+
+    testWidgets('デフォルト male を渡すと男性が選択済みになる', (tester) async {
+      await tester.pumpWidget(_wrap(const Scaffold(
+        body: _GenderRadioTest(initial: 'male'),
+      )));
+      expect(find.text('selected:male'), findsOneWidget);
     });
 
     testWidgets('男性をタップすると選択される', (tester) async {
@@ -177,7 +217,7 @@ void main() {
 
   // ─── イベントステータスチップ ──────────────────────────────
   group('イベントステータス表示', () {
-    Widget _statusChip(EventStatus status) {
+    Widget statusChip(EventStatus status) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
@@ -190,21 +230,21 @@ void main() {
 
     testWidgets('予定ステータスのラベルが表示される', (tester) async {
       await tester.pumpWidget(_wrap(Scaffold(
-        body: _statusChip(EventStatus.planned),
+        body: statusChip(EventStatus.planned),
       )));
       expect(find.text('予定'), findsOneWidget);
     });
 
-    testWidgets('完了ステータスのラベルが表示される', (tester) async {
+    testWidgets('確定ステータスのラベルが表示される', (tester) async {
       await tester.pumpWidget(_wrap(Scaffold(
-        body: _statusChip(EventStatus.completed),
+        body: statusChip(EventStatus.completed),
       )));
-      expect(find.text('完了'), findsOneWidget);
+      expect(find.text('確定'), findsOneWidget);
     });
 
     testWidgets('非開催ステータスのラベルが表示される', (tester) async {
       await tester.pumpWidget(_wrap(Scaffold(
-        body: _statusChip(EventStatus.cancelled),
+        body: statusChip(EventStatus.cancelled),
       )));
       expect(find.text('非開催'), findsOneWidget);
     });
@@ -218,10 +258,7 @@ void main() {
 
       await tester.pumpWidget(_wrap(Scaffold(
         body: pending > 0
-            ? FilledButton(
-                onPressed: () {},
-                child: const Text('授与'),
-              )
+            ? FilledButton(onPressed: () {}, child: const Text('授与'))
             : const Text('授与待ちなし'),
       )));
       expect(find.text('授与'), findsOneWidget);
@@ -233,14 +270,75 @@ void main() {
 
       await tester.pumpWidget(_wrap(Scaffold(
         body: pending > 0
-            ? FilledButton(
-                onPressed: () {},
-                child: const Text('授与'),
-              )
+            ? FilledButton(onPressed: () {}, child: const Text('授与'))
             : const Text('授与待ちなし'),
       )));
       expect(find.text('授与待ちなし'), findsOneWidget);
       expect(find.text('授与'), findsNothing);
+    });
+  });
+
+  // ─── 小枝章 N本授与ダイアログ ─────────────────────────────
+  group('小枝章 N本授与ダイアログ', () {
+    testWidgets('1本授与待ちのときダイアログに「1本」と表示される', (tester) async {
+      final scout = _makeScout(name: '田中 花子', leafBadges: 10, twigBadges: 0);
+      final pending = scout.pendingTwigBadges; // 1
+
+      await tester.pumpWidget(_wrap(_TwigAwardDialogTest(
+        scout: scout,
+        pendingCount: pending,
+      )));
+      await tester.tap(find.text('授与'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('小枝章を授与'), findsOneWidget);
+      expect(find.textContaining('1本'), findsOneWidget);
+      expect(find.textContaining('田中 花子'), findsOneWidget);
+    });
+
+    testWidgets('3本授与待ちのときダイアログに「3本」と表示される', (tester) async {
+      final scout = _makeScout(name: '鈴木 一郎', leafBadges: 30, twigBadges: 0);
+      final pending = scout.pendingTwigBadges; // 3
+
+      await tester.pumpWidget(_wrap(_TwigAwardDialogTest(
+        scout: scout,
+        pendingCount: pending,
+      )));
+      await tester.tap(find.text('授与'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('3本'), findsOneWidget);
+    });
+
+    testWidgets('2本授与待ちのときダイアログに「2本」と表示される', (tester) async {
+      // 30枚取得・1本授与済み → 2本待ち
+      final scout = _makeScout(name: '佐藤 次郎', leafBadges: 30, twigBadges: 1);
+      final pending = scout.pendingTwigBadges; // 2
+
+      await tester.pumpWidget(_wrap(_TwigAwardDialogTest(
+        scout: scout,
+        pendingCount: pending,
+      )));
+      await tester.tap(find.text('授与'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('2本'), findsOneWidget);
+    });
+
+    testWidgets('キャンセルでダイアログが閉じる', (tester) async {
+      final scout = _makeScout(leafBadges: 10, twigBadges: 0);
+
+      await tester.pumpWidget(_wrap(_TwigAwardDialogTest(
+        scout: scout,
+        pendingCount: scout.pendingTwigBadges,
+      )));
+      await tester.tap(find.text('授与'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('小枝章を授与'), findsOneWidget);
+      await tester.tap(find.text('キャンセル'));
+      await tester.pumpAndSettle();
+      expect(find.text('小枝章を授与'), findsNothing);
     });
   });
 

@@ -120,9 +120,7 @@ class _PerfectAttendanceTabState extends ConsumerState<_PerfectAttendanceTab> {
   void initState() {
     super.initState();
     final now = DateTime.now();
-    // 現在の年度（4月始まり）
     _year = now.month >= 4 ? now.year : now.year - 1;
-    // 過去5年度分を選択肢に
     _years = List.generate(5, (i) => _year - i);
   }
 
@@ -130,7 +128,6 @@ class _PerfectAttendanceTabState extends ConsumerState<_PerfectAttendanceTab> {
   Widget build(BuildContext context) {
     final troopId = ref.watch(currentTroopIdProvider);
     return Column(children: [
-      // 年度選択
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
         child: Row(children: [
@@ -301,7 +298,7 @@ class _TwigBadgeTab extends ConsumerWidget {
             FilledButton(
               style: FilledButton.styleFrom(minimumSize: const Size(0, 36),
                   padding: const EdgeInsets.symmetric(horizontal: 14)),
-              onPressed: () => _awardTwig(context, ref, p.scout),
+              onPressed: () => _awardTwig(context, ref, p.scout, p.count),
               child: const Text('授与'),
             ),
           ]),
@@ -310,11 +307,11 @@ class _TwigBadgeTab extends ConsumerWidget {
     );
   }
 
-  Future<void> _awardTwig(BuildContext context, WidgetRef ref, Scout scout) async {
+  Future<void> _awardTwig(BuildContext context, WidgetRef ref, Scout scout, int count) async {
     final ok = await showDialog<bool>(context: context,
       builder: (dlgCtx) => AlertDialog(
         title: const Text('小枝章を授与'),
-        content: Text('${scout.name} に小枝章を ${scout.pendingTwigBadges}本 授与しますか？'),
+        content: Text('${scout.name} に小枝章を ${count}本 授与しますか？'),
         actions: [
           TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
           FilledButton(onPressed: () => Navigator.of(dlgCtx).pop(true), child: const Text('授与する')),
@@ -323,11 +320,13 @@ class _TwigBadgeTab extends ConsumerWidget {
     if (ok != true) return;
     final scoutRepo = ref.read(scoutRepositoryProvider);
     final twigRepo = ref.read(twigBadgeRepositoryProvider);
+    // pending の twig_badge_history を全件 awarded に更新
     final history = await twigRepo.getByScout(scout.id);
     for (final h in history.where((h) => !h.isAwarded)) {
       await twigRepo.markAwarded(h.id);
     }
-    await scoutRepo.incrementTwigBadge(scout.id);
+    // 授与待ち本数分まとめて加算
+    await scoutRepo.addTwigBadges(scout.id, count);
     ref.invalidate(dashboardProvider);
     onRefresh();
   }

@@ -77,6 +77,58 @@ void main() {
       final scout = _makeScout(leafBadges: 20, twigBadges: 2);
       expect(scout.pendingTwigBadges, 0);
     });
+
+    test('30枚で3本授与待ち（0本授与済み）', () {
+      final scout = _makeScout(leafBadges: 30, twigBadges: 0);
+      expect(scout.pendingTwigBadges, 3);
+    });
+
+    test('30枚で1本授与待ち（2本授与済み）', () {
+      final scout = _makeScout(leafBadges: 30, twigBadges: 2);
+      expect(scout.pendingTwigBadges, 1);
+    });
+  });
+
+  // ─── 小枝章 N本まとめて授与のロジック ─────────────────────
+  group('小枝章 N本まとめて授与', () {
+    test('授与後に twigBadges が pendingTwigBadges 分増加する', () {
+      // 30枚取得・0本授与済み → 3本待ち
+      final before = _makeScout(leafBadges: 30, twigBadges: 0);
+      expect(before.pendingTwigBadges, 3);
+
+      // N本授与後の状態をモデルで再現（DB更新後のスカウト）
+      final after = _makeScout(leafBadges: 30, twigBadges: before.twigBadges + before.pendingTwigBadges);
+      expect(after.twigBadges, 3);
+      expect(after.pendingTwigBadges, 0);
+    });
+
+    test('1本授与済みの状態から残り2本を授与すると合計3本になる', () {
+      final before = _makeScout(leafBadges: 30, twigBadges: 1);
+      expect(before.pendingTwigBadges, 2);
+
+      final after = _makeScout(leafBadges: 30, twigBadges: before.twigBadges + before.pendingTwigBadges);
+      expect(after.twigBadges, 3);
+      expect(after.pendingTwigBadges, 0);
+    });
+
+    test('1本待ちの場合は授与後に1本増加する', () {
+      final before = _makeScout(leafBadges: 10, twigBadges: 0);
+      expect(before.pendingTwigBadges, 1);
+
+      final after = _makeScout(leafBadges: 10, twigBadges: before.twigBadges + before.pendingTwigBadges);
+      expect(after.twigBadges, 1);
+      expect(after.pendingTwigBadges, 0);
+    });
+
+    test('授与後に pendingTwigBadges が必ず 0 になる', () {
+      for (final leafBadges in [10, 20, 30, 45, 100]) {
+        final before = _makeScout(leafBadges: leafBadges, twigBadges: 0);
+        final pending = before.pendingTwigBadges;
+        final after = _makeScout(leafBadges: leafBadges, twigBadges: before.twigBadges + pending);
+        expect(after.pendingTwigBadges, 0,
+            reason: 'leafBadges=$leafBadges のとき授与後に pending が残ってはいけない');
+      }
+    });
   });
 
   // ─── Scout.isTwigBadgeEligible ─────────────────────────────
@@ -113,6 +165,21 @@ void main() {
 
     test('不明な値は planned にフォールバック', () {
       expect(EventStatus.fromValue('unknown'), EventStatus.planned);
+    });
+  });
+
+  // ─── EventStatus.label ─────────────────────────────────────
+  group('EventStatus.label', () {
+    test('planned のラベルは「予定」', () {
+      expect(EventStatus.planned.label, '予定');
+    });
+
+    test('completed のラベルは「確定」', () {
+      expect(EventStatus.completed.label, '確定');
+    });
+
+    test('cancelled のラベルは「非開催」', () {
+      expect(EventStatus.cancelled.label, '非開催');
     });
   });
 

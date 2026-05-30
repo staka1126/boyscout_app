@@ -211,7 +211,6 @@ class ScoutDetailPage extends ConsumerWidget {
       ])));
   }
 
-  // 保護者紐付けシート
   Future<void> _showLinkSheet(BuildContext context, WidgetRef ref,
       Scout scout, List<Guardian> linked) async {
     await showModalBottomSheet(
@@ -223,7 +222,6 @@ class ScoutDetailPage extends ConsumerWidget {
     ref.invalidate(_scoutDetailProvider(id));
   }
 
-  // 紐付け解除確認
   Future<void> _confirmUnlink(BuildContext context, WidgetRef ref,
       Scout scout, Guardian guardian) async {
     final ok = await showDialog<bool>(context: context,
@@ -321,7 +319,7 @@ class _LinkGuardianSheetState extends ConsumerState<_LinkGuardianSheet> {
           if (_all == null)
             const Center(child: CircularProgressIndicator())
           else if (unlinked.isEmpty)
-            const Expanded(child: Center(child: Text('紐付け可能な保護者がいません')))
+            const Expanded(child: Center(child: Text('紐付け可能な保護者がいません\n設定 › 保護者管理から先に保護者を登録してください')))
           else
             Expanded(child: ListView.builder(
               controller: controller,
@@ -343,16 +341,6 @@ class _LinkGuardianSheetState extends ConsumerState<_LinkGuardianSheet> {
                   trailing: const Icon(Icons.link),
                   onTap: () => _link(g),
                 );
-              },
-            )),
-          const SizedBox(height: 8),
-          SizedBox(width: double.infinity,
-            child: OutlinedButton.icon(
-              icon: const Icon(Icons.person_add_outlined, size: 16),
-              label: const Text('新しい保護者を追加して紐付け'),
-              onPressed: () {
-                Navigator.pop(context);
-                // 保護者追加は settings/guardians/new から行う
               },
             )),
           const SizedBox(height: 8),
