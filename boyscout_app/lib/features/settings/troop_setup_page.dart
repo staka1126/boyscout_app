@@ -41,7 +41,6 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
-
     try {
       final troop = await ref.read(troopRepositoryProvider).upsert(
         id: _existing?.id,
@@ -52,38 +51,26 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('troop_id', troop.id);
       ref.read(currentTroopIdProvider.notifier).state = troop.id;
-
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('保存しました')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存しました')));
         if (_existing == null) {
-          // 初回登録時は次のステップをダイアログで案内
           await showDialog(
             context: context,
             barrierDismissible: false,
             builder: (dlgCtx) => AlertDialog(
               title: const Text('団情報を登録しました'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('次に以下を登録してください。'),
-                  const SizedBox(height: 16),
-                  _bulletRow('リーダーを１名以上登録'),
-                  const SizedBox(height: 6),
-                  _bulletRow('スカウトを１名以上登録'),
-                  const SizedBox(height: 12),
-                  Text('リーダー・スカウトが揃うとイベントを作成できます。',
-                      style: TextStyle(
-                          fontSize: 12,
-                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                ],
-              ),
+              content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('次に以下を登録してください。'),
+                const SizedBox(height: 16),
+                _bulletRow('リーダーを１名以上登録'),
+                const SizedBox(height: 6),
+                _bulletRow('スカウトを１名以上登録'),
+                const SizedBox(height: 12),
+                Text('リーダー・スカウトが揃うとイベントを作成できます。',
+                    style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              ]),
               actions: [
-                FilledButton(
-                  onPressed: () => Navigator.of(dlgCtx).pop(),
-                  child: const Text('わかりました'),
-                ),
+                FilledButton(onPressed: () => Navigator.of(dlgCtx).pop(), child: const Text('わかりました')),
               ],
             ),
           );
@@ -93,9 +80,7 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
         }
       }
     } catch (e) {
-      if (mounted)
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('保存失敗: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存失敗: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -104,7 +89,18 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('団情報')),
+      appBar: AppBar(
+        title: const Text('団情報'),
+        actions: [
+          if (_saving)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+            )
+          else
+            IconButton(icon: const Icon(Icons.save_outlined), tooltip: '保存', onPressed: _save),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -113,32 +109,20 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
             TextFormField(
               controller: _nameCtrl,
               decoration: const InputDecoration(labelText: '団名 *'),
-              validator: (v) =>
-                  (v == null || v.trim().isEmpty) ? '必須です' : null,
+              validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _locationCtrl,
-              decoration: const InputDecoration(
-                  labelText: '所在地', prefixIcon: Icon(Icons.place_outlined)),
+              decoration: const InputDecoration(labelText: '所在地', prefixIcon: Icon(Icons.place_outlined)),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _contactCtrl,
-              decoration: const InputDecoration(
-                  labelText: '連絡先', prefixIcon: Icon(Icons.phone_outlined)),
+              decoration: const InputDecoration(labelText: '連絡先', prefixIcon: Icon(Icons.phone_outlined)),
               keyboardType: TextInputType.phone,
             ),
-            const SizedBox(height: 32),
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(
-                      height: 20, width: 20,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white))
-                  : const Text('保存する'),
-            ),
+            const SizedBox(height: 16),
           ]),
         ),
       ),

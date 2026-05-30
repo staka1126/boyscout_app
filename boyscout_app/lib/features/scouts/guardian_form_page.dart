@@ -20,7 +20,7 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
   final _firstNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  String? _gender;
+  String? _gender = 'male';
   String? _relationship;
   bool _saving = false;
   Guardian? _original;
@@ -76,6 +76,10 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
         ) ?? false;
   }
 
+  Future<void> _onBack() async {
+    if (await _confirmDiscard() && mounted) context.pop();
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
@@ -84,15 +88,13 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
       Guardian g;
       if (_original == null) {
         g = await repo.create(
-          name: _fullName,
-          gender: _gender,
+          name: _fullName, gender: _gender,
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         );
       } else {
         g = _original!.copyWith(
-          name: _fullName,
-          gender: _gender,
+          name: _fullName, gender: _gender,
           email: _emailCtrl.text.trim().isEmpty ? null : _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         );
@@ -118,7 +120,19 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
         if (await _confirmDiscard() && context.mounted) context.pop();
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(widget.guardianId == null ? '保護者追加' : '保護者編集')),
+        appBar: AppBar(
+          title: Text(widget.guardianId == null ? '保護者追加' : '保護者編集'),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _onBack),
+          actions: [
+            if (_saving)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else
+              IconButton(icon: const Icon(Icons.save_outlined), tooltip: '保存', onPressed: _save),
+          ],
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Form(
@@ -164,14 +178,7 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
                   onChanged: (v) => setState(() => _relationship = v),
                 ),
               ],
-              const SizedBox(height: 32),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(height: 20, width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('保存する'),
-              ),
+              const SizedBox(height: 16),
             ]),
           ),
         ),
@@ -196,8 +203,7 @@ class _GenderRadio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('性別', style: Theme.of(context).textTheme.bodySmall
-          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      Text('性別', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       Row(children: [
         Radio<String>(value: 'male', groupValue: value, onChanged: onChanged),
         const Text('男性'),

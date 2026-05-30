@@ -36,7 +36,6 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
     if (widget.eventId != null) {
       _load();
     } else {
-      // 新規作成時のデフォルト時間
       _startTime = const TimeOfDay(hour: 9, minute: 30);
       _endTime = const TimeOfDay(hour: 12, minute: 0);
     }
@@ -54,18 +53,15 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
         _eventDate = e.eventDate;
         if (e.startTime != null) {
           final parts = e.startTime!.split(':');
-          _startTime = TimeOfDay(
-              hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+          _startTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
         }
         if (e.endTime != null) {
           final parts = e.endTime!.split(':');
-          _endTime = TimeOfDay(
-              hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+          _endTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
         }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('読み込み失敗: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('読み込み失敗: $e')));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -77,23 +73,18 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     if (_eventDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('開催日を選択してください')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('開催日を選択してください')));
       return;
     }
-
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('先に設定から団情報を登録してください')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('先に設定から団情報を登録してください')));
       return;
     }
-
     setState(() => _saving = true);
     try {
       final eventRepo = ref.read(eventRepositoryProvider);
       Event saved;
-
       if (_original == null) {
         saved = await eventRepo.create(
           troopId: troopId,
@@ -105,15 +96,10 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
           endTime: _endTime != null ? _fmtTime(_endTime!) : null,
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
         );
-
         try {
           final users = await ref.read(userRepositoryProvider).getByTroop(troopId);
           final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
-          await ref.read(attendanceRepositoryProvider).createDefaults(
-                eventId: saved.id,
-                users: users,
-                scouts: scouts,
-              );
+          await ref.read(attendanceRepositoryProvider).createDefaults(eventId: saved.id, users: users, scouts: scouts);
         } catch (e) {
           debugPrint('出席者自動生成エラー（無視）: $e');
         }
@@ -129,17 +115,14 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
         await eventRepo.update(updated);
         saved = updated;
       }
-
       if (mounted) {
-        // ダッシュボードとイベント一覧を更新
         ref.invalidate(dashboardProvider);
         ref.invalidate(eventsProvider);
         context.pop();
       }
     } catch (e, st) {
       debugPrint('イベント保存エラー: $e\n$st');
-      if (mounted) ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('保存失敗: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存失敗: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -151,129 +134,104 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
     final troopId = ref.watch(currentTroopIdProvider);
 
     return Scaffold(
-      appBar: AppBar(title: Text(isNew ? 'イベント追加' : 'イベント編集')),
+      appBar: AppBar(
+        title: Text(isNew ? 'イベント追加' : 'イベント編集'),
+        actions: [
+          if (troopId != null)
+            if (_saving)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else
+              IconButton(icon: const Icon(Icons.save_outlined), tooltip: '保存', onPressed: _save),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : troopId == null
               ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.warning_amber_outlined,
-                          size: 48, color: Colors.orange),
-                      const SizedBox(height: 12),
-                      const Text('先に団情報を登録してください'),
-                      const SizedBox(height: 16),
-                      FilledButton(
-                        onPressed: () => context.go('/settings/troop'),
-                        child: const Text('団情報を登録する'),
-                      ),
-                    ],
-                  ),
+                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    const Icon(Icons.warning_amber_outlined, size: 48, color: Colors.orange),
+                    const SizedBox(height: 12),
+                    const Text('先に団情報を登録してください'),
+                    const SizedBox(height: 16),
+                    FilledButton(onPressed: () => context.go('/settings/troop'), child: const Text('団情報を登録する')),
+                  ]),
                 )
               : SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
                   child: Form(
                     key: _formKey,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextFormField(
-                          controller: _titleCtrl,
-                          decoration: const InputDecoration(labelText: 'タイトル *'),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty) ? '必須です' : null,
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                      TextFormField(
+                        controller: _titleCtrl,
+                        decoration: const InputDecoration(labelText: 'タイトル *'),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                      ),
+                      const SizedBox(height: 12),
+                      InkWell(
+                        onTap: () async {
+                          final d = await showDatePicker(
+                            context: context,
+                            initialDate: _eventDate ?? DateTime.now(),
+                            firstDate: DateTime(2000), lastDate: DateTime(2100),
+                          );
+                          if (d != null) setState(() => _eventDate = d);
+                        },
+                        child: InputDecorator(
+                          decoration: const InputDecoration(labelText: '開催日 *'),
+                          child: Text(
+                            _eventDate != null ? DateFormat('yyyy/MM/dd (E)', 'ja').format(_eventDate!) : '日付を選択',
+                            style: TextStyle(color: _eventDate != null ? null : Theme.of(context).colorScheme.onSurfaceVariant),
+                          ),
                         ),
-                        const SizedBox(height: 12),
-                        InkWell(
-                          onTap: () async {
-                            final d = await showDatePicker(
-                              context: context,
-                              initialDate: _eventDate ?? DateTime.now(),
-                              firstDate: DateTime(2000),
-                              lastDate: DateTime(2100),
-                            );
-                            if (d != null) setState(() => _eventDate = d);
-                          },
-                          child: InputDecorator(
-                            decoration: const InputDecoration(labelText: '開催日 *'),
-                            child: Text(
-                              _eventDate != null
-                                  ? DateFormat('yyyy/MM/dd (E)', 'ja').format(_eventDate!)
-                                  : '日付を選択',
-                              style: TextStyle(
-                                  color: _eventDate != null
-                                      ? null
-                                      : Theme.of(context).colorScheme.onSurfaceVariant),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(children: [
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final t = await showTimePicker(
+                                context: context, initialTime: _startTime ?? const TimeOfDay(hour: 10, minute: 0),
+                              );
+                              if (t != null) setState(() => _startTime = t);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: '開始時間'),
+                              child: Text(_startTime != null ? _fmtTime(_startTime!) : '選択'),
                             ),
                           ),
                         ),
-                        const SizedBox(height: 12),
-                        Row(children: [
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final t = await showTimePicker(
-                                  context: context,
-                                  initialTime: _startTime ??
-                                      const TimeOfDay(hour: 10, minute: 0),
-                                );
-                                if (t != null) setState(() => _startTime = t);
-                              },
-                              child: InputDecorator(
-                                decoration: const InputDecoration(labelText: '開始時間'),
-                                child: Text(_startTime != null
-                                    ? _fmtTime(_startTime!)
-                                    : '選択'),
-                              ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: InkWell(
+                            onTap: () async {
+                              final t = await showTimePicker(
+                                context: context, initialTime: _endTime ?? const TimeOfDay(hour: 12, minute: 0),
+                              );
+                              if (t != null) setState(() => _endTime = t);
+                            },
+                            child: InputDecorator(
+                              decoration: const InputDecoration(labelText: '終了時間'),
+                              child: Text(_endTime != null ? _fmtTime(_endTime!) : '選択'),
                             ),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: InkWell(
-                              onTap: () async {
-                                final t = await showTimePicker(
-                                  context: context,
-                                  initialTime: _endTime ??
-                                      const TimeOfDay(hour: 12, minute: 0),
-                                );
-                                if (t != null) setState(() => _endTime = t);
-                              },
-                              child: InputDecorator(
-                                decoration: const InputDecoration(labelText: '終了時間'),
-                                child: Text(_endTime != null
-                                    ? _fmtTime(_endTime!)
-                                    : '選択'),
-                              ),
-                            ),
-                          ),
-                        ]),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _locationCtrl,
-                          decoration: const InputDecoration(
-                              labelText: '場所',
-                              prefixIcon: Icon(Icons.place_outlined)),
                         ),
-                        const SizedBox(height: 12),
-                        TextFormField(
-                          controller: _notesCtrl,
-                          decoration: const InputDecoration(labelText: '備考'),
-                          maxLines: 3,
-                        ),
-                        const SizedBox(height: 32),
-                        FilledButton(
-                          onPressed: _saving ? null : _save,
-                          child: _saving
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2, color: Colors.white))
-                              : Text(isNew ? '追加する' : '保存する'),
-                        ),
-                      ],
-                    ),
+                      ]),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _locationCtrl,
+                        decoration: const InputDecoration(labelText: '場所', prefixIcon: Icon(Icons.place_outlined)),
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _notesCtrl,
+                        decoration: const InputDecoration(labelText: '備考'),
+                        maxLines: 3,
+                      ),
+                      const SizedBox(height: 16),
+                    ]),
                   ),
                 ),
     );

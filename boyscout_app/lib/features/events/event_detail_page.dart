@@ -177,7 +177,7 @@ class EventDetailPage extends ConsumerWidget {
     if (newStatus == EventStatus.cancelled) {
       if (event.status == EventStatus.completed) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('完了済みイベントは非開催に変更できません')));
+            const SnackBar(content: Text('確定済みイベントは非開催に変更できません')));
         return;
       }
       await ref.read(eventRepositoryProvider).update(event.copyWith(status: newStatus));
@@ -187,7 +187,7 @@ class EventDetailPage extends ConsumerWidget {
     if (event.status == EventStatus.completed) {
       final ok = await showDialog<bool>(context: context,
         builder: (dlgCtx) => AlertDialog(
-          title: const Text('完了を取り消す'),
+          title: const Text('確定を取り消す'),
           content: const Text('このイベントで反映された木の葉章を取り消します。\nよろしいですか？'),
           actions: [
             TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
@@ -244,7 +244,7 @@ class EventDetailPage extends ConsumerWidget {
     final canDel = await ref.read(eventRepositoryProvider).canDelete(event.id);
     if (!context.mounted) return;
     if (!canDel) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('完了済みまたは出席情報があるため削除できません')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('確定済みまたは出席情報があるため削除できません')));
       return;
     }
     final ok = await showDialog<bool>(context: context,
@@ -267,11 +267,11 @@ class EventDetailPage extends ConsumerWidget {
   Future<void> _confirmComplete(BuildContext context, WidgetRef ref, Event event) async {
     final ok = await showDialog<bool>(context: context,
       builder: (dlgCtx) => AlertDialog(
-        title: const Text('イベントを完了にする'),
-        content: const Text('完了にすると木の葉章が各スカウトに反映されます。\nよろしいですか？'),
+        title: const Text('イベントを確定にする'),
+        content: const Text('確定にすると木の葉章が各スカウトに反映されます。\nよろしいですか？'),
         actions: [
           TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
-          FilledButton(onPressed: () => Navigator.of(dlgCtx).pop(true), child: const Text('完了にする')),
+          FilledButton(onPressed: () => Navigator.of(dlgCtx).pop(true), child: const Text('確定にする')),
         ],
       ));
     if (ok != true || !context.mounted) return;
@@ -302,7 +302,7 @@ class EventDetailPage extends ConsumerWidget {
 
     if (context.mounted) {
       _invalidateAll(ref);
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('イベントを完了にしました')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('イベントを確定にしました')));
     }
   }
 

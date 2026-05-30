@@ -214,7 +214,7 @@ class _EventListTile extends StatelessWidget {
       leading: _DateBadge(date: event.eventDate),
       title: Text(event.title, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
       subtitle: Text(
-        [event.eventType.label, if (event.location != null) event.location!, if (event.startTime != null) event.startTime!].join(' · '),
+        [if (event.location != null) event.location!, if (event.startTime != null) event.startTime!].join(' · '),
         style: const TextStyle(fontSize: 12)),
       trailing: _StatusChip(status: event.status),
       onTap: () => context.go('/events/${event.id}'),

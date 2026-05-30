@@ -172,7 +172,7 @@ class _EventsPageState extends ConsumerState<EventsPage> {
                     ),
                   ]),
                   const SizedBox(height: 4),
-                  Text('実施${yearFiltered.where((e) => e.status == EventStatus.completed).length}件　予定${yearFiltered.where((e) => e.status == EventStatus.planned).length}件　その他${yearFiltered.where((e) => e.status != EventStatus.completed && e.status != EventStatus.planned).length}件',
+                  Text('実施${yearFiltered.where((e) => e.status == EventStatus.completed).length}件　予定${yearFiltered.where((e) => e.status == EventStatus.planned).length}件　非開催${yearFiltered.where((e) => e.status != EventStatus.completed && e.status != EventStatus.planned).length}件',
                       style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
                 ],
               ),

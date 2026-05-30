@@ -26,7 +26,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
   final _gradeCtrl = TextEditingController();
   final _enrollmentYearCtrl = TextEditingController();
   final _offsetCtrl = TextEditingController();
-  String? _gender;
+  String? _gender = 'male';
   ScoutCategory _category = ScoutCategory.beaver;
   DateTime? _joinedAt;
   DateTime? _birthday;
@@ -39,7 +39,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
     if (widget.scoutId != null) {
       _load();
     } else {
-      _gradeCtrl.text = '小1'; // 新規作成時のデフォルト
+      _gradeCtrl.text = '小1';
     }
   }
 
@@ -65,13 +65,10 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
 
   bool get _isDirty {
     if (_original == null) {
-      return _lastNameCtrl.text.trim().isNotEmpty ||
-          _firstNameCtrl.text.trim().isNotEmpty;
+      return _lastNameCtrl.text.trim().isNotEmpty || _firstNameCtrl.text.trim().isNotEmpty;
     }
-    final origLast = _original!.name.contains(' ')
-        ? _original!.name.split(' ').first : _original!.name;
-    final origFirst = _original!.name.contains(' ')
-        ? _original!.name.split(' ').skip(1).join(' ') : '';
+    final origLast = _original!.name.contains(' ') ? _original!.name.split(' ').first : _original!.name;
+    final origFirst = _original!.name.contains(' ') ? _original!.name.split(' ').skip(1).join(' ') : '';
     return _lastNameCtrl.text.trim() != origLast ||
         _firstNameCtrl.text.trim() != origFirst ||
         _gender != _original!.gender ||
@@ -91,8 +88,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
             title: const Text('編集内容を破棄しますか？'),
             content: const Text('保存されていない変更があります。'),
             actions: [
-              TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false),
-                  child: const Text('編集を続ける')),
+              TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('編集を続ける')),
               FilledButton(
                 style: FilledButton.styleFrom(backgroundColor: Colors.red),
                 onPressed: () => Navigator.of(dlgCtx).pop(true),
@@ -100,60 +96,47 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
               ),
             ],
           ),
-        ) ??
-        false;
+        ) ?? false;
+  }
+
+  Future<void> _onBack() async {
+    if (await _confirmDiscard() && mounted) context.pop();
   }
 
   String get _fullName => '${_lastNameCtrl.text.trim()} ${_firstNameCtrl.text.trim()}';
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('先に団情報を登録してください')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('先に団情報を登録してください')));
       return;
     }
-
     setState(() => _saving = true);
     final repo = ref.read(scoutRepositoryProvider);
-
     try {
       if (_original == null) {
         await repo.create(
-          troopId: troopId,
-          name: _fullName,
-          category: _category,
-          gender: _gender,
+          troopId: troopId, name: _fullName, category: _category, gender: _gender,
           grade: _gradeCtrl.text.trim().isEmpty ? null : _gradeCtrl.text.trim(),
           enrollmentYear: int.tryParse(_enrollmentYearCtrl.text),
-          joinedAt: _joinedAt,
-          birthday: _birthday,
-          allergies: _allergies,
+          joinedAt: _joinedAt, birthday: _birthday, allergies: _allergies,
           specialNotes: _specialNotesCtrl.text.trim().isEmpty ? null : _specialNotesCtrl.text.trim(),
           leafBadgeOffset: int.tryParse(_offsetCtrl.text) ?? 0,
         );
       } else {
         await repo.update(_original!.copyWith(
-          name: _fullName,
-          category: _category,
-          gender: _gender,
+          name: _fullName, category: _category, gender: _gender,
           grade: _gradeCtrl.text.trim().isEmpty ? null : _gradeCtrl.text.trim(),
           enrollmentYear: int.tryParse(_enrollmentYearCtrl.text),
-          joinedAt: _joinedAt,
-          birthday: _birthday,
-          allergies: _allergies,
+          joinedAt: _joinedAt, birthday: _birthday, allergies: _allergies,
           specialNotes: _specialNotesCtrl.text.trim().isEmpty ? null : _specialNotesCtrl.text.trim(),
           leafBadgeOffset: int.tryParse(_offsetCtrl.text) ?? 0,
         ));
       }
       if (mounted) context.pop();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存に失敗しました: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -169,35 +152,39 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
         if (await _confirmDiscard() && context.mounted) context.pop();
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(isNew ? 'スカウト追加' : 'スカウト編集')),
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
+        appBar: AppBar(
+          title: Text(isNew ? 'スカウト追加' : 'スカウト編集'),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _onBack),
+          actions: [
+            if (_saving)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else
+              IconButton(icon: const Icon(Icons.save_outlined), tooltip: '保存', onPressed: _save),
+          ],
+        ),
+        body: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: Form(
+                  key: _formKey,
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     _section('基本情報'),
                     Row(children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _lastNameCtrl,
-                          decoration: const InputDecoration(labelText: '氏 *'),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty) ? '必須です' : null,
-                        ),
-                      ),
+                      Expanded(child: TextFormField(
+                        controller: _lastNameCtrl,
+                        decoration: const InputDecoration(labelText: '氏 *'),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                      )),
                       const SizedBox(width: 12),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _firstNameCtrl,
-                          decoration: const InputDecoration(labelText: '名 *'),
-                          validator: (v) =>
-                              (v == null || v.trim().isEmpty) ? '必須です' : null,
-                        ),
-                      ),
+                      Expanded(child: TextFormField(
+                        controller: _firstNameCtrl,
+                        decoration: const InputDecoration(labelText: '名 *'),
+                        validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                      )),
                     ]),
                     const SizedBox(height: 12),
                     _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
@@ -217,14 +204,12 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                       onChanged: (v) => setState(() => _gradeCtrl.text = v ?? ''),
                     ),
                     const SizedBox(height: 12),
-                    // 誕生日
                     InkWell(
                       onTap: () async {
                         final d = await showDatePicker(
                           context: context,
                           initialDate: _birthday ?? DateTime(DateTime.now().year - 5),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime.now(),
+                          firstDate: DateTime(2000), lastDate: DateTime.now(),
                         );
                         if (d != null) setState(() => _birthday = d);
                       },
@@ -232,19 +217,13 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                         decoration: const InputDecoration(labelText: '誕生日'),
                         child: Row(children: [
                           Expanded(child: Text(
-                            _birthday != null
-                                ? DateFormat('yyyy/MM/dd').format(_birthday!)
-                                : '選択してください',
-                            style: TextStyle(
-                                color: _birthday != null
-                                    ? null
-                                    : Theme.of(context).colorScheme.onSurfaceVariant),
+                            _birthday != null ? DateFormat('yyyy/MM/dd').format(_birthday!) : '選択してください',
+                            style: TextStyle(color: _birthday != null ? null : Theme.of(context).colorScheme.onSurfaceVariant),
                           )),
                           if (_birthday != null)
                             GestureDetector(
                               onTap: () => setState(() => _birthday = null),
-                              child: Icon(Icons.clear, size: 16,
-                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
+                              child: Icon(Icons.clear, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                             ),
                         ]),
                       ),
@@ -254,10 +233,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                     DropdownButtonFormField<ScoutCategory>(
                       value: _category,
                       decoration: const InputDecoration(labelText: '分類 *'),
-                      items: ScoutCategory.values
-                          .map((c) =>
-                              DropdownMenuItem(value: c, child: Text(c.label)))
-                          .toList(),
+                      items: ScoutCategory.values.map((c) => DropdownMenuItem(value: c, child: Text(c.label))).toList(),
                       onChanged: (v) => setState(() => _category = v!),
                     ),
                     const SizedBox(height: 12),
@@ -272,21 +248,15 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                         final d = await showDatePicker(
                           context: context,
                           initialDate: _joinedAt ?? DateTime.now(),
-                          firstDate: DateTime(2000),
-                          lastDate: DateTime.now(),
+                          firstDate: DateTime(2000), lastDate: DateTime.now(),
                         );
                         if (d != null) setState(() => _joinedAt = d);
                       },
                       child: InputDecorator(
                         decoration: const InputDecoration(labelText: '入隊日'),
                         child: Text(
-                          _joinedAt != null
-                              ? DateFormat('yyyy/MM/dd').format(_joinedAt!)
-                              : '選択してください',
-                          style: TextStyle(
-                              color: _joinedAt != null
-                                  ? null
-                                  : Theme.of(context).colorScheme.onSurfaceVariant),
+                          _joinedAt != null ? DateFormat('yyyy/MM/dd').format(_joinedAt!) : '選択してください',
+                          style: TextStyle(color: _joinedAt != null ? null : Theme.of(context).colorScheme.onSurfaceVariant),
                         ),
                       ),
                     ),
@@ -304,57 +274,35 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                     const SizedBox(height: 24),
                     _section('アレルギー・特記'),
                     Text('アレルギー（該当するものを選択）',
-                        style: Theme.of(context).textTheme.bodySmall
-                            ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8, runSpacing: 4,
                       children: AllergyType.values.map((a) {
                         final selected = _allergies.contains(a);
                         return FilterChip(
-                          label: Text(a.label),
-                          selected: selected,
-                          onSelected: (v) => setState(() {
-                            if (v) {
-                              _allergies.add(a);
-                            } else {
-                              _allergies.remove(a);
-                            }
-                          }),
+                          label: Text(a.label), selected: selected,
+                          onSelected: (v) => setState(() { if (v) { _allergies.add(a); } else { _allergies.remove(a); } }),
                         );
                       }).toList(),
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _specialNotesCtrl,
-                      decoration: const InputDecoration(
-                        labelText: '特記事項',
-                        helperText: 'アレルギーの詳細やその他特記事項',
-                      ),
+                      decoration: const InputDecoration(labelText: '特記事項', helperText: 'アレルギーの詳細やその他特記事項'),
                       maxLines: 3,
                     ),
-                    const SizedBox(height: 32),
-                    FilledButton(
-                      onPressed: _saving ? null : _save,
-                      child: _saving
-                          ? const SizedBox(
-                              height: 20, width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : Text(isNew ? '追加する' : '保存する'),
-                    ),
-                  ],
+                    const SizedBox(height: 16),
+                  ]),
                 ),
               ),
-            ),
       ),
     );
   }
 
   Widget _section(String title) => Padding(
         padding: const EdgeInsets.only(bottom: 12),
-        child: Text(title,
-            style: Theme.of(context).textTheme.labelLarge
-                ?.copyWith(color: Theme.of(context).colorScheme.primary)),
+        child: Text(title, style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Theme.of(context).colorScheme.primary)),
       );
 
   @override
@@ -376,8 +324,7 @@ class _GenderRadio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('性別', style: Theme.of(context).textTheme.bodySmall
-          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      Text('性別', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       Row(children: [
         Radio<String>(value: 'male', groupValue: value, onChanged: onChanged),
         const Text('男性'),

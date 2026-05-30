@@ -431,3 +431,4 @@ ALTER TABLE scouts ADD COLUMN special_notes TEXT;
 - **条件**：期間内の完了済みイベント（`status = 'completed'`）すべてに `status = 'present'` で出席
 - **欠席扱い**：出席者リストに登録されていない場合も欠席とみなす
 - **完了済みイベントが0件の場合**：対象者なしとして空リストを返す
+/home/takaaki/git-work/boyscout_app/boyscout_app/lib/features/dashboard/dashboard_page.dart

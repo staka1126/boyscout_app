@@ -20,7 +20,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
   final _firstNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  String? _gender;
+  String? _gender = 'male';
   UserRole _role = UserRole.leader;
   bool _isRetired = false;
   AppUser? _original;
@@ -81,23 +81,20 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
         ) ?? false;
   }
 
+  Future<void> _onBack() async {
+    if (await _confirmDiscard() && mounted) context.pop();
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) return;
-
     setState(() => _saving = true);
-
     final repo = ref.read(userRepositoryProvider);
     final email = _emailCtrl.text.trim();
-
     try {
-      // メールアドレス重複チェック
       final existing = await repo.getByTroop(troopId);
-      final duplicate = existing.where((u) =>
-          u.email == email && u.id != (_original?.id ?? '')).toList();
-
+      final duplicate = existing.where((u) => u.email == email && u.id != (_original?.id ?? '')).toList();
       if (duplicate.isNotEmpty) {
         if (mounted) {
           await showDialog(
@@ -105,25 +102,17 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
             builder: (dlgCtx) => AlertDialog(
               title: const Text('登録できません'),
               content: Text('メールアドレス「$email」は既に登録されています。'),
-              actions: [
-                FilledButton(
-                  onPressed: () => Navigator.of(dlgCtx).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
+              actions: [FilledButton(onPressed: () => Navigator.of(dlgCtx).pop(), child: const Text('OK'))],
             ),
           );
         }
         return;
       }
-
       if (_original == null) {
         await repo.create(
           troopId: troopId,
           name: '${_lastNameCtrl.text.trim()} ${_firstNameCtrl.text.trim()}',
-          email: email,
-          role: _role,
-          gender: _gender,
+          email: email, role: _role, gender: _gender,
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
         );
       } else {
@@ -131,16 +120,12 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
           name: '${_lastNameCtrl.text.trim()} ${_firstNameCtrl.text.trim()}',
           gender: _gender,
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
-          role: _role,
-          isRetired: _isRetired,
+          role: _role, isRetired: _isRetired,
         ));
       }
       if (mounted) context.pop();
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('保存失敗: $e')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存失敗: $e')));
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -155,68 +140,68 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
         if (await _confirmDiscard() && context.mounted) context.pop();
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(widget.userId == null ? 'リーダー追加' : 'リーダー編集')),
+        appBar: AppBar(
+          title: Text(widget.userId == null ? 'リーダー追加' : 'リーダー編集'),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _onBack),
+          actions: [
+            if (_saving)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else
+              IconButton(icon: const Icon(Icons.save_outlined), tooltip: '保存', onPressed: _save),
+          ],
+        ),
         body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              Expanded(
-                child: TextFormField(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Row(children: [
+                Expanded(child: TextFormField(
                   controller: _lastNameCtrl,
                   decoration: const InputDecoration(labelText: '氏 *'),
                   validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: TextFormField(
+                )),
+                const SizedBox(width: 12),
+                Expanded(child: TextFormField(
                   controller: _firstNameCtrl,
                   decoration: const InputDecoration(labelText: '名 *'),
                   validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+                )),
+              ]),
+              const SizedBox(height: 12),
+              _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _emailCtrl,
+                decoration: const InputDecoration(labelText: 'メールアドレス *'),
+                keyboardType: TextInputType.emailAddress,
+                validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _phoneCtrl,
+                decoration: const InputDecoration(labelText: '電話番号'),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 12),
+              _RoleRadio(value: _role, onChanged: (v) => setState(() => _role = v!)),
+              if (widget.userId != null) ...[
+                const SizedBox(height: 16),
+                SwitchListTile(
+                  value: _isRetired,
+                  onChanged: (v) => setState(() => _isRetired = v),
+                  title: const Text('引退'),
+                  subtitle: const Text('引退したリーダーは出席者追加の対象外になります'),
+                  contentPadding: EdgeInsets.zero,
                 ),
-              ),
-            ]),
-            const SizedBox(height: 12),
-            _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _emailCtrl,
-              decoration: const InputDecoration(labelText: 'メールアドレス *'),
-              keyboardType: TextInputType.emailAddress,
-              validator: (v) => (v == null || v.trim().isEmpty) ? '必須です' : null,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _phoneCtrl,
-              decoration: const InputDecoration(labelText: '電話番号'),
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 12),
-            _RoleRadio(value: _role, onChanged: (v) => setState(() => _role = v!)),
-            const SizedBox(height: 32),
-            if (widget.userId != null) ...[
-              const SizedBox(height: 4),
-              SwitchListTile(
-                value: _isRetired,
-                onChanged: (v) => setState(() => _isRetired = v),
-                title: const Text('引退'),
-                subtitle: const Text('引退したリーダーは出席者追加の対象外になります'),
-                contentPadding: EdgeInsets.zero,
-              ),
+              ],
               const SizedBox(height: 16),
-            ],
-            FilledButton(
-              onPressed: _saving ? null : _save,
-              child: _saving
-                  ? const SizedBox(height: 20, width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('保存する'),
-            ),
-          ]),
+            ]),
+          ),
         ),
-      ),
       ),
     );
   }
@@ -238,8 +223,7 @@ class _GenderRadio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('性別', style: Theme.of(context).textTheme.bodySmall
-          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      Text('性別', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       Row(children: [
         Radio<String>(value: 'male', groupValue: value, onChanged: onChanged),
         const Text('男性'),
@@ -258,8 +242,7 @@ class _RoleRadio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('種別', style: Theme.of(context).textTheme.bodySmall
-          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      Text('種別', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       Row(children: [
         Radio<UserRole>(value: UserRole.leader, groupValue: value, onChanged: onChanged),
         const Text('隊長'),

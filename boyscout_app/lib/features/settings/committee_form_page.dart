@@ -20,7 +20,7 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
   final _firstNameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
-  String? _gender;
+  String? _gender = 'male';
   CommitteeCategory _category = CommitteeCategory.committee;
   bool _isRetired = false;
   CommitteeMember? _original;
@@ -83,6 +83,10 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
         ) ?? false;
   }
 
+  Future<void> _onBack() async {
+    if (await _confirmDiscard() && mounted) context.pop();
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
     final troopId = ref.read(currentTroopIdProvider);
@@ -121,7 +125,19 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
         if (await _confirmDiscard() && context.mounted) context.pop();
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(widget.memberId == null ? '団委員追加' : '団委員編集')),
+        appBar: AppBar(
+          title: Text(widget.memberId == null ? '団委員追加' : '団委員編集'),
+          leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _onBack),
+          actions: [
+            if (_saving)
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16),
+                child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+              )
+            else
+              IconButton(icon: const Icon(Icons.save_outlined), tooltip: '保存', onPressed: _save),
+          ],
+        ),
         body: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Form(
@@ -146,9 +162,7 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
               DropdownButtonFormField<CommitteeCategory>(
                 value: _category,
                 decoration: const InputDecoration(labelText: '分類 *'),
-                items: CommitteeCategory.values
-                    .map((c) => DropdownMenuItem(value: c, child: Text(c.label)))
-                    .toList(),
+                items: CommitteeCategory.values.map((c) => DropdownMenuItem(value: c, child: Text(c.label))).toList(),
                 onChanged: (v) => setState(() => _category = v!),
               ),
               const SizedBox(height: 12),
@@ -164,7 +178,7 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
                 keyboardType: TextInputType.phone,
               ),
               if (widget.memberId != null) ...[
-                const SizedBox(height: 4),
+                const SizedBox(height: 16),
                 SwitchListTile(
                   value: _isRetired,
                   onChanged: (v) => setState(() => _isRetired = v),
@@ -173,14 +187,7 @@ class _CommitteeFormPageState extends ConsumerState<CommitteeFormPage> {
                   contentPadding: EdgeInsets.zero,
                 ),
               ],
-              const SizedBox(height: 32),
-              FilledButton(
-                onPressed: _saving ? null : _save,
-                child: _saving
-                    ? const SizedBox(height: 20, width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                    : const Text('保存する'),
-              ),
+              const SizedBox(height: 16),
             ]),
           ),
         ),
@@ -205,8 +212,7 @@ class _GenderRadio extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text('性別', style: Theme.of(context).textTheme.bodySmall
-          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      Text('性別', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       Row(children: [
         Radio<String>(value: 'male', groupValue: value, onChanged: onChanged),
         const Text('男性'),
