@@ -1,8 +1,15 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id "com.android.application"
     id "kotlin-android"
     id "dev.flutter.flutter-gradle-plugin"
 }
+
+def keyPropertiesFile = rootProject.file("key.properties")
+def keyProperties = new Properties()
+keyProperties.load(new FileInputStream(keyPropertiesFile))
 
 android {
     namespace "com.example.boyscout_app"
@@ -19,16 +26,25 @@ android {
     }
 
     defaultConfig {
-        applicationId "com.example.boyscout_app"
+        applicationId "jp.tshub.beaverlog"
         minSdkVersion flutter.minSdkVersion
         targetSdkVersion flutter.targetSdkVersion
         versionCode flutter.versionCode
         versionName flutter.versionName
     }
 
+    signingConfigs {
+        release {
+            keyAlias keyProperties["keyAlias"]
+            keyPassword keyProperties["keyPassword"]
+            storeFile file(keyProperties["storeFile"])
+            storePassword keyProperties["storePassword"]
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
         }
     }
 }
