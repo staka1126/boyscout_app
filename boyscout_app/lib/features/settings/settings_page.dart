@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/local/database_helper.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../data/repositories/repositories.dart';
+import '../../core/wood_grain_background.dart';
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
@@ -15,9 +16,11 @@ class SettingsPage extends ConsumerWidget {
       FutureProvider((ref) => ref.read(troopRepositoryProvider).getFirst()).future);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('設定')),
-      body: ListView(
-        children: [
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        ListView(children: [
           FutureBuilder(
             future: ref.read(troopRepositoryProvider).getFirst(),
             builder: (_, snap) {
@@ -60,8 +63,8 @@ class SettingsPage extends ConsumerWidget {
                 style: TextStyle(color: Colors.red)),
             onTap: () => _confirmClearData(context, ref),
           ),
-        ],
-      ),
+        ]),
+      ]),
     );
   }
 

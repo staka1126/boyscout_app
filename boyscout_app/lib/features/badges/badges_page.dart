@@ -5,6 +5,7 @@ import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/wood_grain_background.dart';
 import '../dashboard/dashboard_page.dart';
 
 final badgesProvider = FutureProvider<_BadgesData>((ref) async {
@@ -67,6 +68,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
   Widget build(BuildContext context) {
     final async = ref.watch(badgesProvider);
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -80,16 +82,19 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
           Tab(text: '皆勤賞'),
         ]),
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('エラー: $e')),
-        data: (data) => TabBarView(controller: _tab, children: [
-          _EnrollmentTab(scouts: data.enrollmentTargets),
-          _TwigBadgeTab(data: data, onRefresh: () => ref.invalidate(badgesProvider)),
-          _LeafBadgeTab(scouts: data.scouts),
-          _PerfectAttendanceTab(),
-        ]),
-      ),
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('エラー: $e')),
+          data: (data) => TabBarView(controller: _tab, children: [
+            _EnrollmentTab(scouts: data.enrollmentTargets),
+            _TwigBadgeTab(data: data, onRefresh: () => ref.invalidate(badgesProvider)),
+            _LeafBadgeTab(scouts: data.scouts),
+            _PerfectAttendanceTab(),
+          ]),
+        ),
+      ]),
     );
   }
 

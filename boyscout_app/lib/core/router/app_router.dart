@@ -20,6 +20,7 @@ import '../../features/settings/committee_form_page.dart';
 import '../../features/settings/phonebook_page.dart';
 import '../../features/settings/allergy_list_page.dart';
 import '../../features/settings/onboarding_page.dart';
+import '../../core/wood_grain_background.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../features/scouts/guardian_form_page.dart';
 

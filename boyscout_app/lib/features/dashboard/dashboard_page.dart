@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/wood_grain_background.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
@@ -51,6 +52,7 @@ class DashboardPage extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: async.when(
           loading: () => const Text('ビーバー隊'),
@@ -61,7 +63,9 @@ class DashboardPage extends ConsumerWidget {
           IconButton(icon: const Icon(Icons.refresh_outlined), onPressed: () => ref.invalidate(dashboardProvider)),
         ],
       ),
-      body: async.when(
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
         data: (data) => RefreshIndicator(
@@ -141,6 +145,7 @@ class DashboardPage extends ConsumerWidget {
           ]),
         ),
       ),
+      ]),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final troopId = ref.read(currentTroopIdProvider);

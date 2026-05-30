@@ -5,6 +5,7 @@ import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/wood_grain_background.dart';
 import '../badges/badges_page.dart';
 import '../dashboard/dashboard_page.dart';
 
@@ -42,6 +43,7 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
     final troopId = ref.watch(currentTroopIdProvider);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
@@ -63,8 +65,9 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        Column(children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: TextField(
@@ -142,8 +145,8 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
               },
             ),
           ),
-        ],
-      ),
+        ]),
+      ]),
       floatingActionButton: troopId != null
           ? FloatingActionButton(
               onPressed: _goAdd,
