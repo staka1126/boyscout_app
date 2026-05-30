@@ -5,6 +5,7 @@ import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../dashboard/dashboard_page.dart';
 
 final badgesProvider = FutureProvider<_BadgesData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
@@ -322,6 +323,7 @@ class _TwigBadgeTab extends ConsumerWidget {
       await twigRepo.markAwarded(h.id);
     }
     await scoutRepo.incrementTwigBadge(scout.id);
+    ref.invalidate(dashboardProvider);
     onRefresh();
   }
 }

@@ -98,7 +98,7 @@ class ScoutDetailPage extends ConsumerWidget {
               // 木の葉章・小枝章
               _infoCard(context, '木の葉章・小枝章', [
                 _InfoRow('木の葉章（活動取得）', '${scout.leafBadges}枚'),
-                _InfoRow('入隊時補正', '${scout.leafBadgeOffset}枚'),
+                _InfoRow('入隊時補正（減算）', '${scout.leafBadgeOffset}枚'),
                 _InfoRow('合計', '${scout.totalLeafBadges}枚', highlight: true),
                 _InfoRow('小枝章（授与済み）', '${scout.twigBadges}本'),
                 if (scout.pendingTwigBadges > 0)

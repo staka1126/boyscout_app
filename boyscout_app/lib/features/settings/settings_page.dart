@@ -135,7 +135,7 @@ class SettingsPage extends ConsumerWidget {
         ref.read(currentTroopIdProvider.notifier).state = null;
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('すべてのデータを削除しました')));
-        context.go('/settings');
+        context.go('/onboarding');
       }
     } catch (e) {
       if (context.mounted) {

@@ -291,12 +291,13 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _section('木の葉章'),
+                    _section('木の葉章補正'),
                     TextFormField(
                       controller: _offsetCtrl,
                       decoration: const InputDecoration(
-                        labelText: '入隊時補正枚数',
-                        helperText: '入隊前に取得済みの木の葉章枚数',
+                        labelText: '入隊前の取得枚数',
+                        helperText: '入隊時にそれまでの取得枚数を入力してください\nこの数値で補正したうえで小枝賞を計算します',
+                        helperMaxLines: 2,
                       ),
                       keyboardType: TextInputType.number,
                     ),

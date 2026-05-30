@@ -108,7 +108,7 @@ class Scout {
     this.isActive = true, required this.createdAt, required this.updatedAt,
   });
 
-  int get totalLeafBadges => leafBadges + leafBadgeOffset;
+  int get totalLeafBadges => leafBadges - leafBadgeOffset;
   int get pendingTwigBadges => (totalLeafBadges ~/ 10) - twigBadges;
   bool get isTwigBadgeEligible => category.isTwigBadgeEligible;
 

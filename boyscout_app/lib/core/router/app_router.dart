@@ -19,12 +19,15 @@ import '../../features/settings/committee_list_page.dart';
 import '../../features/settings/committee_form_page.dart';
 import '../../features/settings/phonebook_page.dart';
 import '../../features/settings/allergy_list_page.dart';
+import '../../features/settings/onboarding_page.dart';
+import '../../data/providers/app_state_provider.dart';
 import '../../features/scouts/guardian_form_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  return GoRouter(
+  final router = GoRouter(
     initialLocation: '/dashboard',
     routes: [
+      GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingPage()),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
         routes: [
@@ -104,6 +107,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  return router;
 });
 
 // ─── Shell（BottomNavigationBar） ────────────────────────────

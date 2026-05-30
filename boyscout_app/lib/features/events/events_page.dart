@@ -14,6 +14,10 @@ final eventsProvider = FutureProvider<List<Event>>((ref) async {
   return ref.read(eventRepositoryProvider).getByTroop(troopId);
 });
 
+// 年度を返す（4月始まり）
+int _fiscalYear(DateTime date) =>
+    date.month >= 4 ? date.year : date.year - 1;
+
 class EventsPage extends ConsumerStatefulWidget {
   const EventsPage({super.key});
   @override
@@ -22,6 +26,13 @@ class EventsPage extends ConsumerStatefulWidget {
 
 class _EventsPageState extends ConsumerState<EventsPage> {
   EventStatus? _filterStatus;
+  late int _selectedYear;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedYear = _fiscalYear(DateTime.now());
+  }
 
   void _refresh() {
     ref.invalidate(eventsProvider);
@@ -29,6 +40,38 @@ class _EventsPageState extends ConsumerState<EventsPage> {
   }
 
   Future<void> _goAdd() async {
+    final troopId = ref.read(currentTroopIdProvider);
+    if (troopId == null) return;
+
+    // リーダー・スカウトの存在チェック
+    final users = await ref.read(userRepositoryProvider).getByTroop(troopId);
+    final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
+
+    if (!mounted) return;
+
+    if (users.isEmpty || scouts.isEmpty) {
+      final missing = [
+        if (users.isEmpty) 'リーダー',
+        if (scouts.isEmpty) 'スカウト',
+      ].join('と');
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$missingを先に1名以上登録してください'),
+          action: SnackBarAction(
+            label: '登録する',
+            onPressed: () {
+              if (users.isEmpty) {
+                context.push('/settings/users');
+              } else {
+                context.push('/scouts');
+              }
+            },
+          ),
+        ),
+      );
+      return;
+    }
+
     await context.push('/events/new');
     _refresh();
   }
@@ -83,24 +126,70 @@ class _EventsPageState extends ConsumerState<EventsPage> {
                       child: const Text('団情報を登録する')),
                 ]));
           }
-          final filtered = _filterStatus == null
-              ? events
-              : events.where((e) => e.status == _filterStatus).toList();
-          if (filtered.isEmpty) {
-            return const Center(
-                child: Text('イベントがありません',
-                    style: TextStyle(color: Colors.grey)));
+
+          // 利用可能な年度を決定
+          final years = events
+              .map((e) => _fiscalYear(e.eventDate))
+              .toSet()
+              .toList()
+            ..sort((a, b) => b.compareTo(a));
+          if (!years.contains(_selectedYear) && years.isNotEmpty) {
+            _selectedYear = years.first;
           }
-          return RefreshIndicator(
-            onRefresh: () async => _refresh(),
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) =>
-                  _EventCard(event: filtered[i], onReturn: _refresh),
+
+          // 年度・ステータスフィルタ
+          final yearFiltered = events
+              .where((e) => _fiscalYear(e.eventDate) == _selectedYear)
+              .toList();
+          final filtered = _filterStatus == null
+              ? yearFiltered
+              : yearFiltered.where((e) => e.status == _filterStatus).toList();
+
+          return Column(children: [
+            // 年度選択バー
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    const Icon(Icons.calendar_today_outlined, size: 16),
+                    const SizedBox(width: 8),
+                    DropdownButton<int>(
+                      value: years.contains(_selectedYear) ? _selectedYear : (years.isNotEmpty ? years.first : _selectedYear),
+                      isDense: true,
+                      underline: const SizedBox(),
+                      items: years.map((y) => DropdownMenuItem(
+                        value: y,
+                        child: Text('$y年度',
+                            style: const TextStyle(fontWeight: FontWeight.w600)),
+                      )).toList(),
+                      onChanged: (v) => setState(() => _selectedYear = v!),
+                    ),
+                  ]),
+                  const SizedBox(height: 4),
+                  Text('実施${yearFiltered.where((e) => e.status == EventStatus.completed).length}件　予定${yearFiltered.where((e) => e.status == EventStatus.planned).length}件　その他${yearFiltered.where((e) => e.status != EventStatus.completed && e.status != EventStatus.planned).length}件',
+                      style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
             ),
-          );
+            const Divider(height: 0),
+            Expanded(
+              child: filtered.isEmpty
+                  ? const Center(child: Text('この年度のイベントはありません',
+                      style: TextStyle(color: Colors.grey)))
+                  : RefreshIndicator(
+                      onRefresh: () async => _refresh(),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: filtered.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 8),
+                        itemBuilder: (_, i) =>
+                            _EventCard(event: filtered[i], onReturn: _refresh),
+                      ),
+                    ),
+            ),
+          ]);
         },
       ),
       floatingActionButton: troopId != null
@@ -197,9 +286,6 @@ class _EventCard extends StatelessWidget {
       case EventStatus.completed:
         bg = cs.secondaryContainer;
         fg = cs.onSecondaryContainer;
-      case EventStatus.ongoing:
-        bg = cs.primaryContainer;
-        fg = cs.onPrimaryContainer;
       case EventStatus.planned:
         bg = cs.surfaceContainerHighest;
         fg = cs.onSurfaceVariant;

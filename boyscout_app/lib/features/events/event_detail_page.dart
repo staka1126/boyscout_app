@@ -349,7 +349,6 @@ class _StatusSelector extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     switch (s) {
       case EventStatus.planned:   return cs.primary;
-      case EventStatus.ongoing:   return Colors.orange;
       case EventStatus.completed: return const Color(0xFF43A047);
       case EventStatus.cancelled: return Colors.grey;
     }

@@ -30,9 +30,7 @@ class BoyScoutApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // 起動時にDBから団IDを復元する
     final troopInit = ref.watch(initTroopProvider);
-
     final router = ref.watch(appRouterProvider);
 
     // 初期化中はスプラッシュを表示
@@ -46,6 +44,13 @@ class BoyScoutApp extends ConsumerWidget {
           body: Center(child: CircularProgressIndicator()),
         ),
       );
+    }
+
+    // 初期化完了後、団未登録ならオンボーディングへ
+    if (troopInit.hasValue && ref.read(currentTroopIdProvider) == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        router.go('/onboarding');
+      });
     }
 
     return MaterialApp.router(

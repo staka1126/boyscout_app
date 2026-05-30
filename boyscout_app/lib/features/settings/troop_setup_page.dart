@@ -56,7 +56,41 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(const SnackBar(content: Text('保存しました')));
-        context.pop();
+        if (_existing == null) {
+          // 初回登録時は次のステップをダイアログで案内
+          await showDialog(
+            context: context,
+            barrierDismissible: false,
+            builder: (dlgCtx) => AlertDialog(
+              title: const Text('団情報を登録しました'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('次に以下を登録してください。'),
+                  const SizedBox(height: 16),
+                  _bulletRow('リーダーを１名以上登録'),
+                  const SizedBox(height: 6),
+                  _bulletRow('スカウトを１名以上登録'),
+                  const SizedBox(height: 12),
+                  Text('リーダー・スカウトが揃うとイベントを作成できます。',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                ],
+              ),
+              actions: [
+                FilledButton(
+                  onPressed: () => Navigator.of(dlgCtx).pop(),
+                  child: const Text('わかりました'),
+                ),
+              ],
+            ),
+          );
+          if (mounted) context.go('/dashboard');
+        } else {
+          context.pop();
+        }
       }
     } catch (e) {
       if (mounted)
@@ -119,3 +153,11 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
     super.dispose();
   }
 }
+
+Widget _bulletRow(String text) => Row(
+  crossAxisAlignment: CrossAxisAlignment.start,
+  children: [
+    const Text('・ ', style: TextStyle(fontWeight: FontWeight.w600)),
+    Expanded(child: Text(text, style: const TextStyle(fontWeight: FontWeight.w600))),
+  ],
+);

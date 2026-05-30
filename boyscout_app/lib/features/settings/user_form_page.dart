@@ -21,7 +21,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
   final _emailCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   String? _gender;
-  UserRole _role = UserRole.assistantLeader;
+  UserRole _role = UserRole.leader;
   bool _isRetired = false;
   AppUser? _original;
   bool _saving = false;
@@ -194,14 +194,7 @@ class _UserFormPageState extends ConsumerState<UserFormPage> {
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 12),
-            DropdownButtonFormField<UserRole>(
-              value: _role,
-              decoration: const InputDecoration(labelText: '種別 *'),
-              items: UserRole.values
-                  .map((r) => DropdownMenuItem(value: r, child: Text(r.label)))
-                  .toList(),
-              onChanged: (v) => setState(() => _role = v!),
-            ),
+            _RoleRadio(value: _role, onChanged: (v) => setState(() => _role = v!)),
             const SizedBox(height: 32),
             if (widget.userId != null) ...[
               const SizedBox(height: 4),
@@ -253,6 +246,29 @@ class _GenderRadio extends StatelessWidget {
         const SizedBox(width: 16),
         Radio<String>(value: 'female', groupValue: value, onChanged: onChanged),
         const Text('女性'),
+      ]),
+    ]);
+  }
+}
+
+class _RoleRadio extends StatelessWidget {
+  final UserRole value;
+  final ValueChanged<UserRole?> onChanged;
+  const _RoleRadio({required this.value, required this.onChanged});
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Text('種別', style: Theme.of(context).textTheme.bodySmall
+          ?.copyWith(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+      Row(children: [
+        Radio<UserRole>(value: UserRole.leader, groupValue: value, onChanged: onChanged),
+        const Text('隊長'),
+        const SizedBox(width: 8),
+        Radio<UserRole>(value: UserRole.assistantLeader, groupValue: value, onChanged: onChanged),
+        const Text('副長'),
+        const SizedBox(width: 8),
+        Radio<UserRole>(value: UserRole.support, groupValue: value, onChanged: onChanged),
+        const Text('補助者'),
       ]),
     ]);
   }

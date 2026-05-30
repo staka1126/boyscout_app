@@ -1,7 +1,12 @@
 from PIL import Image
 import os
+import sys
 
-src = './Copilot_20260529_171055.png'  # ダウンロードした画像のパス
+if len(sys.argv) < 2:
+    print("使い方: python resize.py <画像ファイルのパス>")
+    sys.exit(1)
+
+src = sys.argv[1]
 img = Image.open(src).convert('RGBA')
 
 data = list(img.getdata())

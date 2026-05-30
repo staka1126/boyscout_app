@@ -142,7 +142,24 @@ class DashboardPage extends ConsumerWidget {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () => context.go('/events/new'),
+        onPressed: () async {
+          final troopId = ref.read(currentTroopIdProvider);
+          if (troopId == null) return;
+          final users = await ref.read(userRepositoryProvider).getByTroop(troopId);
+          final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
+          if (!context.mounted) return;
+          if (users.isEmpty || scouts.isEmpty) {
+            final missing = [
+              if (users.isEmpty) 'リーダー',
+              if (scouts.isEmpty) 'スカウト',
+            ].join('と');
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('$missingを先に1名以上登録してください')),
+            );
+            return;
+          }
+          context.push('/events/new');
+        },
         child: const Icon(Icons.add),
       ),
     );
@@ -234,9 +251,6 @@ class _StatusChip extends StatelessWidget {
       case EventStatus.completed:
         bg = cs.secondaryContainer;
         fg = cs.onSecondaryContainer;
-      case EventStatus.ongoing:
-        bg = cs.primaryContainer;
-        fg = cs.onPrimaryContainer;
       case EventStatus.planned:
         bg = cs.surfaceContainerHighest;
         fg = cs.onSurfaceVariant;
