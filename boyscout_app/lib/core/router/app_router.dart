@@ -27,7 +27,6 @@ import '../../data/providers/app_state_provider.dart';
 import '../../features/scouts/guardian_form_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
-  // 認証状態の変化でルーターをリフレッシュ
   final notifier = _AuthNotifier(ref);
 
   final router = GoRouter(
@@ -35,13 +34,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) {
       final isSignedIn = ref.read(isSignedInProvider);
-      final isLoginPage = state.matchedLocation == '/login';
+      final location = state.matchedLocation;
 
-      // 未ログインかつログインページ以外 → ログインページへ
-      if (!isSignedIn && !isLoginPage) return '/login';
+      // 未ログイン → ログインページへ
+      if (!isSignedIn) {
+        if (location == '/login') return null;
+        return '/login';
+      }
 
-      // ログイン済みかつログインページ → ダッシュボードへ
-      if (isSignedIn && isLoginPage) return '/dashboard';
+      // ログイン済み・ログインページ → オンボーディングorダッシュボードへ
+      if (location == '/login') {
+        final troopId = ref.read(currentTroopIdProvider);
+        return troopId == null ? '/onboarding' : '/dashboard';
+      }
+
+      // ログイン済み・団未登録の場合はオンボーディングのみ許可
+      // （設定画面への遷移は許可してtroop登録できるようにする）
+      final troopId = ref.read(currentTroopIdProvider);
+      if (troopId == null) {
+        if (location == '/onboarding') return null;
+        if (location.startsWith('/settings')) return null;
+        return '/onboarding';
+      }
 
       return null;
     },
@@ -174,10 +188,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-/// 認証状態の変化を GoRouter に通知するための ChangeNotifier
+/// 認証状態・団登録状態の変化を GoRouter に通知する
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(Ref ref) {
     ref.listen(isSignedInProvider, (_, __) => notifyListeners());
+    ref.listen(currentTroopIdProvider, (_, __) => notifyListeners());
   }
 }
 
