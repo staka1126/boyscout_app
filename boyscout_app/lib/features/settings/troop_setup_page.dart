@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../../core/supabase_config.dart';
 
 class TroopSetupPage extends ConsumerStatefulWidget {
   const TroopSetupPage({super.key});
@@ -42,15 +43,21 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
     try {
+      // ① ローカルDBに保存
       final troop = await ref.read(troopRepositoryProvider).upsert(
         id: _existing?.id,
         name: _nameCtrl.text.trim(),
         location: _locationCtrl.text.trim().isEmpty ? null : _locationCtrl.text.trim(),
         contact: _contactCtrl.text.trim().isEmpty ? null : _contactCtrl.text.trim(),
       );
+
+      // ② Supabase に同期
+      await _syncToSupabase(troop);
+
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('troop_id', troop.id);
       ref.read(currentTroopIdProvider.notifier).state = troop.id;
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('保存しました')));
         if (_existing == null) {
@@ -80,9 +87,53 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
         }
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('保存失敗: $e')));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('保存失敗: $e'), duration: const Duration(seconds: 8)),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  /// Supabase の troops・troop_members テーブルに同期する
+  /// INSERT を試みて、Primary Key 重複なら UPDATE にフォールバック
+  Future<void> _syncToSupabase(Troop troop) async {
+    final user = SupabaseConfig.currentUser;
+    if (user == null) return;
+
+    final client = SupabaseConfig.client;
+
+    // troops: まずUPDATEを試みる（既存行があれば更新）
+    final updated = await client
+        .from('troops')
+        .update({'name': troop.name})
+        .eq('id', troop.id)
+        .eq('created_by', user.id)
+        .select();
+
+    // UPDATEで0行だった場合はINSERT
+    if ((updated as List).isEmpty) {
+      await client.from('troops').insert({
+        'id': troop.id,
+        'name': troop.name,
+        'created_by': user.id,
+      });
+    }
+
+    // troop_members: UPDATEを試みる
+    final memberUpdated = await client
+        .from('troop_members')
+        .update({'troop_id': troop.id, 'role': 'admin'})
+        .eq('user_id', user.id)
+        .select();
+
+    // 0行だった場合はINSERT
+    if ((memberUpdated as List).isEmpty) {
+      await client.from('troop_members').insert({
+        'user_id': user.id,
+        'troop_id': troop.id,
+        'role': 'admin',
+      });
     }
   }
 
