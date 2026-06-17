@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../core/supabase_config.dart';
 
@@ -11,7 +12,6 @@ class AuthService {
   // ─────────────────────────────────────────────
   // 新規登録
   // ─────────────────────────────────────────────
-  /// メール＋パスワードで新規登録し、profiles テーブルにも行を挿入する
   Future<AuthResponse> signUp({
     required String name,
     required String email,
@@ -59,7 +59,6 @@ class AuthService {
   User? get currentUser => _client.auth.currentUser;
   bool get isSignedIn => currentUser != null;
 
-  /// profiles テーブルから表示名を取得
   Future<String?> fetchDisplayName() async {
     final user = currentUser;
     if (user == null) return null;
@@ -74,16 +73,19 @@ class AuthService {
   // ─────────────────────────────────────────────
   // 招待コード使用
   // ─────────────────────────────────────────────
-  /// 招待コードを使って団に参加する。成功時は troop_id を返す
   Future<String> joinWithInviteCode(String code) async {
     final user = currentUser;
     if (user == null) throw Exception('ログインが必要です');
+
+    debugPrint('JOIN: step1 - searching code=$code user=${user.id}');
 
     final invite = await _client
         .from('invite_codes')
         .select('id, troop_id, expires_at, used_by')
         .eq('code', code.toUpperCase())
         .maybeSingle();
+
+    debugPrint('JOIN: step1 result=$invite');
 
     if (invite == null) throw Exception('招待コードが見つかりません');
     if (invite['used_by'] != null) throw Exception('この招待コードはすでに使用されています');
@@ -94,16 +96,23 @@ class AuthService {
     final troopId = invite['troop_id'] as String;
     final inviteId = invite['id'] as String;
 
+    debugPrint('JOIN: step2 - inserting troop_members troopId=$troopId');
+
     await _client.from('troop_members').insert({
       'user_id': user.id,
       'troop_id': troopId,
       'role': 'member',
     });
 
+    debugPrint('JOIN: step2 OK');
+    debugPrint('JOIN: step3 - updating invite_codes inviteId=$inviteId');
+
     await _client.from('invite_codes').update({
       'used_by': user.id,
       'used_at': DateTime.now().toIso8601String(),
     }).eq('id', inviteId);
+
+    debugPrint('JOIN: step3 OK');
 
     return troopId;
   }
@@ -127,7 +136,6 @@ class AuthService {
     return code;
   }
 
-  /// 紛らわしい文字（0/O, 1/I）を除いた6桁ランダムコードを生成
   String _generateCode() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     var seed = DateTime.now().microsecondsSinceEpoch;

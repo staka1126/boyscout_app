@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,6 +36,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) {
       final isSignedIn = ref.read(isSignedInProvider);
       final location = state.matchedLocation;
+      final troopInit = ref.read(initTroopProvider);
+      final troopId = ref.read(currentTroopIdProvider);
+
+      debugPrint('REDIRECT: location=$location isSignedIn=$isSignedIn '
+          'troopInit.isLoading=${troopInit.isLoading} troopId=$troopId');
 
       // 未ログイン → ログインページへ
       if (!isSignedIn) {
@@ -42,18 +48,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         return '/login';
       }
 
+      // initTroopProvider がまだ読み込み中なら何もしない
+      if (troopInit.isLoading) {
+        debugPrint('REDIRECT: waiting for initTroopProvider');
+        return null;
+      }
+
       // ログイン済み・ログインページ → オンボーディングorダッシュボードへ
       if (location == '/login') {
-        final troopId = ref.read(currentTroopIdProvider);
         return troopId == null ? '/onboarding' : '/dashboard';
       }
 
-      // ログイン済み・団未登録の場合はオンボーディングのみ許可
-      // （設定画面への遷移は許可してtroop登録できるようにする）
-      final troopId = ref.read(currentTroopIdProvider);
+      // ログイン済み・団未登録の場合はオンボーディングと設定のみ許可
       if (troopId == null) {
         if (location == '/onboarding') return null;
         if (location.startsWith('/settings')) return null;
+        debugPrint('REDIRECT: no troop → /onboarding');
         return '/onboarding';
       }
 
@@ -188,11 +198,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-/// 認証状態・団登録状態の変化を GoRouter に通知する
+/// 認証状態・団登録状態・初期化完了の変化を GoRouter に通知する
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(Ref ref) {
     ref.listen(isSignedInProvider, (_, __) => notifyListeners());
     ref.listen(currentTroopIdProvider, (_, __) => notifyListeners());
+    ref.listen(initTroopProvider, (_, __) => notifyListeners());
   }
 }
 

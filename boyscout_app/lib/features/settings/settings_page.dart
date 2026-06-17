@@ -71,7 +71,7 @@ class SettingsPage extends ConsumerWidget {
           ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
             title: const Text('ログアウト', style: TextStyle(color: Colors.red)),
-            onTap: () => _confirmLogout(context),
+            onTap: () => _confirmLogout(context, ref),
           ),
           const Divider(),
 
@@ -109,11 +109,6 @@ class SettingsPage extends ConsumerWidget {
       );
       return;
     }
-
-    // ローディングダイアログを表示しながらコード生成
-    String? code;
-    String? error;
-
     await showDialog(
       context: context,
       barrierDismissible: false,
@@ -122,7 +117,7 @@ class SettingsPage extends ConsumerWidget {
   }
 
   // ─── ログアウト確認 ──────────────────────────────────
-  Future<void> _confirmLogout(BuildContext context) async {
+  Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (dlgCtx) => AlertDialog(
@@ -141,7 +136,17 @@ class SettingsPage extends ConsumerWidget {
       ),
     );
     if (ok != true || !context.mounted) return;
+    await _logout(context, ref);
+  }
 
+  // ─── ログアウト共通処理 ───────────────────────────────
+  static Future<void> _logout(BuildContext context, WidgetRef ref) async {
+    // SharedPreferences の troop_id をクリア
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('troop_id');
+    // Riverpod の状態をリセット
+    ref.read(currentTroopIdProvider.notifier).state = null;
+    // Supabase からログアウト
     await AuthService.instance.signOut();
     if (context.mounted) context.go('/login');
   }

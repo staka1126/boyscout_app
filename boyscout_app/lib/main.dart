@@ -22,9 +22,7 @@ void main() async {
     databaseFactory = databaseFactoryFfi;
   }
 
-  // Supabase 初期化（ローカルDB初期化より先に行う）
   await SupabaseConfig.initialize();
-
   await DatabaseHelper.instance.database;
   runApp(const ProviderScope(child: BoyScoutApp()));
 }
@@ -37,7 +35,8 @@ class BoyScoutApp extends ConsumerWidget {
     final troopInit = ref.watch(initTroopProvider);
     final router = ref.watch(appRouterProvider);
 
-    // 初期化中はスプラッシュを表示
+    // initTroopProvider の完了を待ってからルーターを起動
+    // （完了前はスプラッシュを表示）
     if (troopInit.isLoading) {
       return MaterialApp(
         theme: AppTheme.light(),
@@ -50,13 +49,7 @@ class BoyScoutApp extends ConsumerWidget {
       );
     }
 
-    // 初期化完了後、団未登録ならオンボーディングへ
-    if (troopInit.hasValue && ref.read(currentTroopIdProvider) == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        router.go('/onboarding');
-      });
-    }
-
+    // 完了後はルーターの redirect に任せる
     return MaterialApp.router(
       title: 'ビーバーログ',
       theme: AppTheme.light(),

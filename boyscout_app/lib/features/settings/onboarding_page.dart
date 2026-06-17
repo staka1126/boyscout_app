@@ -1,13 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../../data/providers/app_state_provider.dart';
 import '../auth/auth_service.dart';
 
-class OnboardingPage extends ConsumerWidget {
+class OnboardingPage extends ConsumerStatefulWidget {
   const OnboardingPage({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<OnboardingPage> createState() => _OnboardingPageState();
+}
+
+class _OnboardingPageState extends ConsumerState<OnboardingPage> {
+  @override
+  Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
@@ -37,7 +44,6 @@ class OnboardingPage extends ConsumerWidget {
                   textAlign: TextAlign.center),
               const SizedBox(height: 32),
 
-              // 注意書き
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
@@ -60,7 +66,6 @@ class OnboardingPage extends ConsumerWidget {
               ),
               const SizedBox(height: 40),
 
-              // 新規団登録
               FilledButton.icon(
                 onPressed: () => context.push('/settings/troop'),
                 icon: const Icon(Icons.add),
@@ -70,9 +75,8 @@ class OnboardingPage extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
-              // 招待コードで参加
               OutlinedButton.icon(
-                onPressed: () => _showInviteCodeDialog(context),
+                onPressed: () => _showInviteCodeDialog(),
                 icon: const Icon(Icons.vpn_key_outlined),
                 label: const Text('招待コードで参加する'),
                 style: OutlinedButton.styleFrom(
@@ -80,12 +84,8 @@ class OnboardingPage extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
-              // ログアウト
               TextButton.icon(
-                onPressed: () async {
-                  await AuthService.instance.signOut();
-                  if (context.mounted) context.go('/login');
-                },
+                onPressed: _logout,
                 icon: Icon(Icons.logout, size: 16, color: cs.onSurfaceVariant),
                 label: Text('ログアウト',
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
@@ -97,15 +97,22 @@ class OnboardingPage extends ConsumerWidget {
     );
   }
 
-  Future<void> _showInviteCodeDialog(BuildContext context) async {
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('troop_id');
+    ref.read(currentTroopIdProvider.notifier).state = null;
+    await AuthService.instance.signOut();
+    if (mounted) context.go('/login');
+  }
+
+  Future<void> _showInviteCodeDialog() async {
     final codeCtrl = TextEditingController();
-    bool isLoading = false;
 
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
+        builder: (ctx, setDialogState) => AlertDialog(
           title: const Text('招待コードで参加'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -123,59 +130,55 @@ class OnboardingPage extends ConsumerWidget {
                 ),
                 textCapitalization: TextCapitalization.characters,
                 maxLength: 6,
-                enabled: !isLoading,
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: isLoading ? null : () => Navigator.pop(ctx),
+              onPressed: () => Navigator.pop(ctx),
               child: const Text('キャンセル'),
             ),
             FilledButton(
-              onPressed: isLoading
-                  ? null
-                  : () async {
-                      final code = codeCtrl.text.trim().toUpperCase();
-                      if (code.length != 6) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('6桁のコードを入力してください')),
-                        );
-                        return;
-                      }
-                      setState(() => isLoading = true);
-                      try {
-                        await AuthService.instance.joinWithInviteCode(code);
-                        if (ctx.mounted) {
-                          Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('団への参加が完了しました'),
-                              backgroundColor: Colors.green,
-                            ),
-                          );
-                          if (context.mounted) context.go('/dashboard');
-                        }
-                      } catch (e) {
-                        setState(() => isLoading = false);
-                        if (ctx.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(e.toString().replaceAll('Exception: ', '')),
-                              backgroundColor: Colors.red[700],
-                            ),
-                          );
-                        }
-                      }
-                    },
-              child: isLoading
-                  ? const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
-                    )
-                  : const Text('参加する'),
+              onPressed: () async {
+                final code = codeCtrl.text.trim().toUpperCase();
+                if (code.length != 6) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('6桁のコードを入力してください')),
+                  );
+                  return;
+                }
+                setDialogState(() {});
+                try {
+                  final troopId = await AuthService.instance.joinWithInviteCode(code);
+
+                  // SharedPreferences と Riverpod 状態を更新
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setString('troop_id', troopId);
+
+                  if (ctx.mounted) Navigator.pop(ctx);
+
+                  if (mounted) {
+                    ref.read(currentTroopIdProvider.notifier).state = troopId;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('団への参加が完了しました'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                    context.go('/dashboard');
+                  }
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(e.toString().replaceAll('Exception: ', '')),
+                        backgroundColor: Colors.red[700],
+                      ),
+                    );
+                  }
+                }
+              },
+              child: const Text('参加する'),
             ),
           ],
         ),
