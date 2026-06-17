@@ -12,7 +12,7 @@ def keyProperties = new Properties()
 keyProperties.load(new FileInputStream(keyPropertiesFile))
 
 android {
-    namespace "com.example.boyscout_app"
+    namespace "jp.tshub.beaverlog"
     compileSdk flutter.compileSdkVersion
     ndkVersion flutter.ndkVersion
 

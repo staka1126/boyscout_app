@@ -21,6 +21,9 @@ dependencies:
   # ナビゲーション
   go_router: ^14.2.0
 
+  # Supabase
+  supabase_flutter: ^2.8.4
+
   # ユーティリティ
   intl: ^0.19.0
   uuid: ^4.4.0

@@ -20,14 +20,33 @@ import '../../features/settings/committee_form_page.dart';
 import '../../features/settings/phonebook_page.dart';
 import '../../features/settings/allergy_list_page.dart';
 import '../../features/settings/onboarding_page.dart';
+import '../../features/auth/login_page.dart';
+import '../../features/auth/auth_provider.dart';
 import '../../core/wood_grain_background.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../features/scouts/guardian_form_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // 認証状態の変化でルーターをリフレッシュ
+  final notifier = _AuthNotifier(ref);
+
   final router = GoRouter(
     initialLocation: '/dashboard',
+    refreshListenable: notifier,
+    redirect: (context, state) {
+      final isSignedIn = ref.read(isSignedInProvider);
+      final isLoginPage = state.matchedLocation == '/login';
+
+      // 未ログインかつログインページ以外 → ログインページへ
+      if (!isSignedIn && !isLoginPage) return '/login';
+
+      // ログイン済みかつログインページ → ダッシュボードへ
+      if (isSignedIn && isLoginPage) return '/dashboard';
+
+      return null;
+    },
     routes: [
+      GoRoute(path: '/login', builder: (c, s) => const LoginPage()),
       GoRoute(path: '/onboarding', builder: (c, s) => const OnboardingPage()),
       ShellRoute(
         builder: (context, state, child) => AppShell(child: child),
@@ -35,30 +54,47 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/dashboard', builder: (c, s) => const DashboardPage()),
 
           // スカウト
-          GoRoute(path: '/scouts', builder: (c, s) => const ScoutsPage(),
+          GoRoute(
+            path: '/scouts',
+            builder: (c, s) => const ScoutsPage(),
             routes: [
               GoRoute(path: 'new', builder: (c, s) => const ScoutFormPage()),
-              GoRoute(path: ':id',
-                builder: (c, s) => ScoutDetailPage(id: s.pathParameters['id']!),
+              GoRoute(
+                path: ':id',
+                builder: (c, s) =>
+                    ScoutDetailPage(id: s.pathParameters['id']!),
                 routes: [
-                  GoRoute(path: 'edit',
-                      builder: (c, s) => ScoutFormPage(scoutId: s.pathParameters['id'])),
+                  GoRoute(
+                    path: 'edit',
+                    builder: (c, s) =>
+                        ScoutFormPage(scoutId: s.pathParameters['id']),
+                  ),
                 ],
               ),
             ],
           ),
 
           // イベント
-          GoRoute(path: '/events', builder: (c, s) => const EventsPage(),
+          GoRoute(
+            path: '/events',
+            builder: (c, s) => const EventsPage(),
             routes: [
               GoRoute(path: 'new', builder: (c, s) => const EventFormPage()),
-              GoRoute(path: ':id',
-                builder: (c, s) => EventDetailPage(id: s.pathParameters['id']!),
+              GoRoute(
+                path: ':id',
+                builder: (c, s) =>
+                    EventDetailPage(id: s.pathParameters['id']!),
                 routes: [
-                  GoRoute(path: 'edit',
-                      builder: (c, s) => EventFormPage(eventId: s.pathParameters['id'])),
-                  GoRoute(path: 'attendance',
-                      builder: (c, s) => AttendancePage(eventId: s.pathParameters['id']!)),
+                  GoRoute(
+                    path: 'edit',
+                    builder: (c, s) =>
+                        EventFormPage(eventId: s.pathParameters['id']),
+                  ),
+                  GoRoute(
+                    path: 'attendance',
+                    builder: (c, s) =>
+                        AttendancePage(eventId: s.pathParameters['id']!),
+                  ),
                 ],
               ),
             ],
@@ -68,40 +104,67 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(path: '/badges', builder: (c, s) => const BadgesPage()),
 
           // 設定
-          GoRoute(path: '/settings', builder: (c, s) => const SettingsPage(),
+          GoRoute(
+            path: '/settings',
+            builder: (c, s) => const SettingsPage(),
             routes: [
-              GoRoute(path: 'troop', builder: (c, s) => const TroopSetupPage()),
+              GoRoute(
+                  path: 'troop', builder: (c, s) => const TroopSetupPage()),
 
               // リーダー
-              GoRoute(path: 'users', builder: (c, s) => const UsersListPage(),
+              GoRoute(
+                path: 'users',
+                builder: (c, s) => const UsersListPage(),
                 routes: [
-                  GoRoute(path: 'new', builder: (c, s) => const UserFormPage()),
-                  GoRoute(path: ':id/edit',
-                      builder: (c, s) => UserFormPage(userId: s.pathParameters['id'])),
+                  GoRoute(
+                      path: 'new', builder: (c, s) => const UserFormPage()),
+                  GoRoute(
+                    path: ':id/edit',
+                    builder: (c, s) =>
+                        UserFormPage(userId: s.pathParameters['id']),
+                  ),
                 ],
               ),
 
               // 保護者
-              GoRoute(path: 'guardians', builder: (c, s) => const GuardiansListPage(),
+              GoRoute(
+                path: 'guardians',
+                builder: (c, s) => const GuardiansListPage(),
                 routes: [
-                  GoRoute(path: 'new', builder: (c, s) => const GuardianFormPage()),
-                  GoRoute(path: ':id/edit',
-                      builder: (c, s) => GuardianFormPage(guardianId: s.pathParameters['id'])),
+                  GoRoute(
+                      path: 'new',
+                      builder: (c, s) => const GuardianFormPage()),
+                  GoRoute(
+                    path: ':id/edit',
+                    builder: (c, s) =>
+                        GuardianFormPage(guardianId: s.pathParameters['id']),
+                  ),
                 ],
               ),
 
               // 団委員
-              GoRoute(path: 'committee', builder: (c, s) => const CommitteeListPage(),
+              GoRoute(
+                path: 'committee',
+                builder: (c, s) => const CommitteeListPage(),
                 routes: [
-                  GoRoute(path: 'new', builder: (c, s) => const CommitteeFormPage()),
-                  GoRoute(path: ':id/edit',
-                      builder: (c, s) => CommitteeFormPage(memberId: s.pathParameters['id'])),
+                  GoRoute(
+                      path: 'new',
+                      builder: (c, s) => const CommitteeFormPage()),
+                  GoRoute(
+                    path: ':id/edit',
+                    builder: (c, s) =>
+                        CommitteeFormPage(memberId: s.pathParameters['id']),
+                  ),
                 ],
               ),
 
               // 電話帳
-              GoRoute(path: 'phonebook', builder: (c, s) => const PhonebookPage()),
-              GoRoute(path: 'allergy', builder: (c, s) => const AllergyListPage()),
+              GoRoute(
+                  path: 'phonebook',
+                  builder: (c, s) => const PhonebookPage()),
+              GoRoute(
+                  path: 'allergy',
+                  builder: (c, s) => const AllergyListPage()),
             ],
           ),
         ],
@@ -111,13 +174,24 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
+/// 認証状態の変化を GoRouter に通知するための ChangeNotifier
+class _AuthNotifier extends ChangeNotifier {
+  _AuthNotifier(Ref ref) {
+    ref.listen(isSignedInProvider, (_, __) => notifyListeners());
+  }
+}
+
 // ─── Shell（BottomNavigationBar） ────────────────────────────
 class AppShell extends StatelessWidget {
   final Widget child;
   const AppShell({super.key, required this.child});
 
   static const _tabs = [
-    '/dashboard', '/scouts', '/events', '/badges', '/settings',
+    '/dashboard',
+    '/scouts',
+    '/events',
+    '/badges',
+    '/settings',
   ];
 
   @override
@@ -132,11 +206,26 @@ class AppShell extends StatelessWidget {
         selectedIndex: idx,
         onDestinationSelected: (i) => context.go(_tabs[i]),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), selectedIcon: Icon(Icons.dashboard), label: 'ホーム'),
-          NavigationDestination(icon: Icon(Icons.people_outline), selectedIcon: Icon(Icons.people), label: 'スカウト'),
-          NavigationDestination(icon: Icon(Icons.event_outlined), selectedIcon: Icon(Icons.event), label: 'イベント'),
-          NavigationDestination(icon: Icon(Icons.military_tech_outlined), selectedIcon: Icon(Icons.military_tech), label: '表彰'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings), label: '設定'),
+          NavigationDestination(
+              icon: Icon(Icons.dashboard_outlined),
+              selectedIcon: Icon(Icons.dashboard),
+              label: 'ホーム'),
+          NavigationDestination(
+              icon: Icon(Icons.people_outline),
+              selectedIcon: Icon(Icons.people),
+              label: 'スカウト'),
+          NavigationDestination(
+              icon: Icon(Icons.event_outlined),
+              selectedIcon: Icon(Icons.event),
+              label: 'イベント'),
+          NavigationDestination(
+              icon: Icon(Icons.military_tech_outlined),
+              selectedIcon: Icon(Icons.military_tech),
+              label: '表彰'),
+          NavigationDestination(
+              icon: Icon(Icons.settings_outlined),
+              selectedIcon: Icon(Icons.settings),
+              label: '設定'),
         ],
       ),
     );

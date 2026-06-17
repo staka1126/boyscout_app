@@ -5,6 +5,7 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
+import 'core/supabase_config.dart';
 import 'data/local/database_helper.dart';
 import 'data/providers/app_state_provider.dart';
 
@@ -20,6 +21,9 @@ void main() async {
     sqfliteFfiInit();
     databaseFactory = databaseFactoryFfi;
   }
+
+  // Supabase 初期化（ローカルDB初期化より先に行う）
+  await SupabaseConfig.initialize();
 
   await DatabaseHelper.instance.database;
   runApp(const ProviderScope(child: BoyScoutApp()));
