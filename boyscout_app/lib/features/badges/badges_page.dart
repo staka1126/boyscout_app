@@ -34,8 +34,7 @@ class _BadgesData {
 
   List<Scout> get enrollmentTargets {
     final targets = scouts
-        .where((s) =>
-            s.isActive && s.category.isTwigBadgeEligible && s.joinedAt == null)
+        .where((s) => s.isActive && s.category.isTwigBadgeEligible && s.joinedAt == null)
         .toList();
     targets.sort((a, b) => a.name.compareTo(b.name));
     return targets;
@@ -91,7 +90,7 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
             _EnrollmentTab(scouts: data.enrollmentTargets),
             _TwigBadgeTab(data: data, onRefresh: () => ref.invalidate(badgesProvider)),
             _LeafBadgeTab(scouts: data.scouts),
-            _PerfectAttendanceTab(),
+            const _PerfectAttendanceTab(),
           ]),
         ),
       ]),
@@ -105,7 +104,6 @@ class _BadgesPageState extends ConsumerState<BadgesPage>
   }
 }
 
-// ─── 皆勤賞タブ ─────────────────────────────────────────────
 class _PerfectAttendanceTab extends ConsumerStatefulWidget {
   const _PerfectAttendanceTab();
   @override
@@ -209,7 +207,6 @@ class _PerfectAttendanceTabState extends ConsumerState<_PerfectAttendanceTab> {
   }
 }
 
-// ─── 入隊式タブ ────────────────────────────────────────────────
 class _EnrollmentTab extends StatelessWidget {
   final List<Scout> scouts;
   const _EnrollmentTab({required this.scouts});
@@ -262,7 +259,6 @@ class _EnrollmentRow extends StatelessWidget {
   }
 }
 
-// ─── 小枝章タブ ──────────────────────────────────────────────
 class _TwigBadgeTab extends ConsumerWidget {
   final _BadgesData data;
   final VoidCallback onRefresh;
@@ -320,19 +316,16 @@ class _TwigBadgeTab extends ConsumerWidget {
     if (ok != true) return;
     final scoutRepo = ref.read(scoutRepositoryProvider);
     final twigRepo = ref.read(twigBadgeRepositoryProvider);
-    // pending の twig_badge_history を全件 awarded に更新
     final history = await twigRepo.getByScout(scout.id);
     for (final h in history.where((h) => !h.isAwarded)) {
-      await twigRepo.markAwarded(h.id);
+      await twigRepo.markAwarded(h.id, scout.troopId);
     }
-    // 授与待ち本数分まとめて加算
     await scoutRepo.addTwigBadges(scout.id, count);
     ref.invalidate(dashboardProvider);
     onRefresh();
   }
 }
 
-// ─── 木の葉章タブ ────────────────────────────────────────────
 class _LeafBadgeTab extends StatelessWidget {
   final List<Scout> scouts;
   const _LeafBadgeTab({required this.scouts});

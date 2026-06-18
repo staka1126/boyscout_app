@@ -2,10 +2,15 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/wood_grain_background.dart';
+import '../../core/supabase_config.dart';
+import '../../data/sync/sync_service.dart';
+import '../../data/repositories/repositories.dart';
+import '../../data/providers/app_state_provider.dart';
+import '../auth/auth_provider.dart';
 import 'auth_service.dart';
 
-/// ログイン・新規登録画面
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
 
@@ -55,13 +60,65 @@ class _LoginPageState extends ConsumerState<LoginPage>
     setState(() => _isLoading = true);
     try {
       await AuthService.instance.signIn(email: email, password: password);
-      if (mounted) context.go('/dashboard');
+      if (!mounted) return;
+
+      final troopId = await _resolveTroopId();
+      if (!mounted) return;
+
+      if (troopId != null) {
+        await SyncService.instance.syncToSupabase(troopId);
+        if (!mounted) return;
+        await SyncService.instance.syncFromSupabase(troopId);
+        if (!mounted) return;
+        ref.read(currentTroopIdProvider.notifier).state = troopId;
+        context.go('/dashboard');
+      } else {
+        context.go('/onboarding');
+      }
     } catch (e) {
       debugPrint('LOGIN ERROR: $e');
-      _showError('ログインエラー: $e');
+      if (mounted) _showError('ログインに失敗しました。メールアドレスとパスワードを確認してください。');
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<String?> _resolveTroopId() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final saved = prefs.getString('troop_id');
+    if (saved != null) {
+      final troops = await ref.read(troopRepositoryProvider).getAll();
+      if (troops.any((t) => t.id == saved)) {
+        debugPrint('_resolveTroopId: found in local prefs=$saved');
+        return saved;
+      }
+    }
+
+    final user = SupabaseConfig.currentUser;
+    if (user == null) return null;
+
+    try {
+      final member = await SupabaseConfig.client
+          .from('troop_members')
+          .select('troop_id')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+      if (member != null) {
+        final troopId = member['troop_id']?.toString();
+        if (troopId != null) {
+          await prefs.setString('troop_id', troopId);
+          debugPrint('_resolveTroopId: found in Supabase troopId=$troopId');
+          return troopId;
+        }
+      }
+    } catch (e) {
+      debugPrint('_resolveTroopId error: $e');
+    }
+
+    debugPrint('_resolveTroopId: not found');
+    return null;
   }
 
   Future<void> _signUp() async {
@@ -88,7 +145,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
         _tabController.animateTo(0);
       }
     } catch (e) {
-      debugPrint('SIGNUP ERROR: $e');
       _showError('登録に失敗しました。すでに登録済みのメールアドレスの可能性があります。');
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -98,11 +154,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: Colors.red[700],
-        duration: const Duration(seconds: 8),
-      ),
+      SnackBar(content: Text(message), backgroundColor: Colors.red[700]),
     );
   }
 

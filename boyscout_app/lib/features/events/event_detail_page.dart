@@ -204,7 +204,7 @@ class EventDetailPage extends ConsumerWidget {
           await ref.read(scoutRepositoryProvider).subtractLeafBadges(sid, totalBadges);
         }
       }
-      await ref.read(twigBadgeRepositoryProvider).deleteByEvent(event.id);
+      await ref.read(twigBadgeRepositoryProvider).deleteByEvent(event.id, event.troopId);
     }
     await ref.read(eventRepositoryProvider).update(event.copyWith(status: newStatus, completedAt: null));
     _invalidateAll(ref);
@@ -294,7 +294,12 @@ class EventDetailPage extends ConsumerWidget {
         final scout = await scoutRepo.getById(sid);
         if (scout != null && scout.pendingTwigBadges > 0) {
           for (int i = 0; i < scout.pendingTwigBadges; i++) {
-            await twigRepo.create(scoutId: sid, scoutName: scout.name, eventId: event.id);
+            await twigRepo.create(
+              scoutId: sid,
+              scoutName: scout.name,
+              eventId: event.id,
+              troopId: event.troopId,
+            );
           }
         }
       }
@@ -355,7 +360,6 @@ class _StatusSelector extends StatelessWidget {
   }
 }
 
-// ─── AttendBadge ─────────────────────────────────────────────
 class _AttendBadge extends StatelessWidget {
   final String label; final int count; final Color color;
   const _AttendBadge({required this.label, required this.count, required this.color});
@@ -367,7 +371,6 @@ class _AttendBadge extends StatelessWidget {
   ]);
 }
 
-// ─── AttendanceTile ──────────────────────────────────────────
 class _AttendanceTile extends StatelessWidget {
   final Attendance attendance;
   final ValueChanged<AttendanceStatus> onChanged;
@@ -395,7 +398,6 @@ class _AttendanceTile extends StatelessWidget {
   }
 }
 
-// ─── ToggleGroup ─────────────────────────────────────────────
 class _ToggleGroup extends StatelessWidget {
   final AttendanceStatus current;
   final ValueChanged<AttendanceStatus> onChanged;
@@ -427,7 +429,6 @@ class _Btn extends StatelessWidget {
         child: Icon(icon, size: 16, color: active ? color : Colors.grey.shade400))));
 }
 
-// ─── LeafBadgeChip ───────────────────────────────────────────
 class _LeafBadgeChip extends StatelessWidget {
   final EventLeafBadge badge;
   const _LeafBadgeChip({required this.badge});
@@ -446,7 +447,6 @@ class _LeafBadgeChip extends StatelessWidget {
     ]));
 }
 
-// ─── LeafBadgeEditor ─────────────────────────────────────────
 class _LeafBadgeEditor extends ConsumerStatefulWidget {
   final Event event;
   final List<EventLeafBadge> existing;
@@ -525,7 +525,6 @@ class _LeafBadgeEditorState extends ConsumerState<_LeafBadgeEditor> {
   }
 }
 
-// ─── AddMemberSheet ──────────────────────────────────────────
 enum _AddTab { leader, scout, guardian, committee }
 
 class _AddMemberSheet extends ConsumerStatefulWidget {
@@ -559,21 +558,15 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) return [];
     final all = await ref.read(userRepositoryProvider).getByTroop(troopId);
-    return all.where((u) =>
-        !_existingIds.contains(u.id) &&
-        (_showRetired || !u.isRetired)).toList();
+    return all.where((u) => !_existingIds.contains(u.id) && (_showRetired || !u.isRetired)).toList();
   }
 
   Future<List<Scout>> _loadScouts() async {
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) return [];
     final all = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
-    const hiddenCategories = [
-      ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined,
-    ];
-    return all.where((s) =>
-        !_existingIds.contains(s.id) &&
-        (_showAllScouts || !hiddenCategories.contains(s.category))).toList();
+    const hiddenCategories = [ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined];
+    return all.where((s) => !_existingIds.contains(s.id) && (_showAllScouts || !hiddenCategories.contains(s.category))).toList();
   }
 
   Future<List<Guardian>> _loadGuardians() async {
@@ -581,33 +574,21 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     if (troopId == null) return [];
     final all = await ref.read(guardianRepositoryProvider).getAll();
     final unlinked = all.where((g) => !_existingIds.contains(g.id)).toList();
-
     if (_showAllGuardians) return unlinked;
 
-    // ビーバー・ビッグビーバーのスカウトIDを取得
     final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
-    final eligibleScoutIds = scouts
-        .where((s) => s.category.isTwigBadgeEligible)
-        .map((s) => s.id)
-        .toSet();
-
-    // 出席者リストに既に入っているスカウトのIDも対象に追加
-    final existingAttendances =
-        await ref.read(attendanceRepositoryProvider).getByEvent(widget.event.id);
+    final eligibleScoutIds = scouts.where((s) => s.category.isTwigBadgeEligible).map((s) => s.id).toSet();
+    final existingAttendances = await ref.read(attendanceRepositoryProvider).getByEvent(widget.event.id);
     final attendingScoutIds = existingAttendances
         .where((a) => a.memberType == MemberType.scout && a.memberId != null)
-        .map((a) => a.memberId!)
-        .toSet();
+        .map((a) => a.memberId!).toSet();
     final targetScoutIds = eligibleScoutIds.union(attendingScoutIds);
 
-    // 対象スカウトに紐付く保護者のIDを取得
     final linkedGuardianIds = <String>{};
     for (final scoutId in targetScoutIds) {
-      final guardians =
-          await ref.read(guardianRepositoryProvider).getByScout(scoutId);
+      final guardians = await ref.read(guardianRepositoryProvider).getByScout(scoutId);
       linkedGuardianIds.addAll(guardians.map((g) => g.id));
     }
-
     return unlinked.where((g) => linkedGuardianIds.contains(g.id)).toList();
   }
 
@@ -615,9 +596,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) return [];
     final all = await ref.read(committeeRepositoryProvider).getByTroop(troopId);
-    return all.where((c) =>
-        !_existingIds.contains(c.id) &&
-        (_showRetired || !c.isRetired)).toList();
+    return all.where((c) => !_existingIds.contains(c.id) && (_showRetired || !c.isRetired)).toList();
   }
 
   Future<void> _add(MemberType type, String? memberId, String memberName) async {
@@ -635,8 +614,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('出席者を追加',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+            Text('出席者を追加', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
             const SizedBox(height: 12),
             SizedBox(
               width: double.infinity,
@@ -644,8 +622,7 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                 style: ButtonStyle(
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   visualDensity: VisualDensity.compact,
-                  padding: WidgetStateProperty.all(
-                      const EdgeInsets.symmetric(horizontal: 8)),
+                  padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
                 ),
                 segments: const [
                   ButtonSegment(value: _AddTab.leader,    label: Text('リーダー')),
@@ -657,33 +634,21 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
                 onSelectionChanged: (s) => setState(() => _tab = s.first),
               ),
             ),
-            if (_tab == _AddTab.leader || _tab == _AddTab.committee || _tab == _AddTab.scout || _tab == _AddTab.guardian) ...[  
-              const SizedBox(height: 8),
-              Row(children: [
-                const Spacer(),
-                Text('すべて表示',
-                    style: TextStyle(fontSize: 12,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                const SizedBox(width: 4),
-                Switch(
-                  value: _tab == _AddTab.scout
-                      ? _showAllScouts
-                      : _tab == _AddTab.guardian
-                          ? _showAllGuardians
-                          : _showRetired,
-                  onChanged: (v) => setState(() {
-                    if (_tab == _AddTab.scout) {
-                      _showAllScouts = v;
-                    } else if (_tab == _AddTab.guardian) {
-                      _showAllGuardians = v;
-                    } else {
-                      _showRetired = v;
-                    }
-                  }),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-              ]),
-            ],
+            const SizedBox(height: 8),
+            Row(children: [
+              const Spacer(),
+              Text('すべて表示', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+              const SizedBox(width: 4),
+              Switch(
+                value: _tab == _AddTab.scout ? _showAllScouts : _tab == _AddTab.guardian ? _showAllGuardians : _showRetired,
+                onChanged: (v) => setState(() {
+                  if (_tab == _AddTab.scout) _showAllScouts = v;
+                  else if (_tab == _AddTab.guardian) _showAllGuardians = v;
+                  else _showRetired = v;
+                }),
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ]),
           ]),
         ),
         Expanded(child: _buildList(controller)),
@@ -702,27 +667,10 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
             return ListView.builder(controller: controller, itemCount: snap.data!.length,
               itemBuilder: (_, i) {
                 final u = snap.data![i];
-                return ListTile(
-                    title: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(u.name),
-                      if (u.isRetired) ...[  
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(10)),
-                          child: Text('引退', style: TextStyle(fontSize: 10,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                        ),
-                      ],
-                    ]),
-                    subtitle: Text(u.role.label),
-                    trailing: const Icon(Icons.add),
-                    onTap: () => _add(MemberType.user, u.id, u.name));
+                return ListTile(title: Text(u.name), subtitle: Text(u.role.label),
+                    trailing: const Icon(Icons.add), onTap: () => _add(MemberType.user, u.id, u.name));
               });
           });
-
       case _AddTab.scout:
         return FutureBuilder<List<Scout>>(
           future: _loadScouts(),
@@ -733,11 +681,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
               itemBuilder: (_, i) {
                 final s = snap.data![i];
                 return ListTile(title: Text(s.name), subtitle: Text(s.category.label),
-                    trailing: const Icon(Icons.add),
-                    onTap: () => _add(MemberType.scout, s.id, s.name));
+                    trailing: const Icon(Icons.add), onTap: () => _add(MemberType.scout, s.id, s.name));
               });
           });
-
       case _AddTab.guardian:
         return FutureBuilder<List<Guardian>>(
           future: _loadGuardians(),
@@ -747,13 +693,10 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
             return ListView.builder(controller: controller, itemCount: snap.data!.length,
               itemBuilder: (_, i) {
                 final g = snap.data![i];
-                return ListTile(title: Text(g.name),
-                    subtitle: g.phone != null ? Text(g.phone!) : null,
-                    trailing: const Icon(Icons.add),
-                    onTap: () => _add(MemberType.guardian, g.id, g.name));
+                return ListTile(title: Text(g.name), subtitle: g.phone != null ? Text(g.phone!) : null,
+                    trailing: const Icon(Icons.add), onTap: () => _add(MemberType.guardian, g.id, g.name));
               });
           });
-
       case _AddTab.committee:
         return FutureBuilder<List<CommitteeMember>>(
           future: _loadCommittee(),
@@ -763,24 +706,8 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
             return ListView.builder(controller: controller, itemCount: snap.data!.length,
               itemBuilder: (_, i) {
                 final c = snap.data![i];
-                return ListTile(
-                    title: Row(mainAxisSize: MainAxisSize.min, children: [
-                      Text(c.name),
-                      if (c.isRetired) ...[  
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                              color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(10)),
-                          child: Text('引退', style: TextStyle(fontSize: 10,
-                              color: Theme.of(context).colorScheme.onSurfaceVariant)),
-                        ),
-                      ],
-                    ]),
-                    subtitle: Text(c.category.label),
-                    trailing: const Icon(Icons.add),
-                    onTap: () => _add(MemberType.committee, c.id, c.name));
+                return ListTile(title: Text(c.name), subtitle: Text(c.category.label),
+                    trailing: const Icon(Icons.add), onTap: () => _add(MemberType.committee, c.id, c.name));
               });
           });
     }

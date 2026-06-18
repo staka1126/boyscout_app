@@ -33,8 +33,7 @@ class SettingsPage extends ConsumerWidget {
                           color: Theme.of(context).colorScheme.onPrimaryContainer,
                           fontWeight: FontWeight.w700)),
                 ),
-                title: Text(troop.name,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
+                title: Text(troop.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: troop.location != null ? Text(troop.location!) : null,
                 onTap: () => context.go('/settings/troop'),
               );
@@ -52,7 +51,6 @@ class SettingsPage extends ConsumerWidget {
           _tile(context, Icons.no_food_outlined, 'アレルギー情報', '/settings/allergy'),
           const Divider(),
 
-          // ─── アカウント ───────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
             child: Text('アカウント',
@@ -75,7 +73,6 @@ class SettingsPage extends ConsumerWidget {
           ),
           const Divider(),
 
-          // ─── その他 ───────────────────────────────────
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('バージョン情報'),
@@ -83,8 +80,7 @@ class SettingsPage extends ConsumerWidget {
           ),
           ListTile(
             leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
-            title: const Text('データをすべて削除',
-                style: TextStyle(color: Colors.red)),
+            title: const Text('データをすべて削除', style: TextStyle(color: Colors.red)),
             onTap: () => _confirmClearData(context, ref),
           ),
         ]),
@@ -100,7 +96,6 @@ class SettingsPage extends ConsumerWidget {
         onTap: () => context.go(path),
       );
 
-  // ─── 招待コード発行 ──────────────────────────────────
   Future<void> _showGenerateInviteCode(BuildContext context, WidgetRef ref) async {
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) {
@@ -116,7 +111,6 @@ class SettingsPage extends ConsumerWidget {
     );
   }
 
-  // ─── ログアウト確認 ──────────────────────────────────
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -124,14 +118,8 @@ class SettingsPage extends ConsumerWidget {
         title: const Text('ログアウト'),
         content: const Text('ログアウトしますか？'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dlgCtx).pop(false),
-            child: const Text('キャンセル'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dlgCtx).pop(true),
-            child: const Text('ログアウト'),
-          ),
+          TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
+          FilledButton(onPressed: () => Navigator.of(dlgCtx).pop(true), child: const Text('ログアウト')),
         ],
       ),
     );
@@ -139,30 +127,22 @@ class SettingsPage extends ConsumerWidget {
     await _logout(context, ref);
   }
 
-  // ─── ログアウト共通処理 ───────────────────────────────
   static Future<void> _logout(BuildContext context, WidgetRef ref) async {
-    // SharedPreferences の troop_id をクリア
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('troop_id');
-    // Riverpod の状態をリセット
     ref.read(currentTroopIdProvider.notifier).state = null;
-    // Supabase からログアウト
     await AuthService.instance.signOut();
     if (context.mounted) context.go('/login');
   }
 
-  // ─── データ削除 ──────────────────────────────────────
   Future<void> _confirmClearData(BuildContext context, WidgetRef ref) async {
     final ok1 = await showDialog<bool>(
       context: context,
       builder: (dlgCtx) => AlertDialog(
         title: const Text('データをすべて削除'),
-        content: const Text(
-            '団・スカウト・イベント・出欠・表彰など\nすべてのデータが完全に削除されます。\n\nこの操作は取り消せません。'),
+        content: const Text('団・スカウト・イベント・出欠・表彰など\nすべてのローカルデータが削除されます。\n\nこの操作は取り消せません。'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.of(dlgCtx).pop(false),
-              child: const Text('キャンセル')),
+          TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(dlgCtx).pop(true),
@@ -179,9 +159,7 @@ class SettingsPage extends ConsumerWidget {
         title: const Text('本当に削除しますか？'),
         content: const Text('本当にすべてのデータを削除してよいですか？\n復元する方法はありません。'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.of(dlgCtx).pop(false),
-              child: const Text('キャンセル')),
+          TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.of(dlgCtx).pop(true),
@@ -207,25 +185,20 @@ class SettingsPage extends ConsumerWidget {
         await txn.execute('DELETE FROM troops');
       });
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.clear();
-
       if (context.mounted) {
-        ref.read(currentTroopIdProvider.notifier).state = null;
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('すべてのデータを削除しました')));
-        context.go('/onboarding');
+            const SnackBar(content: Text('ローカルデータを削除しました。ログアウトします。')));
+        // ログアウトしてログイン画面へ（再ログイン時にSupabaseから復元される）
+        await _logout(context, ref);
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
   }
 }
 
-// ─── 招待コード生成ダイアログ ────────────────────────────────
 class _GenerateCodeDialog extends StatefulWidget {
   final String troopId;
   const _GenerateCodeDialog({required this.troopId});
@@ -259,10 +232,7 @@ class _GenerateCodeDialogState extends State<_GenerateCodeDialog> {
     return AlertDialog(
       title: const Text('招待コード'),
       content: _isLoading
-          ? const SizedBox(
-              height: 80,
-              child: Center(child: CircularProgressIndicator()),
-            )
+          ? const SizedBox(height: 80, child: Center(child: CircularProgressIndicator()))
           : _error != null
               ? Text('エラー: $_error', style: const TextStyle(color: Colors.red))
               : Column(
@@ -271,8 +241,7 @@ class _GenerateCodeDialogState extends State<_GenerateCodeDialog> {
                     const Text('このコードを招待したいメンバーに伝えてください。\n有効期限は7日間です。'),
                     const SizedBox(height: 24),
                     Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.primaryContainer,
                         borderRadius: BorderRadius.circular(12),
@@ -302,10 +271,7 @@ class _GenerateCodeDialogState extends State<_GenerateCodeDialog> {
                   ],
                 ),
       actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('閉じる'),
-        ),
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('閉じる')),
       ],
     );
   }

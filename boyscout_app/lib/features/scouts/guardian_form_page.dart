@@ -101,7 +101,15 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
         await repo.update(g);
       }
       if (widget.linkScoutId != null) {
-        await repo.link(scoutId: widget.linkScoutId!, guardianId: g.id, relationship: _relationship);
+        // スカウトのtroopIdを取得してlinkに渡す
+        final scout = await ref.read(scoutRepositoryProvider).getById(widget.linkScoutId!);
+        final troopId = scout?.troopId ?? ref.read(currentTroopIdProvider) ?? '';
+        await repo.link(
+          scoutId: widget.linkScoutId!,
+          guardianId: g.id,
+          relationship: _relationship,
+          troopId: troopId,
+        );
       }
       if (mounted) context.pop();
     } catch (e) {

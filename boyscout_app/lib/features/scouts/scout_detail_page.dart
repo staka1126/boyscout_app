@@ -63,7 +63,6 @@ class ScoutDetailPage extends ConsumerWidget {
           body: ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // ヘッダー
               Card(child: Padding(padding: const EdgeInsets.all(20),
                 child: Row(children: [
                   CircleAvatar(radius: 32, backgroundColor: cs.primaryContainer,
@@ -80,7 +79,6 @@ class ScoutDetailPage extends ConsumerWidget {
                 ]))),
               const SizedBox(height: 12),
 
-              // 基本情報
               if ([scout.grade, scout.gender, scout.joinedAt, scout.enrollmentYear, scout.birthday].any((v) => v != null))
                 _infoCard(context, '基本情報', [
                   if (scout.grade != null) _InfoRow('学年', scout.grade!),
@@ -95,7 +93,6 @@ class ScoutDetailPage extends ConsumerWidget {
                 ]),
               const SizedBox(height: 12),
 
-              // 木の葉章・小枝章
               _infoCard(context, '木の葉章・小枝章', [
                 _InfoRow('木の葉章（活動取得）', '${scout.leafBadges}枚'),
                 _InfoRow('入隊時補正（減算）', '${scout.leafBadgeOffset}枚'),
@@ -106,7 +103,6 @@ class ScoutDetailPage extends ConsumerWidget {
               ]),
               const SizedBox(height: 12),
 
-              // 進捗
               Card(child: Padding(padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text('木の葉章 進捗', style: Theme.of(context).textTheme.labelLarge
@@ -116,28 +112,23 @@ class ScoutDetailPage extends ConsumerWidget {
                 ]))),
               const SizedBox(height: 12),
 
-              // アレルギー・特記
               if (scout.allergies.isNotEmpty || scout.specialNotes != null)
                 _infoCard(context, 'アレルギー・特記', [
                   if (scout.allergies.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
                       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('アレルギー',
-                            style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
+                        Text('アレルギー', style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant)),
                         const SizedBox(height: 6),
-                        Wrap(
-                          spacing: 6, runSpacing: 4,
+                        Wrap(spacing: 6, runSpacing: 4,
                           children: scout.allergies.map((a) => Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: cs.errorContainer,
                               borderRadius: BorderRadius.circular(12),
                             ),
-                            child: Text(a.label, style: TextStyle(
-                                fontSize: 11, color: cs.onErrorContainer)),
-                          )).toList(),
-                        ),
+                            child: Text(a.label, style: TextStyle(fontSize: 11, color: cs.onErrorContainer)),
+                          )).toList()),
                       ]),
                     ),
                   if (scout.specialNotes != null)
@@ -145,7 +136,6 @@ class ScoutDetailPage extends ConsumerWidget {
                 ]),
               const SizedBox(height: 12),
 
-              // 保護者
               Card(child: Padding(padding: const EdgeInsets.all(16),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
@@ -160,8 +150,7 @@ class ScoutDetailPage extends ConsumerWidget {
                   ]),
                   const SizedBox(height: 8),
                   if (data.guardians.isEmpty)
-                    const Text('保護者が登録されていません',
-                        style: TextStyle(color: Colors.grey))
+                    const Text('保護者が登録されていません', style: TextStyle(color: Colors.grey))
                   else
                     ...data.guardians.map((g) => Padding(
                       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -239,7 +228,7 @@ class ScoutDetailPage extends ConsumerWidget {
       ));
     if (ok == true) {
       await ref.read(guardianRepositoryProvider).unlink(
-          scoutId: scout.id, guardianId: guardian.id);
+          scoutId: scout.id, guardianId: guardian.id, troopId: scout.troopId);
       ref.invalidate(_scoutDetailProvider(id));
     }
   }
@@ -275,7 +264,6 @@ class ScoutDetailPage extends ConsumerWidget {
   }
 }
 
-// ─── 保護者紐付けシート ───────────────────────────────────────
 class _LinkGuardianSheet extends ConsumerStatefulWidget {
   final Scout scout;
   final List<Guardian> linked;
@@ -351,12 +339,11 @@ class _LinkGuardianSheetState extends ConsumerState<_LinkGuardianSheet> {
 
   Future<void> _link(Guardian guardian) async {
     await ref.read(guardianRepositoryProvider).link(
-        scoutId: widget.scout.id, guardianId: guardian.id);
+        scoutId: widget.scout.id, guardianId: guardian.id, troopId: widget.scout.troopId);
     if (mounted) Navigator.pop(context);
   }
 }
 
-// ─── InfoRow ─────────────────────────────────────────────────
 class _InfoRow extends StatelessWidget {
   final String label;
   final String value;
@@ -378,7 +365,6 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-// ─── LeafBadgeProgress ───────────────────────────────────────
 class _LeafBadgeProgress extends StatelessWidget {
   final Scout scout;
   const _LeafBadgeProgress({required this.scout});

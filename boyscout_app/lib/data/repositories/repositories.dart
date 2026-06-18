@@ -1,9 +1,12 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../local/database_helper.dart';
 import '../models/models.dart';
+import '../sync/sync_service.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/supabase_config.dart';
 
 // ─── Providers ───────────────────────────────────────────────
 final troopRepositoryProvider = Provider((_) => TroopRepository());
@@ -16,6 +19,16 @@ final attendanceRepositoryProvider = Provider((_) => AttendanceRepository());
 final twigBadgeRepositoryProvider = Provider((_) => TwigBadgeRepository());
 
 const _uuid = Uuid();
+
+/// ログイン済みかつ団IDがある場合にSupabaseへアップロード同期する
+Future<void> _syncIfNeeded(String troopId) async {
+  if (!SupabaseConfig.isSignedIn) return;
+  try {
+    await SyncService.instance.syncToSupabase(troopId);
+  } catch (e) {
+    debugPrint('_syncIfNeeded error: $e');
+  }
+}
 
 // ─── TroopRepository ─────────────────────────────────────────
 class TroopRepository {
@@ -74,12 +87,14 @@ class UserRepository {
         role: role, gender: gender, phone: phone, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('users', u.toMap());
+    await _syncIfNeeded(troopId);
     return u;
   }
 
   Future<void> update(AppUser u) async {
     final db = await _db.database;
     await db.update('users', u.toMap(), where: 'id = ?', whereArgs: [u.id]);
+    await _syncIfNeeded(u.troopId);
   }
 
   Future<bool> canDelete(String id) async {
@@ -91,7 +106,19 @@ class UserRepository {
 
   Future<void> delete(String id) async {
     final db = await _db.database;
+    // troopId を取得してから削除
+    final rows = await db.query('users', where: 'id = ?', whereArgs: [id]);
+    final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
     await db.delete('users', where: 'id = ?', whereArgs: [id]);
+    // Supabaseからも削除
+    if (SupabaseConfig.isSignedIn) {
+      try {
+        await SupabaseConfig.client.from('users').delete().eq('id', id);
+      } catch (e) {
+        debugPrint('UserRepository.delete Supabase error: $e');
+      }
+    }
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 }
 
@@ -125,12 +152,14 @@ class ScoutRepository {
         leafBadgeOffset: leafBadgeOffset, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('scouts', s.toMap());
+    await _syncIfNeeded(troopId);
     return s;
   }
 
   Future<void> update(Scout s) async {
     final db = await _db.database;
     await db.update('scouts', s.toMap(), where: 'id = ?', whereArgs: [s.id]);
+    await _syncIfNeeded(s.troopId);
   }
 
   Future<bool> canDelete(String id) async {
@@ -143,7 +172,17 @@ class ScoutRepository {
 
   Future<void> delete(String id) async {
     final db = await _db.database;
+    final rows = await db.query('scouts', where: 'id = ?', whereArgs: [id]);
+    final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
     await db.delete('scouts', where: 'id = ?', whereArgs: [id]);
+    if (SupabaseConfig.isSignedIn) {
+      try {
+        await SupabaseConfig.client.from('scouts').delete().eq('id', id);
+      } catch (e) {
+        debugPrint('ScoutRepository.delete Supabase error: $e');
+      }
+    }
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 
   Future<void> addLeafBadges(String scoutId, int count) async {
@@ -151,22 +190,29 @@ class ScoutRepository {
     await db.rawUpdate(
         'UPDATE scouts SET leaf_badges = leaf_badges + ?, updated_at = ? WHERE id = ?',
         [count, DateTime.now().toIso8601String(), scoutId]);
+    final rows = await db.query('scouts', where: 'id = ?', whereArgs: [scoutId]);
+    final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 
-  /// 木の葉章を減算（0未満にならないようガード）
   Future<void> subtractLeafBadges(String scoutId, int count) async {
     final db = await _db.database;
     await db.rawUpdate(
         'UPDATE scouts SET leaf_badges = MAX(0, leaf_badges - ?), updated_at = ? WHERE id = ?',
         [count, DateTime.now().toIso8601String(), scoutId]);
+    final rows = await db.query('scouts', where: 'id = ?', whereArgs: [scoutId]);
+    final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 
-  /// 小枝章をN本加算する
   Future<void> addTwigBadges(String scoutId, int count) async {
     final db = await _db.database;
     await db.rawUpdate(
         'UPDATE scouts SET twig_badges = twig_badges + ?, updated_at = ? WHERE id = ?',
         [count, DateTime.now().toIso8601String(), scoutId]);
+    final rows = await db.query('scouts', where: 'id = ?', whereArgs: [scoutId]);
+    final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 }
 
@@ -201,19 +247,29 @@ class GuardianRepository {
   Future<void> update(Guardian g) async {
     final db = await _db.database;
     await db.update('guardians', g.toMap(), where: 'id = ?', whereArgs: [g.id]);
+    // guardians は troop_id を持たないので scout_guardians 経由で troopId を取得
+    if (SupabaseConfig.isSignedIn) {
+      try {
+        await SupabaseConfig.client.from('guardians').upsert(g.toMap());
+      } catch (e) {
+        debugPrint('GuardianRepository.update Supabase error: $e');
+      }
+    }
   }
 
-  Future<void> link({required String scoutId, required String guardianId, String? relationship}) async {
+  Future<void> link({required String scoutId, required String guardianId, String? relationship, required String troopId}) async {
     final db = await _db.database;
     await db.insert('scout_guardians',
         {'id': _uuid.v4(), 'scout_id': scoutId, 'guardian_id': guardianId, 'relationship': relationship},
         conflictAlgorithm: ConflictAlgorithm.ignore);
+    await _syncIfNeeded(troopId);
   }
 
-  Future<void> unlink({required String scoutId, required String guardianId}) async {
+  Future<void> unlink({required String scoutId, required String guardianId, required String troopId}) async {
     final db = await _db.database;
     await db.delete('scout_guardians',
         where: 'scout_id = ? AND guardian_id = ?', whereArgs: [scoutId, guardianId]);
+    await _syncIfNeeded(troopId);
   }
 
   Future<bool> canDelete(String id) async {
@@ -228,6 +284,13 @@ class GuardianRepository {
   Future<void> delete(String id) async {
     final db = await _db.database;
     await db.delete('guardians', where: 'id = ?', whereArgs: [id]);
+    if (SupabaseConfig.isSignedIn) {
+      try {
+        await SupabaseConfig.client.from('guardians').delete().eq('id', id);
+      } catch (e) {
+        debugPrint('GuardianRepository.delete Supabase error: $e');
+      }
+    }
   }
 }
 
@@ -250,12 +313,14 @@ class CommitteeRepository {
         category: category, email: email, phone: phone, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('committee_members', cm.toMap());
+    await _syncIfNeeded(troopId);
     return cm;
   }
 
   Future<void> update(CommitteeMember cm) async {
     final db = await _db.database;
     await db.update('committee_members', cm.toMap(), where: 'id = ?', whereArgs: [cm.id]);
+    await _syncIfNeeded(cm.troopId);
   }
 
   Future<bool> canDelete(String id) async {
@@ -267,7 +332,17 @@ class CommitteeRepository {
 
   Future<void> delete(String id) async {
     final db = await _db.database;
+    final rows = await db.query('committee_members', where: 'id = ?', whereArgs: [id]);
+    final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
     await db.delete('committee_members', where: 'id = ?', whereArgs: [id]);
+    if (SupabaseConfig.isSignedIn) {
+      try {
+        await SupabaseConfig.client.from('committee_members').delete().eq('id', id);
+      } catch (e) {
+        debugPrint('CommitteeRepository.delete Supabase error: $e');
+      }
+    }
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 }
 
@@ -307,12 +382,14 @@ class EventRepository {
         startTime: startTime, endTime: endTime, notes: notes, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('events', e.toMap());
+    await _syncIfNeeded(troopId);
     return e;
   }
 
   Future<void> update(Event e) async {
     final db = await _db.database;
     await db.update('events', e.toMap(), where: 'id = ?', whereArgs: [e.id]);
+    await _syncIfNeeded(e.troopId);
   }
 
   Future<bool> canDelete(String id) async {
@@ -325,7 +402,17 @@ class EventRepository {
 
   Future<void> delete(String id) async {
     final db = await _db.database;
+    final rows = await db.query('events', where: 'id = ?', whereArgs: [id]);
+    final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
     await db.delete('events', where: 'id = ?', whereArgs: [id]);
+    if (SupabaseConfig.isSignedIn) {
+      try {
+        await SupabaseConfig.client.from('events').delete().eq('id', id);
+      } catch (e) {
+        debugPrint('EventRepository.delete Supabase error: $e');
+      }
+    }
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 
   Future<List<EventLeafBadge>> getLeafBadges(String eventId) async {
@@ -337,6 +424,9 @@ class EventRepository {
   Future<void> upsertLeafBadge(EventLeafBadge b) async {
     final db = await _db.database;
     await db.insert('event_leaf_badges', b.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+    final eventRows = await db.query('events', where: 'id = ?', whereArgs: [b.eventId]);
+    final troopId = eventRows.isNotEmpty ? eventRows.first['troop_id'] as String? : null;
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 }
 
@@ -371,25 +461,45 @@ class AttendanceRepository {
             conflictAlgorithm: ConflictAlgorithm.ignore);
       } catch (_) {}
     }
+    // イベントの troopId を取得して同期
+    final eventRows = await db.query('events', where: 'id = ?', whereArgs: [eventId]);
+    final troopId = eventRows.isNotEmpty ? eventRows.first['troop_id'] as String? : null;
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 
   Future<void> add(Attendance a) async {
     final db = await _db.database;
     await db.insert('attendances', a.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
+    final eventRows = await db.query('events', where: 'id = ?', whereArgs: [a.eventId]);
+    final troopId = eventRows.isNotEmpty ? eventRows.first['troop_id'] as String? : null;
+    if (troopId != null) await _syncIfNeeded(troopId);
   }
 
   Future<void> updateStatus(String id, AttendanceStatus status) async {
     final db = await _db.database;
     await db.update('attendances', {'status': status.value}, where: 'id = ?', whereArgs: [id]);
+    // attendance から event → troop を辿って同期
+    final rows = await db.query('attendances', where: 'id = ?', whereArgs: [id]);
+    if (rows.isNotEmpty) {
+      final eventId = rows.first['event_id'] as String;
+      final eventRows = await db.query('events', where: 'id = ?', whereArgs: [eventId]);
+      final troopId = eventRows.isNotEmpty ? eventRows.first['troop_id'] as String? : null;
+      if (troopId != null) await _syncIfNeeded(troopId);
+    }
   }
 
   Future<void> remove(String id) async {
     final db = await _db.database;
     await db.delete('attendances', where: 'id = ?', whereArgs: [id]);
+    if (SupabaseConfig.isSignedIn) {
+      try {
+        await SupabaseConfig.client.from('attendances').delete().eq('id', id);
+      } catch (e) {
+        debugPrint('AttendanceRepository.remove Supabase error: $e');
+      }
+    }
   }
 
-  /// 皆勤賞：指定年度（4/1〜翌3/31）の完了済みイベントに全出席したスカウトを返す
-  /// [year] = 年度開始年（例：2024 → 2024/4/1〜2025/3/31）
   Future<List<PerfectAttendance>> getPerfectAttendance({
     required String troopId,
     required int year,
@@ -398,7 +508,6 @@ class AttendanceRepository {
     final from = '$year-04-01';
     final to   = '${year + 1}-03-31';
 
-    // 期間内の完了済みイベント一覧
     final events = await db.query('events',
         where: 'troop_id = ? AND status = ? AND event_date >= ? AND event_date <= ?',
         whereArgs: [troopId, 'completed', from, to],
@@ -407,7 +516,6 @@ class AttendanceRepository {
 
     final eventIds = events.map((e) => e['id'] as String).toList();
 
-    // ビーバー・ビッグビーバーのみ対象
     final scouts = await db.query('scouts',
         where: 'troop_id = ? AND category IN (?, ?) AND is_active = 1',
         whereArgs: [troopId, 'beaver', 'big_beaver']);
@@ -455,7 +563,7 @@ class AttendanceRepository {
   }
 }
 
-// ─── PerfectAttendance（皆勤賞用データクラス） ─────────────────
+// ─── PerfectAttendance ───────────────────────────────────────
 class PerfectAttendance {
   final String scoutId;
   final String scoutName;
@@ -486,27 +594,35 @@ class TwigBadgeRepository {
   }
 
   Future<TwigBadgeHistory> create({
-    required String scoutId, required String scoutName, String? eventId,
+    required String scoutId, required String scoutName, String? eventId, required String troopId,
   }) async {
     final now = DateTime.now();
     final h = TwigBadgeHistory(id: _uuid.v4(), scoutId: scoutId, scoutName: scoutName,
         eventId: eventId, status: 'pending', createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('twig_badge_history', h.toMap());
+    await _syncIfNeeded(troopId);
     return h;
   }
 
-  Future<void> markAwarded(String id) async {
+  Future<void> markAwarded(String id, String troopId) async {
     final db = await _db.database;
     final now = DateTime.now();
     await db.update('twig_badge_history',
         {'status': 'awarded', 'awarded_at': now.toIso8601String().split('T').first, 'updated_at': now.toIso8601String()},
         where: 'id = ?', whereArgs: [id]);
+    await _syncIfNeeded(troopId);
   }
 
-  /// イベントで生成した小枝章履歴を削除（確定取り消し時）
-  Future<void> deleteByEvent(String eventId) async {
+  Future<void> deleteByEvent(String eventId, String troopId) async {
     final db = await _db.database;
     await db.delete('twig_badge_history', where: 'event_id = ?', whereArgs: [eventId]);
+    if (SupabaseConfig.isSignedIn) {
+      try {
+        await SupabaseConfig.client.from('twig_badge_history').delete().eq('event_id', eventId);
+      } catch (e) {
+        debugPrint('TwigBadgeRepository.deleteByEvent Supabase error: $e');
+      }
+    }
   }
 }
