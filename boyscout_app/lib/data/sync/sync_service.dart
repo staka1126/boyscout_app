@@ -22,7 +22,6 @@ class SyncService {
   // 起動時・ログイン時に呼ぶ
   // ─────────────────────────────────────────────────────────
   Future<void> syncFromSupabase(String troopId) async {
-    debugPrint('SYNC: start syncFromSupabase troopId=$troopId');
     try {
       final db = await _dbHelper.database;
 
@@ -37,9 +36,7 @@ class SyncService {
       await _syncAttendances(db, troopId);
       await _syncTwigBadgeHistory(db, troopId);
 
-      debugPrint('SYNC: syncFromSupabase complete');
     } catch (e) {
-      debugPrint('SYNC ERROR: $e');
       rethrow;
     }
   }
@@ -49,7 +46,6 @@ class SyncService {
   // データ変更後に呼ぶ
   // ─────────────────────────────────────────────────────────
   Future<void> syncToSupabase(String troopId) async {
-    debugPrint('SYNC: start syncToSupabase troopId=$troopId');
     try {
       final db = await _dbHelper.database;
 
@@ -62,9 +58,7 @@ class SyncService {
       await _uploadAttendances(db, troopId);
       await _uploadTwigBadgeHistory(db, troopId);
 
-      debugPrint('SYNC: syncToSupabase complete');
     } catch (e) {
-      debugPrint('SYNC UPLOAD ERROR: $e');
       // アップロード失敗はローカル操作に影響しない
     }
   }
@@ -79,7 +73,6 @@ class SyncService {
       await db.insert('troops', _troopFromSupabase(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: troops done (${rows.length} rows)');
   }
 
   Future<void> _syncUsers(Database db, String troopId) async {
@@ -88,7 +81,6 @@ class SyncService {
       await db.insert('users', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: users done (${rows.length} rows)');
   }
 
   Future<void> _syncScouts(Database db, String troopId) async {
@@ -97,7 +89,6 @@ class SyncService {
       await db.insert('scouts', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: scouts done (${rows.length} rows)');
   }
 
   Future<void> _syncGuardians(Database db, String troopId) async {
@@ -118,7 +109,6 @@ class SyncService {
       await db.insert('guardians', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: guardians done (${gRows.length} rows)');
   }
 
   Future<void> _syncScoutGuardians(Database db, String troopId) async {
@@ -133,7 +123,6 @@ class SyncService {
       await db.insert('scout_guardians', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: scout_guardians done (${rows.length} rows)');
   }
 
   Future<void> _syncCommitteeMembers(Database db, String troopId) async {
@@ -142,7 +131,6 @@ class SyncService {
       await db.insert('committee_members', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: committee_members done (${rows.length} rows)');
   }
 
   Future<void> _syncEvents(Database db, String troopId) async {
@@ -151,7 +139,6 @@ class SyncService {
       await db.insert('events', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: events done (${rows.length} rows)');
   }
 
   Future<void> _syncEventLeafBadges(Database db, String troopId) async {
@@ -166,7 +153,6 @@ class SyncService {
       await db.insert('event_leaf_badges', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: event_leaf_badges done (${rows.length} rows)');
   }
 
   Future<void> _syncAttendances(Database db, String troopId) async {
@@ -181,7 +167,6 @@ class SyncService {
       await db.insert('attendances', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: attendances done (${rows.length} rows)');
   }
 
   Future<void> _syncTwigBadgeHistory(Database db, String troopId) async {
@@ -196,7 +181,6 @@ class SyncService {
       await db.insert('twig_badge_history', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
-    debugPrint('SYNC: twig_badge_history done (${rows.length} rows)');
   }
 
   // ─────────────────────────────────────────────────────────
@@ -208,7 +192,6 @@ class SyncService {
     if (rows.isEmpty) return;
     await _client.from(table).upsert(
         rows.map((r) => Map<String, dynamic>.from(r)).toList());
-    debugPrint('SYNC UPLOAD: $table done (${rows.length} rows)');
   }
 
   Future<void> _uploadGuardians(Database db, String troopId) async {
@@ -234,7 +217,6 @@ class SyncService {
       await _client.from('scout_guardians').upsert(
           sgRows.map((r) => Map<String, dynamic>.from(r)).toList());
     }
-    debugPrint('SYNC UPLOAD: guardians done');
   }
 
   Future<void> _uploadEventLeafBadges(Database db, String troopId) async {

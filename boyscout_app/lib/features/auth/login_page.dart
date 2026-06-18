@@ -76,7 +76,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
         context.go('/onboarding');
       }
     } catch (e) {
-      debugPrint('LOGIN ERROR: $e');
       if (mounted) _showError('ログインに失敗しました。メールアドレスとパスワードを確認してください。');
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -90,7 +89,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
     if (saved != null) {
       final troops = await ref.read(troopRepositoryProvider).getAll();
       if (troops.any((t) => t.id == saved)) {
-        debugPrint('_resolveTroopId: found in local prefs=$saved');
         return saved;
       }
     }
@@ -109,7 +107,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
         final troopId = member['troop_id']?.toString();
         if (troopId != null) {
           await prefs.setString('troop_id', troopId);
-          debugPrint('_resolveTroopId: found in Supabase troopId=$troopId');
           return troopId;
         }
       }
@@ -117,7 +114,6 @@ class _LoginPageState extends ConsumerState<LoginPage>
       debugPrint('_resolveTroopId error: $e');
     }
 
-    debugPrint('_resolveTroopId: not found');
     return null;
   }
 

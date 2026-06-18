@@ -39,9 +39,7 @@ final initTroopProvider = FutureProvider<String?>((ref) async {
   if (troopId != null && SupabaseConfig.isSignedIn) {
     try {
       await SyncService.instance.syncFromSupabase(troopId);
-      debugPrint('initTroopProvider: sync complete');
     } catch (e) {
-      debugPrint('initTroopProvider: sync failed (offline?) $e');
     }
   }
 

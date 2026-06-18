@@ -38,7 +38,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final troopInit = ref.read(initTroopProvider);
       final troopId = ref.read(currentTroopIdProvider);
 
-      debugPrint('REDIRECT: location=$location isSignedIn=$isSignedIn '
           'troopInit.isLoading=${troopInit.isLoading} troopId=$troopId');
 
       // 未ログイン → ログインページへ
@@ -57,7 +56,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (troopId == null) {
         if (location == '/onboarding') return null;
         if (location.startsWith('/settings')) return null;
-        debugPrint('REDIRECT: no troop → /onboarding');
         return '/onboarding';
       }
 

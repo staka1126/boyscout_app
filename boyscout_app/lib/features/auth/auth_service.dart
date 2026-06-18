@@ -77,7 +77,6 @@ class AuthService {
     final user = currentUser;
     if (user == null) throw Exception('ログインが必要です');
 
-    debugPrint('JOIN: step1 - searching code=$code user=${user.id}');
 
     final invite = await _client
         .from('invite_codes')
@@ -85,7 +84,6 @@ class AuthService {
         .eq('code', code.toUpperCase())
         .maybeSingle();
 
-    debugPrint('JOIN: step1 result=$invite');
 
     if (invite == null) throw Exception('招待コードが見つかりません');
     if (invite['used_by'] != null) throw Exception('この招待コードはすでに使用されています');
@@ -96,7 +94,6 @@ class AuthService {
     final troopId = invite['troop_id'] as String;
     final inviteId = invite['id'] as String;
 
-    debugPrint('JOIN: step2 - inserting troop_members troopId=$troopId');
 
     await _client.from('troop_members').insert({
       'user_id': user.id,
@@ -104,15 +101,12 @@ class AuthService {
       'role': 'member',
     });
 
-    debugPrint('JOIN: step2 OK');
-    debugPrint('JOIN: step3 - updating invite_codes inviteId=$inviteId');
 
     await _client.from('invite_codes').update({
       'used_by': user.id,
       'used_at': DateTime.now().toIso8601String(),
     }).eq('id', inviteId);
 
-    debugPrint('JOIN: step3 OK');
 
     return troopId;
   }
