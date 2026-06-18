@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,19 +8,58 @@ import '../../data/local/database_helper.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../data/repositories/repositories.dart';
 import '../../core/wood_grain_background.dart';
+import '../../core/supabase_config.dart';
 import '../auth/auth_service.dart';
+
+final _currentProfileProvider = FutureProvider<Map<String, String?>>((ref) async {
+  final user = SupabaseConfig.currentUser;
+  if (user == null) return {};
+  try {
+    final data = await SupabaseConfig.client
+        .from('profiles')
+        .select('name, email')
+        .eq('id', user.id)
+        .maybeSingle();
+    final member = await SupabaseConfig.client
+        .from('troop_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+    return {
+      'name': data?['name'] as String?,
+      'email': data?['email'] as String?,
+      'role': member?['role'] as String?,
+    };
+  } catch (e) {
+    debugPrint('_currentProfileProvider error: $e');
+    return {};
+  }
+});
 
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final cs = Theme.of(context).colorScheme;
+    final profile = ref.watch(_currentProfileProvider);
+
     return Scaffold(
       backgroundColor: Colors.transparent,
-      appBar: AppBar(title: const Text('設定')),
+      appBar: AppBar(
+        title: const Text('設定'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'ログアウト',
+            onPressed: () => _confirmLogout(context, ref),
+          ),
+        ],
+      ),
       body: Stack(children: [
         const WoodGrainBackground(),
         ListView(children: [
+          // 団名ヘッダー
           FutureBuilder(
             future: ref.read(troopRepositoryProvider).getFirst(),
             builder: (_, snap) {
@@ -27,10 +67,10 @@ class SettingsPage extends ConsumerWidget {
               if (troop == null) return const SizedBox();
               return ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primaryContainer,
+                  backgroundColor: cs.primaryContainer,
                   child: Text(troop.name.isNotEmpty ? troop.name[0] : '?',
                       style: TextStyle(
-                          color: Theme.of(context).colorScheme.onPrimaryContainer,
+                          color: cs.onPrimaryContainer,
                           fontWeight: FontWeight.w700)),
                 ),
                 title: Text(troop.name, style: const TextStyle(fontWeight: FontWeight.w600)),
@@ -40,25 +80,64 @@ class SettingsPage extends ConsumerWidget {
             },
           ),
           const Divider(),
+
+          // ログインユーザー
+          profile.when(
+            loading: () => const SizedBox(),
+            error: (_, __) => const SizedBox(),
+            data: (p) {
+              final name = p['name'] ?? '';
+              final email = p['email'] ?? '';
+              final role = p['role'] == 'admin' ? '管理者' : 'メンバー';
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: cs.secondaryContainer,
+                  child: Text(
+                    name.isNotEmpty ? name[0] : '?',
+                    style: TextStyle(
+                        color: cs.onSecondaryContainer,
+                        fontWeight: FontWeight.w700),
+                  ),
+                ),
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: Text(email),
+                trailing: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: p['role'] == 'admin'
+                        ? cs.primaryContainer
+                        : cs.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(role,
+                      style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: p['role'] == 'admin'
+                              ? cs.onPrimaryContainer
+                              : cs.onSurfaceVariant)),
+                ),
+              );
+            },
+          ),
+          const Divider(),
+
+          // 団
           _tile(context, Icons.home_outlined, '団情報', '/settings/troop'),
-          _tile(context, Icons.manage_accounts_outlined, 'リーダー管理', '/settings/users'),
-          _tile(context, Icons.people_outline, 'スカウト管理', '/scouts'),
-          _tile(context, Icons.family_restroom_outlined, '保護者管理', '/settings/guardians'),
-          _tile(context, Icons.groups_outlined, '団委員ほか管理', '/settings/committee'),
-          _tile(context, Icons.event_outlined, 'イベント管理', '/events'),
-          _tile(context, Icons.military_tech_outlined, '表彰管理', '/badges'),
+          const Divider(),
+
+          // メンバー管理
+          _tile(context, Icons.manage_accounts_outlined, 'リーダー', '/settings/users'),
+          _tile(context, Icons.family_restroom_outlined, '保護者', '/settings/guardians'),
+          _tile(context, Icons.groups_outlined, '団委員ほか', '/settings/committee'),
+          const Divider(),
+
+          // 便利機能
           _tile(context, Icons.contact_phone_outlined, '電話帳', '/settings/phonebook'),
           _tile(context, Icons.no_food_outlined, 'アレルギー情報', '/settings/allergy'),
           const Divider(),
 
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-            child: Text('アカウント',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: Theme.of(context).colorScheme.primary)),
-          ),
+          // 招待コード
           ListTile(
             leading: const Icon(Icons.vpn_key_outlined),
             title: const Text('招待コードを発行する'),
@@ -66,23 +145,10 @@ class SettingsPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _showGenerateInviteCode(context, ref),
           ),
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.red),
-            title: const Text('ログアウト', style: TextStyle(color: Colors.red)),
-            onTap: () => _confirmLogout(context, ref),
-          ),
           const Divider(),
 
-          ListTile(
-            leading: const Icon(Icons.info_outline),
-            title: const Text('バージョン情報'),
-            trailing: const Text('1.0.0', style: TextStyle(color: Colors.grey)),
-          ),
-          ListTile(
-            leading: const Icon(Icons.delete_forever_outlined, color: Colors.red),
-            title: const Text('データをすべて削除', style: TextStyle(color: Colors.red)),
-            onTap: () => _confirmClearData(context, ref),
-          ),
+          // バージョン情報（10秒長押しで隠しメニュー）
+          _LongPressVersionTile(onActivate: () => _confirmClearData(context, ref)),
         ]),
       ]),
     );
@@ -188,7 +254,6 @@ class SettingsPage extends ConsumerWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('ローカルデータを削除しました。ログアウトします。')));
-        // ログアウトしてログイン画面へ（再ログイン時にSupabaseから復元される）
         await _logout(context, ref);
       }
     } catch (e) {
@@ -196,6 +261,64 @@ class SettingsPage extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
+  }
+}
+
+class _LongPressVersionTile extends StatefulWidget {
+  final VoidCallback onActivate;
+  const _LongPressVersionTile({required this.onActivate});
+
+  @override
+  State<_LongPressVersionTile> createState() => _LongPressVersionTileState();
+}
+
+class _LongPressVersionTileState extends State<_LongPressVersionTile> {
+  Timer? _timer;
+  bool _pressing = false;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    _timer?.cancel();
+    setState(() => _pressing = true);
+    _timer = Timer(const Duration(seconds: 10), () {
+      if (mounted) {
+        setState(() => _pressing = false);
+        widget.onActivate();
+      }
+    });
+  }
+
+  void _cancel() {
+    _timer?.cancel();
+    _timer = null;
+    if (mounted) setState(() => _pressing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: (_) => _cancel(),
+      onTapCancel: _cancel,
+      child: ListTile(
+        leading: Icon(
+          Icons.info_outline,
+          color: _pressing ? Theme.of(context).colorScheme.error : null,
+        ),
+        title: const Text('バージョン情報'),
+        trailing: Text(
+          '1.0.0',
+          style: TextStyle(
+            color: _pressing ? Theme.of(context).colorScheme.error : Colors.grey,
+          ),
+        ),
+      ),
+    );
   }
 }
 
