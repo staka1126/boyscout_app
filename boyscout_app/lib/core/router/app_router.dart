@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -13,6 +12,8 @@ import '../../features/attendance/attendance_page.dart';
 import '../../features/badges/badges_page.dart';
 import '../../features/settings/settings_page.dart';
 import '../../features/settings/troop_setup_page.dart';
+import '../../features/settings/troop_members_page.dart';
+import '../../features/settings/invite_codes_page.dart';
 import '../../features/settings/user_form_page.dart';
 import '../../features/settings/users_list_page.dart';
 import '../../features/settings/guardians_list_page.dart';
@@ -38,21 +39,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final troopInit = ref.read(initTroopProvider);
       final troopId = ref.read(currentTroopIdProvider);
 
-          'troopInit.isLoading=${troopInit.isLoading} troopId=$troopId');
-
-      // 未ログイン → ログインページへ
       if (!isSignedIn) {
         if (location == '/login') return null;
         return '/login';
       }
 
-      // initTroopProvider がまだ読み込み中なら何もしない
       if (troopInit.isLoading) return null;
-
-      // ログインページにいる場合はログインページ自身が制御するので何もしない
       if (location == '/login') return null;
 
-      // ログイン済み・団未登録の場合はオンボーディングと設定のみ許可
       if (troopId == null) {
         if (location == '/onboarding') return null;
         if (location.startsWith('/settings')) return null;
@@ -116,6 +110,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             builder: (c, s) => const SettingsPage(),
             routes: [
               GoRoute(path: 'troop', builder: (c, s) => const TroopSetupPage()),
+              GoRoute(path: 'members', builder: (c, s) => const TroopMembersPage()),
+              GoRoute(path: 'invite-codes', builder: (c, s) => const InviteCodesPage()),
               GoRoute(
                 path: 'users',
                 builder: (c, s) => const UsersListPage(),
@@ -160,14 +156,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   return router;
 });
 
-/// 団登録状態・初期化完了の変化を GoRouter に通知する
-/// ログアウト時のみ isSignedIn の変化を監視
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(Ref ref) {
     ref.listen(currentTroopIdProvider, (_, __) => notifyListeners());
     ref.listen(initTroopProvider, (_, __) => notifyListeners());
     ref.listen(isSignedInProvider, (prev, next) {
-      // ログアウト時のみリダイレクトを発火（ログイン時は発火しない）
       if (prev == true && next == false) notifyListeners();
     });
   }

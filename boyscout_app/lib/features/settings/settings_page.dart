@@ -10,8 +10,12 @@ import '../../data/repositories/repositories.dart';
 import '../../core/wood_grain_background.dart';
 import '../../core/supabase_config.dart';
 import '../auth/auth_service.dart';
+import '../auth/auth_provider.dart';
 
 final _currentProfileProvider = FutureProvider<Map<String, String?>>((ref) async {
+  final isSignedIn = ref.watch(isSignedInProvider);
+  if (!isSignedIn) return {};
+
   final user = SupabaseConfig.currentUser;
   if (user == null) return {};
   try {
@@ -43,6 +47,10 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final profile = ref.watch(_currentProfileProvider);
+    final isAdmin = profile.maybeWhen(
+      data: (p) => p['role'] == 'admin',
+      orElse: () => false,
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -59,7 +67,6 @@ class SettingsPage extends ConsumerWidget {
       body: Stack(children: [
         const WoodGrainBackground(),
         ListView(children: [
-          // 団名ヘッダー
           FutureBuilder(
             future: ref.read(troopRepositoryProvider).getFirst(),
             builder: (_, snap) {
@@ -69,9 +76,7 @@ class SettingsPage extends ConsumerWidget {
                 leading: CircleAvatar(
                   backgroundColor: cs.primaryContainer,
                   child: Text(troop.name.isNotEmpty ? troop.name[0] : '?',
-                      style: TextStyle(
-                          color: cs.onPrimaryContainer,
-                          fontWeight: FontWeight.w700)),
+                      style: TextStyle(color: cs.onPrimaryContainer, fontWeight: FontWeight.w700)),
                 ),
                 title: Text(troop.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: troop.location != null ? Text(troop.location!) : null,
@@ -81,73 +86,63 @@ class SettingsPage extends ConsumerWidget {
           ),
           const Divider(),
 
-          // ログインユーザー
           profile.when(
             loading: () => const SizedBox(),
             error: (_, __) => const SizedBox(),
             data: (p) {
               final name = p['name'] ?? '';
               final email = p['email'] ?? '';
-              final role = p['role'] == 'admin' ? '管理者' : 'メンバー';
+              final role = p['role'] == 'admin' ? '管理者' : p['role'] == 'readonly' ? '参照のみ' : 'メンバー';
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: cs.secondaryContainer,
-                  child: Text(
-                    name.isNotEmpty ? name[0] : '?',
-                    style: TextStyle(
-                        color: cs.onSecondaryContainer,
-                        fontWeight: FontWeight.w700),
-                  ),
+                  child: Text(name.isNotEmpty ? name[0] : '?',
+                      style: TextStyle(color: cs.onSecondaryContainer, fontWeight: FontWeight.w700)),
                 ),
                 title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text(email),
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: p['role'] == 'admin'
-                        ? cs.primaryContainer
-                        : cs.surfaceContainerHighest,
+                    color: p['role'] == 'admin' ? cs.primaryContainer : cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(role,
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: p['role'] == 'admin'
-                              ? cs.onPrimaryContainer
-                              : cs.onSurfaceVariant)),
+                          color: p['role'] == 'admin' ? cs.onPrimaryContainer : cs.onSurfaceVariant)),
                 ),
               );
             },
           ),
           const Divider(),
 
-          // 団
           _tile(context, Icons.home_outlined, '団情報', '/settings/troop'),
           const Divider(),
 
-          // メンバー管理
           _tile(context, Icons.manage_accounts_outlined, 'リーダー', '/settings/users'),
           _tile(context, Icons.family_restroom_outlined, '保護者', '/settings/guardians'),
           _tile(context, Icons.groups_outlined, '団委員ほか', '/settings/committee'),
           const Divider(),
 
-          // 便利機能
           _tile(context, Icons.contact_phone_outlined, '電話帳', '/settings/phonebook'),
           _tile(context, Icons.no_food_outlined, 'アレルギー情報', '/settings/allergy'),
           const Divider(),
 
-          // 招待コード
+          if (isAdmin) ...[
+            _tile(context, Icons.supervised_user_circle_outlined, '利用者管理', '/settings/members'),
+            _tile(context, Icons.vpn_key_outlined, '招待コード', '/settings/invite-codes'),
+            const Divider(),
+          ],
+
           ListTile(
-            leading: const Icon(Icons.vpn_key_outlined),
-            title: const Text('招待コードを発行する'),
-            subtitle: const Text('他のメンバーをこの団に招待します'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => _showGenerateInviteCode(context, ref),
+            leading: const Icon(Icons.person_remove_outlined, color: Colors.red),
+            title: const Text('アカウントを削除する', style: TextStyle(color: Colors.red)),
+            onTap: () => _confirmDeleteAccount(context, ref),
           ),
           const Divider(),
 
-          // バージョン情報（10秒長押しで隠しメニュー）
           _LongPressVersionTile(onActivate: () => _confirmClearData(context, ref)),
         ]),
       ]),
@@ -199,6 +194,84 @@ class SettingsPage extends ConsumerWidget {
     ref.read(currentTroopIdProvider.notifier).state = null;
     await AuthService.instance.signOut();
     if (context.mounted) context.go('/login');
+  }
+
+  // ─── アカウント削除 ──────────────────────────────────────
+  Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
+    // 管理者はアカウント削除不可
+    try {
+      final member = await SupabaseConfig.client
+          .from('troop_members')
+          .select('role')
+          .eq('user_id', SupabaseConfig.currentUser!.id)
+          .maybeSingle();
+      if (member != null && (member['role'] as String).trim() == 'admin') {
+        if (context.mounted) {
+          await showDialog(
+            context: context,
+            builder: (dlgCtx) => _AdminDeleteBlockDialog(ref: ref),
+          );
+        }
+        return;
+      }
+    } catch (_) {}
+
+    final ok1 = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('アカウントを削除する'),
+        content: const Text(
+            'アカウントを削除すると、このアプリへのアクセスができなくなります。\n\nローカルデータは端末に残ります。\n\nこの操作は取り消せません。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dlgCtx).pop(true),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+    if (ok1 != true || !context.mounted) return;
+
+    final ok2 = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('本当に削除しますか？'),
+        content: const Text('本当にアカウントを削除してよいですか？\n復元する方法はありません。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dlgCtx).pop(true),
+            child: const Text('完全に削除する'),
+          ),
+        ],
+      ),
+    );
+    if (ok2 != true || !context.mounted) return;
+
+    try {
+      // RPC経由でアカウント削除
+      await SupabaseConfig.client.rpc('delete_own_account');
+
+      // セッションをクリア（削除後はsignOutが失敗することもあるので握りつぶす）
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('troop_id');
+      ref.read(currentTroopIdProvider.notifier).state = null;
+      try { await SupabaseConfig.client.auth.signOut(); } catch (_) {}
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('アカウントを削除しました')));
+        context.go('/login');
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('削除に失敗しました: $e'), backgroundColor: Colors.red));
+      }
+    }
   }
 
   Future<void> _confirmClearData(BuildContext context, WidgetRef ref) async {
@@ -395,6 +468,167 @@ class _GenerateCodeDialogState extends State<_GenerateCodeDialog> {
                 ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('閉じる')),
+      ],
+    );
+  }
+}
+
+// ─── 管理者アカウント削除ブロックダイアログ ──────────────────
+class _AdminDeleteBlockDialog extends StatefulWidget {
+  final WidgetRef ref;
+  const _AdminDeleteBlockDialog({required this.ref});
+
+  @override
+  State<_AdminDeleteBlockDialog> createState() => _AdminDeleteBlockDialogState();
+}
+
+class _AdminDeleteBlockDialogState extends State<_AdminDeleteBlockDialog> {
+  Timer? _timer1;
+  Timer? _timer2;
+  bool _pressing1 = false;
+  bool _pressing2 = false;
+  bool _showConfirm = false;
+
+  @override
+  void dispose() {
+    _timer1?.cancel();
+    _timer2?.cancel();
+    super.dispose();
+  }
+
+  void _onTapDown1(TapDownDetails _) {
+    _timer1?.cancel();
+    if (mounted) setState(() => _pressing1 = true);
+    _timer1 = Timer(const Duration(seconds: 10), () {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() { _pressing1 = false; _showConfirm = true; });
+      });
+    });
+  }
+
+  void _onTapUp1(TapUpDetails _) {
+    _timer1?.cancel();
+    if (mounted) setState(() => _pressing1 = false);
+  }
+
+  void _onTapDown2(TapDownDetails _) {
+    _timer2?.cancel();
+    if (mounted) setState(() => _pressing2 = true);
+    _timer2 = Timer(const Duration(seconds: 10), () {
+      if (mounted) _executeDeleteAll();
+    });
+  }
+
+  void _onTapUp2(TapUpDetails _) {
+    _timer2?.cancel();
+    if (mounted) setState(() => _pressing2 = false);
+  }
+
+  Future<void> _executeDeleteAll() async {
+    if (!mounted) return;
+    Navigator.of(context).pop();
+
+    try {
+      // 団の全メンバーを退会させる（SECURITY DEFINER RPC）
+      await SupabaseConfig.client.rpc('dissolve_troop');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('troop_id');
+      widget.ref.read(currentTroopIdProvider.notifier).state = null;
+      await AuthService.instance.signOut();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('団から退会しました。ログアウトします。')));
+        context.go('/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('失敗しました: $e'), backgroundColor: Colors.red));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+
+    return AlertDialog(
+      title: const Text('管理者はアカウントを削除できません'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('管理者アカウントは直接削除できません。\n\n削除するには、先に利用者管理で他のメンバーに管理者権限を付与し、ご自身の権限をメンバーに変更してから削除してください。'),
+          if (_showConfirm) ...[
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cs.errorContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('⚠️ 団ごと削除する',
+                      style: TextStyle(fontWeight: FontWeight.w700, color: cs.onErrorContainer)),
+                  const SizedBox(height: 4),
+                  Text('この団に所属する全メンバーのアクセスが失われます。\n団のデータはSupabaseから削除されます。\n\n「削除実行」を10秒長押しすると実行されます。',
+                      style: TextStyle(fontSize: 12, color: cs.onErrorContainer)),
+                  const SizedBox(height: 12),
+                  GestureDetector(
+                    onTapDown: _onTapDown2,
+                    onTapUp: _onTapUp2,
+                    onTapCancel: () { _timer2?.cancel(); if (mounted) setState(() => _pressing2 = false); },
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: _pressing2 ? cs.error.withAlpha(200) : cs.error,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        _pressing2 ? '押し続けてください...' : '削除実行（10秒長押し）',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('キャンセル'),
+        ),
+        if (!_showConfirm)
+          GestureDetector(
+            onTapDown: _onTapDown1,
+            onTapUp: _onTapUp1,
+            onTapCancel: () { _timer1?.cancel(); if (mounted) setState(() => _pressing1 = false); },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: _pressing1 ? cs.error.withAlpha(200) : cs.errorContainer,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                _pressing1 ? '押し続けてください...' : '団を削除する（10秒長押し）',
+                style: TextStyle(
+                  color: _pressing1 ? Colors.white : cs.onErrorContainer,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }

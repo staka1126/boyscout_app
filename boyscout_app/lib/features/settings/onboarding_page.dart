@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../../data/sync/sync_service.dart';
+import '../../core/supabase_config.dart';
 import '../auth/auth_service.dart';
 
 class OnboardingPage extends ConsumerStatefulWidget {
@@ -82,13 +84,26 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 14)),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 24),
 
-              TextButton.icon(
-                onPressed: _logout,
-                icon: Icon(Icons.logout, size: 16, color: cs.onSurfaceVariant),
-                label: Text('ログアウト',
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+              // ログアウト・アカウント削除
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  TextButton.icon(
+                    onPressed: _logout,
+                    icon: Icon(Icons.logout, size: 14, color: cs.onSurfaceVariant),
+                    label: Text('ログアウト',
+                        style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                  ),
+                  Text('｜', style: TextStyle(color: cs.outlineVariant)),
+                  TextButton.icon(
+                    onPressed: _confirmDeleteAccount,
+                    icon: Icon(Icons.person_remove_outlined, size: 14, color: cs.error),
+                    label: Text('アカウントを削除',
+                        style: TextStyle(fontSize: 12, color: cs.error)),
+                  ),
+                ],
               ),
             ],
           ),
@@ -103,6 +118,69 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
     ref.read(currentTroopIdProvider.notifier).state = null;
     await AuthService.instance.signOut();
     if (mounted) context.go('/login');
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final ok1 = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('アカウントを削除する'),
+        content: const Text(
+            'アカウントを削除すると、このアプリへのアクセスができなくなります。\n\nこの操作は取り消せません。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dlgCtx).pop(false),
+              child: const Text('キャンセル')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dlgCtx).pop(true),
+            child: const Text('削除する'),
+          ),
+        ],
+      ),
+    );
+    if (ok1 != true || !mounted) return;
+
+    final ok2 = await showDialog<bool>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('本当に削除しますか？'),
+        content: const Text('本当にアカウントを削除してよいですか？\n復元する方法はありません。'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.of(dlgCtx).pop(false),
+              child: const Text('キャンセル')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.of(dlgCtx).pop(true),
+            child: const Text('完全に削除する'),
+          ),
+        ],
+      ),
+    );
+    if (ok2 != true || !mounted) return;
+
+    try {
+      await SupabaseConfig.client.rpc('delete_own_account');
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('troop_id');
+      ref.read(currentTroopIdProvider.notifier).state = null;
+      try { await SupabaseConfig.client.auth.signOut(); } catch (_) {}
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('アカウントを削除しました')));
+        context.go('/login');
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text('削除に失敗しました: $e'),
+                backgroundColor: Colors.red));
+      }
+    }
   }
 
   Future<void> _showInviteCodeDialog() async {
@@ -151,24 +229,51 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                 try {
                   final troopId = await AuthService.instance.joinWithInviteCode(code);
 
-                  // SharedPreferences と Riverpod 状態を更新
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (!mounted) return;
+
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (_) => const PopScope(
+                      canPop: false,
+                      child: Center(
+                        child: Card(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                CircularProgressIndicator(),
+                                SizedBox(height: 16),
+                                Text('データを同期中...'),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('troop_id', troopId);
+                  await SyncService.instance.syncFromSupabase(troopId);
 
-                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (!mounted) return;
+                  Navigator.of(context).pop();
 
-                  if (mounted) {
-                    ref.read(currentTroopIdProvider.notifier).state = troopId;
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('団への参加が完了しました'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                    context.go('/dashboard');
-                  }
+                  ref.read(currentTroopIdProvider.notifier).state = troopId;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('団への参加が完了しました'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  context.go('/dashboard');
                 } catch (e) {
-                  if (ctx.mounted) {
+                  if (ctx.mounted) Navigator.of(ctx).pop();
+                  if (mounted) {
+                    try { Navigator.of(context).pop(); } catch (_) {}
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text(e.toString().replaceAll('Exception: ', '')),

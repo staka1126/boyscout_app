@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/wood_grain_background.dart';
 import '../../core/supabase_config.dart';
 import '../../data/sync/sync_service.dart';
+import '../../data/local/database_helper.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../auth/auth_provider.dart';
@@ -117,6 +118,56 @@ class _LoginPageState extends ConsumerState<LoginPage>
     return null;
   }
 
+  // ─── 開発用：ローカルDBリセット＋同期 ────────────────────
+  Future<void> _devResetAndSync() async {
+    final email = _loginEmailCtrl.text.trim();
+    final password = _loginPasswordCtrl.text;
+    if (email.isEmpty || password.isEmpty) {
+      _showError('メールアドレスとパスワードを入力してからリセットしてください');
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      // ローカルDBを全削除
+      final db = await DatabaseHelper.instance.database;
+      await db.transaction((txn) async {
+        await txn.execute('DELETE FROM twig_badge_history');
+        await txn.execute('DELETE FROM attendances');
+        await txn.execute('DELETE FROM event_leaf_badges');
+        await txn.execute('DELETE FROM events');
+        await txn.execute('DELETE FROM scout_guardians');
+        await txn.execute('DELETE FROM committee_members');
+        await txn.execute('DELETE FROM guardians');
+        await txn.execute('DELETE FROM scouts');
+        await txn.execute('DELETE FROM users');
+        await txn.execute('DELETE FROM troops');
+      });
+      // SharedPreferencesもリセット
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('troop_id');
+
+      // ログインして同期
+      await AuthService.instance.signIn(email: email, password: password);
+      if (!mounted) return;
+
+      final troopId = await _resolveTroopId();
+      if (!mounted) return;
+
+      if (troopId != null) {
+        await SyncService.instance.syncFromSupabase(troopId);
+        if (!mounted) return;
+        ref.read(currentTroopIdProvider.notifier).state = troopId;
+        context.go('/dashboard');
+      } else {
+        context.go('/onboarding');
+      }
+    } catch (e) {
+      if (mounted) _showError('エラー: $e');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _signUp() async {
     final name = _signupNameCtrl.text.trim();
     final email = _signupEmailCtrl.text.trim();
@@ -201,7 +252,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         ),
                         const SizedBox(height: 24),
                         SizedBox(
-                          height: 280,
+                          height: kDebugMode ? 340 : 280,
                           child: TabBarView(
                             controller: _tabController,
                             children: [
@@ -267,6 +318,22 @@ class _LoginPageState extends ConsumerState<LoginPage>
                 : const Text('ログイン'),
           ),
         ),
+        // 開発用ボタン（デバッグビルドのみ表示）
+        if (kDebugMode) ...[
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.sync, size: 16),
+              label: const Text('[DEV] DBリセット＋同期', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.orange,
+                side: const BorderSide(color: Colors.orange),
+              ),
+              onPressed: _isLoading ? null : _devResetAndSync,
+            ),
+          ),
+        ],
       ],
     );
   }
