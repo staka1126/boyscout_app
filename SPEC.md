@@ -266,7 +266,8 @@ UI上の表示ラベルと DB 格納値は異なる。
 | special_notes | TEXT | 特記事項 |
 | leaf_badges | INTEGER DEFAULT 0 | 木の葉章枚数（活動取得） |
 | leaf_badge_offset | INTEGER DEFAULT 0 | 入隊時補正（減算値） |
-| twig_badges | INTEGER DEFAULT 0 | 小枝章授与済み本数 |
+| twig_badges | INTEGER DEFAULT 0 | 小枝章授与済み本数（BBVS・BVS用） |
+| other_badges | INTEGER DEFAULT 0 | 表彰済み数（仮入隊・体験・兄弟姉妹用） |
 | is_active | INTEGER DEFAULT 1 | 有効フラグ |
 | created_at | TEXT | 作成日時 |
 | updated_at | TEXT | 更新日時 |
@@ -345,9 +346,11 @@ ALTER TABLE scouts ADD COLUMN special_notes TEXT;
 ALTER TABLE guardians ADD COLUMN troop_id TEXT;
 -- v5
 ALTER TABLE users RENAME TO leaders;
+-- v6
+ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0;
 ```
 
-`onUpgrade` は try-catch で重複エラーを吸収。DBバージョンは現在 **5**。
+`onUpgrade` は try-catch で重複エラーを吸収。DBバージョンは現在 **6**。
 
 ### 5.3 Supabaseスキーマ
 

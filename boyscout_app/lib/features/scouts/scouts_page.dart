@@ -23,8 +23,25 @@ class ScoutsPage extends ConsumerStatefulWidget {
 }
 
 class _ScoutsPageState extends ConsumerState<ScoutsPage> {
+  // 表示順（デフォルト表示対象のみ）
+  static const _categoryOrder = [
+    ScoutCategory.bigBeaver,
+    ScoutCategory.beaver,
+    ScoutCategory.provisional,
+    ScoutCategory.experience,
+    ScoutCategory.sibling,
+  ];
+
+  // デフォルト非表示の分類
+  static const _hiddenCategories = [
+    ScoutCategory.promoted,
+    ScoutCategory.withdrawn,
+    ScoutCategory.notJoined,
+  ];
+
   String _query = '';
   ScoutCategory? _filterCategory;
+  bool _showHidden = false;
 
   void _refresh() {
     ref.invalidate(scoutsProvider);
@@ -121,10 +138,27 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
 
                 final filtered = scouts.where((s) {
                   final matchQ = _query.isEmpty || s.name.contains(_query);
-                  final matchC =
-                      _filterCategory == null || s.category == _filterCategory;
-                  return matchQ && matchC;
-                }).toList();
+                  final matchC = _filterCategory == null || s.category == _filterCategory;
+                  // フィルタ指定なしの場合は非表示分類を隔離（トグルのみ表示）
+                  final matchHidden = _filterCategory != null
+                      || _showHidden
+                      || !_hiddenCategories.contains(s.category);
+                  return matchQ && matchC && matchHidden;
+                }).toList()
+                  ..sort((a, b) {
+                    // フィルタ指定時は名前順、それ以外は分類順＋名前順
+                    if (_filterCategory != null) return a.name.compareTo(b.name);
+                    final ai = _categoryOrder.indexOf(a.category);
+                    final bi = _categoryOrder.indexOf(b.category);
+                    final aIdx = ai == -1 ? 99 : ai;
+                    final bIdx = bi == -1 ? 99 : bi;
+                    if (aIdx != bIdx) return aIdx.compareTo(bIdx);
+                    return a.name.compareTo(b.name);
+                  });
+
+                // 非表示分類の有無
+                final hasHidden = _filterCategory == null &&
+                    scouts.any((s) => _hiddenCategories.contains(s.category));
 
                 if (filtered.isEmpty) {
                   return const Center(
@@ -136,10 +170,21 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
                   onRefresh: () async => _refresh(),
                   child: ListView.separated(
                     padding: const EdgeInsets.all(16),
-                    itemCount: filtered.length,
+                    itemCount: filtered.length + (hasHidden ? 1 : 0),
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, i) =>
-                        _ScoutCard(scout: filtered[i], onReturn: _refresh),
+                    itemBuilder: (_, i) {
+                      // 最後にトグルボタン
+                      if (hasHidden && i == filtered.length) {
+                        return TextButton.icon(
+                          onPressed: () => setState(() => _showHidden = !_showHidden),
+                          icon: Icon(_showHidden ? Icons.expand_less : Icons.expand_more, size: 18),
+                          label: Text(_showHidden
+                              ? '上進・退団・入隊せずを隠す'
+                              : '上進・退団・入隊せずを表示'),
+                        );
+                      }
+                      return _ScoutCard(scout: filtered[i], onReturn: _refresh);
+                    },
                   ),
                 );
               },
@@ -165,6 +210,10 @@ class _ScoutCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final pending = scout.isTwigBadgeEligible
+        ? scout.pendingTwigBadges
+        : scout.pendingOtherBadges;
+    final pendingLabel = scout.isTwigBadgeEligible ? '小枝章 +$pending' : '表彰 +$pending';
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -212,7 +261,7 @@ class _ScoutCard extends StatelessWidget {
                       Text('木の葉章 ${scout.totalLeafBadges}枚',
                           style: TextStyle(
                               fontSize: 12, color: cs.onSurfaceVariant)),
-                      if (scout.pendingTwigBadges > 0) ...[
+                      if (pending > 0) ...[
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -220,7 +269,7 @@ class _ScoutCard extends StatelessWidget {
                           decoration: BoxDecoration(
                               color: cs.errorContainer,
                               borderRadius: BorderRadius.circular(10)),
-                          child: Text('小枝章 +${scout.pendingTwigBadges}',
+                          child: Text(pendingLabel,
                               style: TextStyle(
                                   fontSize: 10,
                                   color: cs.onErrorContainer,

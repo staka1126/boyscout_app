@@ -96,6 +96,7 @@ class Scout {
   final int leafBadges;
   final int leafBadgeOffset;
   final int twigBadges;
+  final int otherBadges; // 他分類（仮入隊・体験・兄弟姐妹）用表彰数
   final bool isActive;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -105,11 +106,13 @@ class Scout {
     this.grade, required this.category, this.enrollmentYear, this.joinedAt,
     this.birthday, this.allergies = const [], this.specialNotes,
     this.leafBadges = 0, this.leafBadgeOffset = 0, this.twigBadges = 0,
+    this.otherBadges = 0,
     this.isActive = true, required this.createdAt, required this.updatedAt,
   });
 
   int get totalLeafBadges => leafBadges - leafBadgeOffset;
   int get pendingTwigBadges => (totalLeafBadges ~/ 10) - twigBadges;
+  int get pendingOtherBadges => (leafBadges ~/ 10) - otherBadges;
   bool get isTwigBadgeEligible => category.isTwigBadgeEligible;
 
   static List<AllergyType> _parseAllergies(String? raw) {
@@ -130,6 +133,7 @@ class Scout {
         leafBadges: m['leaf_badges'] as int? ?? 0,
         leafBadgeOffset: m['leaf_badge_offset'] as int? ?? 0,
         twigBadges: m['twig_badges'] as int? ?? 0,
+        otherBadges: m['other_badges'] as int? ?? 0,
         isActive: (m['is_active'] as int? ?? 1) == 1,
         createdAt: DateTime.parse(m['created_at'] as String),
         updatedAt: DateTime.parse(m['updated_at'] as String));
@@ -142,7 +146,7 @@ class Scout {
         'allergies': allergies.isEmpty ? null : allergies.map((a) => a.value).join(','),
         'special_notes': specialNotes,
         'leaf_badges': leafBadges, 'leaf_badge_offset': leafBadgeOffset,
-        'twig_badges': twigBadges, 'is_active': isActive ? 1 : 0,
+        'twig_badges': twigBadges, 'other_badges': otherBadges, 'is_active': isActive ? 1 : 0,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String()};
 
@@ -150,7 +154,7 @@ class Scout {
     String? name, String? gender, String? grade, ScoutCategory? category,
     int? enrollmentYear, DateTime? joinedAt, DateTime? birthday,
     List<AllergyType>? allergies, String? specialNotes,
-    int? leafBadges, int? leafBadgeOffset, int? twigBadges, bool? isActive,
+    int? leafBadges, int? leafBadgeOffset, int? twigBadges, int? otherBadges, bool? isActive,
   }) => Scout(
         id: id, troopId: troopId, name: name ?? this.name, gender: gender ?? this.gender,
         grade: grade ?? this.grade, category: category ?? this.category,
@@ -159,7 +163,9 @@ class Scout {
         allergies: allergies ?? this.allergies, specialNotes: specialNotes ?? this.specialNotes,
         leafBadges: leafBadges ?? this.leafBadges,
         leafBadgeOffset: leafBadgeOffset ?? this.leafBadgeOffset,
-        twigBadges: twigBadges ?? this.twigBadges, isActive: isActive ?? this.isActive,
+        twigBadges: twigBadges ?? this.twigBadges,
+        otherBadges: otherBadges ?? this.otherBadges,
+        isActive: isActive ?? this.isActive,
         createdAt: createdAt, updatedAt: DateTime.now());
 }
 
@@ -366,35 +372,3 @@ class Attendance {
         status: status ?? this.status, notes: notes ?? this.notes);
 }
 
-// ─── TwigBadgeHistory ────────────────────────────────────────
-class TwigBadgeHistory {
-  final String id;
-  final String scoutId;
-  final String scoutName;
-  final String? eventId;
-  final String status;
-  final DateTime? awardedAt;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-
-  const TwigBadgeHistory({
-    required this.id, required this.scoutId, required this.scoutName,
-    this.eventId, required this.status, this.awardedAt,
-    required this.createdAt, required this.updatedAt,
-  });
-
-  bool get isAwarded => status == 'awarded';
-
-  factory TwigBadgeHistory.fromMap(Map<String, dynamic> m) => TwigBadgeHistory(
-        id: m['id'] as String, scoutId: m['scout_id'] as String,
-        scoutName: m['scout_name'] as String? ?? '',
-        eventId: m['event_id'] as String?, status: m['status'] as String,
-        awardedAt: m['awarded_at'] != null ? DateTime.parse(m['awarded_at'] as String) : null,
-        createdAt: DateTime.parse(m['created_at'] as String),
-        updatedAt: DateTime.parse(m['updated_at'] as String));
-
-  Map<String, dynamic> toMap() => {
-        'id': id, 'scout_id': scoutId, 'scout_name': scoutName, 'event_id': eventId,
-        'status': status, 'awarded_at': awardedAt?.toIso8601String().split('T').first,
-        'created_at': createdAt.toIso8601String(), 'updated_at': updatedAt.toIso8601String()};
-}

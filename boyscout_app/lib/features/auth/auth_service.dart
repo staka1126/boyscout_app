@@ -20,14 +20,21 @@ class AuthService {
     final res = await _client.auth.signUp(
       email: email,
       password: password,
+      data: {'name': name}, // userMetadataに名前を保存
     );
 
     if (res.user != null) {
-      await _client.from('profiles').insert({
-        'id': res.user!.id,
-        'name': name,
-        'email': email,
-      });
+      try {
+        await _client.from('profiles').insert({
+          'id': res.user!.id,
+          'name': name,
+          'email': email,
+        });
+      } catch (e) {
+        // メール確認が必要な場合はセッションがないためINSERTできないことがある
+        // signIn時にupsertでフォールバック
+        debugPrint('profiles insert skipped: $e');
+      }
     }
 
     return res;
@@ -40,10 +47,23 @@ class AuthService {
     required String email,
     required String password,
   }) async {
-    return _client.auth.signInWithPassword(
+    final res = await _client.auth.signInWithPassword(
       email: email,
       password: password,
     );
+    // ログイン成功後、profilesが存在しない場合は作成（新規登録時にメール認証でスキップされた場合のフォールバック）
+    if (res.user != null) {
+      try {
+        await _client.from('profiles').upsert({
+          'id': res.user!.id,
+          'name': res.user!.userMetadata?['name'] ?? email.split('@').first,
+          'email': email,
+        }, onConflict: 'id');
+      } catch (e) {
+        debugPrint('profiles upsert error: $e');
+      }
+    }
+    return res;
   }
 
   // ─────────────────────────────────────────────
@@ -94,6 +114,12 @@ class AuthService {
     final troopId = invite['troop_id'] as String;
     final inviteId = invite['id'] as String;
 
+    // profilesが存在しない場合に備えてupsertで保証
+    await _client.from('profiles').upsert({
+      'id': user.id,
+      'name': user.email?.split('@').first ?? 'user',
+      'email': user.email,
+    }, onConflict: 'id');
 
     await _client.from('troop_members').insert({
       'user_id': user.id,

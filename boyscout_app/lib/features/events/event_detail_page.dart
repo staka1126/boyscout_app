@@ -19,20 +19,49 @@ final _eventDetailProvider =
   if (event == null) return null;
   final badges = await ref.read(eventRepositoryProvider).getLeafBadges(id);
   final attendances = await ref.read(attendanceRepositoryProvider).getByEvent(id);
-  return _EventDetailData(event: event, badges: badges, attendances: attendances);
+  // 分類順ソート用にスカウト情報を取得
+  final troopId = event.troopId;
+  final List<Scout> scouts;
+  try {
+    scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
+  } catch (_) {
+    return _EventDetailData(event: event, badges: badges, attendances: attendances, scoutList: []);
+  }
+  return _EventDetailData(event: event, badges: badges, attendances: attendances, scoutList: scouts);
 });
 
 class _EventDetailData {
   final Event event;
   final List<EventLeafBadge> badges;
   final List<Attendance> attendances;
-  _EventDetailData({required this.event, required this.badges, required this.attendances});
+  final List<Scout> scoutList;
+  _EventDetailData({required this.event, required this.badges, required this.attendances, required this.scoutList});
+
+  static const _categoryOrder = [
+    ScoutCategory.bigBeaver, ScoutCategory.beaver, ScoutCategory.provisional,
+    ScoutCategory.experience, ScoutCategory.sibling,
+    ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined,
+  ];
 
   int get presentCount => attendances.where((a) => a.status == AttendanceStatus.present).length;
   int get absentCount  => attendances.where((a) => a.status == AttendanceStatus.absent).length;
   int get pendingCount => attendances.where((a) => a.status == AttendanceStatus.pending).length;
   List<Attendance> get users  => attendances.where((a) => a.memberType == MemberType.user).toList();
-  List<Attendance> get scouts => attendances.where((a) => a.memberType == MemberType.scout).toList();
+  List<Attendance> get scouts {
+    // member_id → Scoutのマップを作成して分類順ソート
+    final scoutMap = {for (final s in scoutList) s.id: s};
+    return attendances.where((a) => a.memberType == MemberType.scout).toList()
+      ..sort((a, b) {
+        final sa = a.memberId != null ? scoutMap[a.memberId] : null;
+        final sb = b.memberId != null ? scoutMap[b.memberId] : null;
+        final ai = sa != null ? _categoryOrder.indexOf(sa.category) : 99;
+        final bi = sb != null ? _categoryOrder.indexOf(sb.category) : 99;
+        final aIdx = ai == -1 ? 99 : ai;
+        final bIdx = bi == -1 ? 99 : bi;
+        if (aIdx != bIdx) return aIdx.compareTo(bIdx);
+        return a.memberName.compareTo(b.memberName);
+      });
+  }
   List<Attendance> get others => attendances.where((a) =>
       a.memberType != MemberType.user && a.memberType != MemberType.scout).toList();
 }
@@ -204,7 +233,7 @@ class EventDetailPage extends ConsumerWidget {
           await ref.read(scoutRepositoryProvider).subtractLeafBadges(sid, totalBadges);
         }
       }
-      await ref.read(twigBadgeRepositoryProvider).deleteByEvent(event.id, event.troopId);
+      // twig_badge_historyは廃止のため削除処理なし
     }
     await ref.read(eventRepositoryProvider).update(event.copyWith(status: newStatus, completedAt: null));
     _invalidateAll(ref);
@@ -278,7 +307,6 @@ class EventDetailPage extends ConsumerWidget {
 
     final eventRepo = ref.read(eventRepositoryProvider);
     final scoutRepo = ref.read(scoutRepositoryProvider);
-    final twigRepo  = ref.read(twigBadgeRepositoryProvider);
 
     await eventRepo.update(event.copyWith(status: EventStatus.completed, completedAt: DateTime.now()));
     final badges = await eventRepo.getLeafBadges(event.id);
@@ -291,17 +319,6 @@ class EventDetailPage extends ConsumerWidget {
           .map((a) => a.memberId!).toList();
       for (final sid in presentScoutIds) {
         await scoutRepo.addLeafBadges(sid, totalBadges);
-        final scout = await scoutRepo.getById(sid);
-        if (scout != null && scout.pendingTwigBadges > 0) {
-          for (int i = 0; i < scout.pendingTwigBadges; i++) {
-            await twigRepo.create(
-              scoutId: sid,
-              scoutName: scout.name,
-              eventId: event.id,
-              troopId: event.troopId,
-            );
-          }
-        }
       }
     }
 
@@ -566,13 +583,33 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     if (troopId == null) return [];
     final all = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
     const hiddenCategories = [ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined];
-    return all.where((s) => !_existingIds.contains(s.id) && (_showAllScouts || !hiddenCategories.contains(s.category))).toList();
+    const order = [
+      ScoutCategory.bigBeaver,
+      ScoutCategory.beaver,
+      ScoutCategory.provisional,
+      ScoutCategory.experience,
+      ScoutCategory.sibling,
+      ScoutCategory.promoted,
+      ScoutCategory.withdrawn,
+      ScoutCategory.notJoined,
+    ];
+    return all
+        .where((s) => !_existingIds.contains(s.id) && (_showAllScouts || !hiddenCategories.contains(s.category)))
+        .toList()
+      ..sort((a, b) {
+        final ai = order.indexOf(a.category);
+        final bi = order.indexOf(b.category);
+        final aIdx = ai == -1 ? 99 : ai;
+        final bIdx = bi == -1 ? 99 : bi;
+        if (aIdx != bIdx) return aIdx.compareTo(bIdx);
+        return a.name.compareTo(b.name);
+      });
   }
 
   Future<List<Guardian>> _loadGuardians() async {
     final troopId = ref.read(currentTroopIdProvider);
     if (troopId == null) return [];
-    final all = await ref.read(guardianRepositoryProvider).getAll();
+    final all = await ref.read(guardianRepositoryProvider).getAll(troopId: troopId);
     final unlinked = all.where((g) => !_existingIds.contains(g.id)).toList();
     if (_showAllGuardians) return unlinked;
 

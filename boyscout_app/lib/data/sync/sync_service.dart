@@ -34,7 +34,6 @@ class SyncService {
       await _syncEvents(db, troopId);
       await _syncEventLeafBadges(db, troopId);
       await _syncAttendances(db, troopId);
-      await _syncTwigBadgeHistory(db, troopId);
 
     } catch (e) {
       rethrow;
@@ -56,7 +55,6 @@ class SyncService {
       await _uploadTable(db, 'events', troopId: troopId);
       await _uploadEventLeafBadges(db, troopId);
       await _uploadAttendances(db, troopId);
-      await _uploadTwigBadgeHistory(db, troopId);
 
     } catch (e) {
       // アップロード失敗はローカル操作に影響しない
@@ -135,6 +133,8 @@ class SyncService {
 
   Future<void> _syncEvents(Database db, String troopId) async {
     final rows = await _client.from('events').select().eq('troop_id', troopId);
+    // ローカルをクリアしてから全件再検入（削除されたイベントの残流を防ぐ）
+    await db.delete('events', where: 'troop_id = ?', whereArgs: [troopId]);
     for (final row in rows as List) {
       await db.insert('events', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
@@ -242,19 +242,6 @@ class SyncService {
         where: 'event_id IN ($placeholder)', whereArgs: eventIds);
     if (rows.isEmpty) return;
     await _client.from('attendances').upsert(
-        rows.map((r) => Map<String, dynamic>.from(r)).toList());
-  }
-
-  Future<void> _uploadTwigBadgeHistory(Database db, String troopId) async {
-    final scoutRows = await db.query('scouts', where: 'troop_id = ?', whereArgs: [troopId]);
-    final scoutIds = scoutRows.map((r) => r['id'] as String).toList();
-    if (scoutIds.isEmpty) return;
-
-    final placeholder = scoutIds.map((_) => '?').join(',');
-    final rows = await db.query('twig_badge_history',
-        where: 'scout_id IN ($placeholder)', whereArgs: scoutIds);
-    if (rows.isEmpty) return;
-    await _client.from('twig_badge_history').upsert(
         rows.map((r) => Map<String, dynamic>.from(r)).toList());
   }
 

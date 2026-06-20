@@ -33,7 +33,7 @@ final _phonebookProvider = FutureProvider<List<_Contact>>((ref) async {
   if (troopId == null) return [];
 
   final users      = await ref.read(userRepositoryProvider).getByTroop(troopId);
-  final guardians  = await ref.read(guardianRepositoryProvider).getAll();
+  final guardians  = await ref.read(guardianRepositoryProvider).getAll(troopId: troopId);
   final committees = await ref.read(committeeRepositoryProvider).getByTroop(troopId);
 
   final contacts = <_Contact>[

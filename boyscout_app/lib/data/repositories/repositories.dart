@@ -16,7 +16,6 @@ final guardianRepositoryProvider = Provider((_) => GuardianRepository());
 final committeeRepositoryProvider = Provider((_) => CommitteeRepository());
 final eventRepositoryProvider = Provider((_) => EventRepository());
 final attendanceRepositoryProvider = Provider((_) => AttendanceRepository());
-final twigBadgeRepositoryProvider = Provider((_) => TwigBadgeRepository());
 
 const _uuid = Uuid();
 
@@ -214,14 +213,37 @@ class ScoutRepository {
     final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
     if (troopId != null) await _syncIfNeeded(troopId);
   }
+
+  Future<void> addOtherBadges(String scoutId, int count) async {
+    final db = await _db.database;
+    await db.rawUpdate(
+        'UPDATE scouts SET other_badges = other_badges + ?, updated_at = ? WHERE id = ?',
+        [count, DateTime.now().toIso8601String(), scoutId]);
+    final rows = await db.query('scouts', where: 'id = ?', whereArgs: [scoutId]);
+    final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
+    if (troopId != null) await _syncIfNeeded(troopId);
+  }
 }
 
 // ─── GuardianRepository ──────────────────────────────────────
 class GuardianRepository {
   final _db = DatabaseHelper.instance;
 
-  Future<List<Guardian>> getAll() async {
+  Future<List<Guardian>> getAll({String? troopId}) async {
     final db = await _db.database;
+    if (troopId != null) {
+      // troop_idで絞り込む（scout_guardians経由でその団のスカウトに結びついた保護者のみ）
+      final rows = await db.rawQuery('''
+        SELECT DISTINCT g.* FROM guardians g
+        JOIN scout_guardians sg ON sg.guardian_id = g.id
+        JOIN scouts s ON s.id = sg.scout_id
+        WHERE s.troop_id = ?
+        UNION
+        SELECT * FROM guardians WHERE troop_id = ?
+        ORDER BY name
+      ''', [troopId, troopId]);
+      return rows.map(Guardian.fromMap).toList();
+    }
     return (await db.query('guardians', orderBy: 'name')).map(Guardian.fromMap).toList();
   }
 
@@ -359,10 +381,14 @@ class EventRepository {
 
   Future<List<Event>> getRecent(String troopId) async {
     final db = await _db.database;
-    final since = DateTime.now().subtract(const Duration(days: 62));
+    final now = DateTime.now();
+    final today = now.toIso8601String().split('T').first;
+    // 2ヶ月後の末日を計算
+    final twoMonthsLater = DateTime(now.year, now.month + 2 + 1, 0); // +2ヶ月の月末
+    final until = twoMonthsLater.toIso8601String().split('T').first;
     return (await db.query('events',
-            where: 'troop_id = ? AND event_date >= ?',
-            whereArgs: [troopId, since.toIso8601String().split('T').first],
+            where: 'troop_id = ? AND event_date >= ? AND event_date <= ?',
+            whereArgs: [troopId, today, until],
             orderBy: 'event_date ASC'))
         .map(Event.fromMap).toList();
   }
@@ -544,23 +570,34 @@ class AttendanceRepository {
     return result;
   }
 
-  Future<Map<String, double>> getRates(String troopId) async {
+  Future<({int present, int total})> getRates(String troopId) async {
     final db = await _db.database;
+    final now = DateTime.now();
+    final fiscalStart = '${now.month >= 4 ? now.year : now.year - 1}-04-01';
+    final fiscalEnd   = '${now.month >= 4 ? now.year + 1 : now.year}-03-31';
     final rows = await db.rawQuery('''
-      SELECT member_id,
+      SELECT
         SUM(CASE WHEN status='present' THEN 1 ELSE 0 END) AS p,
         SUM(CASE WHEN status IN ('present','absent') THEN 1 ELSE 0 END) AS t
       FROM attendances
-      WHERE event_id IN (SELECT id FROM events WHERE troop_id=?)
-        AND member_type IN ('user','scout')
+      WHERE event_id IN (
+        SELECT id FROM events
+        WHERE troop_id=?
+          AND status='completed'
+          AND event_date >= ?
+          AND event_date <= ?
+      )
+        AND member_type = 'scout'
+        AND member_id IN (
+          SELECT id FROM scouts
+          WHERE troop_id=? AND category IN ('big_beaver','beaver')
+        )
         AND member_id IS NOT NULL
-      GROUP BY member_id
-    ''', [troopId]);
-    return {
-      for (final r in rows)
-        r['member_id'] as String:
-            (r['t'] as int) == 0 ? 0.0 : (r['p'] as int) / (r['t'] as int),
-    };
+    ''', [troopId, fiscalStart, fiscalEnd, troopId]);
+    if (rows.isEmpty) return (present: 0, total: 0);
+    final p = (rows.first['p'] as int?) ?? 0;
+    final t = (rows.first['t'] as int?) ?? 0;
+    return (present: p, total: t);
   }
 }
 
@@ -573,57 +610,3 @@ class PerfectAttendance {
   PerfectAttendance({required this.scoutId, required this.scoutName, required this.category, required this.eventCount});
 }
 
-// ─── TwigBadgeRepository ─────────────────────────────────────
-class TwigBadgeRepository {
-  final _db = DatabaseHelper.instance;
-
-  Future<List<TwigBadgeHistory>> getByScout(String scoutId) async {
-    final db = await _db.database;
-    return (await db.query('twig_badge_history', where: 'scout_id = ?',
-            whereArgs: [scoutId], orderBy: 'created_at DESC'))
-        .map(TwigBadgeHistory.fromMap).toList();
-  }
-
-  Future<List<TwigBadgeHistory>> getAll(String troopId) async {
-    final db = await _db.database;
-    return (await db.rawQuery('''
-      SELECT t.* FROM twig_badge_history t
-      JOIN scouts s ON s.id = t.scout_id
-      WHERE s.troop_id = ?
-      ORDER BY t.created_at DESC
-    ''', [troopId])).map(TwigBadgeHistory.fromMap).toList();
-  }
-
-  Future<TwigBadgeHistory> create({
-    required String scoutId, required String scoutName, String? eventId, required String troopId,
-  }) async {
-    final now = DateTime.now();
-    final h = TwigBadgeHistory(id: _uuid.v4(), scoutId: scoutId, scoutName: scoutName,
-        eventId: eventId, status: 'pending', createdAt: now, updatedAt: now);
-    final db = await _db.database;
-    await db.insert('twig_badge_history', h.toMap());
-    await _syncIfNeeded(troopId);
-    return h;
-  }
-
-  Future<void> markAwarded(String id, String troopId) async {
-    final db = await _db.database;
-    final now = DateTime.now();
-    await db.update('twig_badge_history',
-        {'status': 'awarded', 'awarded_at': now.toIso8601String().split('T').first, 'updated_at': now.toIso8601String()},
-        where: 'id = ?', whereArgs: [id]);
-    await _syncIfNeeded(troopId);
-  }
-
-  Future<void> deleteByEvent(String eventId, String troopId) async {
-    final db = await _db.database;
-    await db.delete('twig_badge_history', where: 'event_id = ?', whereArgs: [eventId]);
-    if (SupabaseConfig.isSignedIn) {
-      try {
-        await SupabaseConfig.client.from('twig_badge_history').delete().eq('event_id', eventId);
-      } catch (e) {
-        debugPrint('TwigBadgeRepository.deleteByEvent Supabase error: $e');
-      }
-    }
-  }
-}

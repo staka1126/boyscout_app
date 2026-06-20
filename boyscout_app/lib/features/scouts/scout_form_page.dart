@@ -188,7 +188,11 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                     _GenderRadio(value: _gender, onChanged: (v) => setState(() => _gender = v)),
                     const SizedBox(height: 12),
                     DropdownButtonFormField<String>(
-                      value: _gradeCtrl.text.isEmpty ? '小1' : _gradeCtrl.text,
+                      value: () {
+                        const valid = ['小2', '小1', '年長', '年中', '年少', '未就学', 'その他'];
+                        final v = _gradeCtrl.text.isEmpty ? '小1' : _gradeCtrl.text;
+                        return valid.contains(v) ? v : 'その他';
+                      }(),
                       decoration: const InputDecoration(labelText: '学年'),
                       items: const [
                         DropdownMenuItem(value: '小2', child: Text('小2')),

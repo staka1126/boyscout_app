@@ -339,10 +339,29 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
         .read(attendanceRepositoryProvider)
         .getByEvent(widget.event.id);
     final existingIds = existing.map((a) => a.memberId).toSet();
-    return all
-        .where((s) =>
-            !s.category.isDefaultAttendee && !existingIds.contains(s.id))
-        .toList();
+    // 分類順（BBVS→BVS→他）でソート、上進・退団・入隊せずは末尾に
+    const order = [
+      ScoutCategory.bigBeaver,
+      ScoutCategory.beaver,
+      ScoutCategory.provisional,
+      ScoutCategory.experience,
+      ScoutCategory.sibling,
+      ScoutCategory.promoted,
+      ScoutCategory.withdrawn,
+      ScoutCategory.notJoined,
+    ];
+    final filtered = all
+        .where((s) => !existingIds.contains(s.id))
+        .toList()
+      ..sort((a, b) {
+        final ai = order.indexOf(a.category);
+        final bi = order.indexOf(b.category);
+        final aIdx = ai == -1 ? 99 : ai;
+        final bIdx = bi == -1 ? 99 : bi;
+        if (aIdx != bIdx) return aIdx.compareTo(bIdx);
+        return a.name.compareTo(b.name);
+      });
+    return filtered;
   }
 
   Future<List<CommitteeMember>> _loadCommittee() async {

@@ -229,16 +229,19 @@ class _EventCard extends StatelessWidget {
               width: 48,
               padding: const EdgeInsets.symmetric(vertical: 8),
               decoration: BoxDecoration(
-                  color: cs.primaryContainer,
+                  color: _monthColor(event.eventDate.month),
                   borderRadius: BorderRadius.circular(10)),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(DateFormat('d').format(event.eventDate),
-                    style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w800,
-                        color: cs.onPrimaryContainer)),
                 Text(DateFormat('M月').format(event.eventDate),
-                    style: TextStyle(fontSize: 11, color: cs.onPrimaryContainer)),
+                    style: const TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white)),
+                Text(DateFormat('d').format(event.eventDate),
+                    style: const TextStyle(
+                        fontSize: 19,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.white)),
               ]),
             ),
             const SizedBox(width: 12),
@@ -268,6 +271,14 @@ class _EventCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  // 春(4-6月)・夏(7-9月)・秋(10-12月)・冬(1-3月)で色分け
+  static Color _monthColor(int month) {
+    if (month >= 4 && month <= 6)  return const Color(0xFF66BB6A); // 春: 緑
+    if (month >= 7 && month <= 9)  return const Color(0xFF29B6F6); // 夏: 青
+    if (month >= 10 && month <= 12) return const Color(0xFFFF8F00); // 秋: 橙
+    return const Color(0xFF7986CB);                                  // 冬: 鵬色
   }
 
   Widget _meta(BuildContext context, IconData icon, String text) => Row(

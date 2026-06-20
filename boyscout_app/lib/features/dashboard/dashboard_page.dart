@@ -28,14 +28,15 @@ final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   }
 
   final events = await ref.read(eventRepositoryProvider).getRecent(troopId);
+  final allEvents = await ref.read(eventRepositoryProvider).getByTroop(troopId);
   final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
   final rates = await ref.read(attendanceRepositoryProvider).getRates(troopId);
   final now = DateTime.now();
-  final thisMonthCount = events
+  final thisMonthCount = allEvents
       .where((e) => e.eventDate.month == now.month && e.eventDate.year == now.year)
       .length;
-  double avgRate = 0;
-  if (rates.isNotEmpty) avgRate = rates.values.reduce((a, b) => a + b) / rates.length;
+  // トータル出席率：全スカウトの出席合計 / (出席+欠席)合計
+  final double avgRate = rates.total == 0 ? 0.0 : rates.present / rates.total;
   return _DashboardData(events: events, scouts: scouts, thisMonthCount: thisMonthCount, avgAttendanceRate: avgRate, troopName: troopName);
 });
 
@@ -47,8 +48,13 @@ class _DashboardData {
   final String? troopName;
   _DashboardData({required this.events, required this.scouts, required this.thisMonthCount, required this.avgAttendanceRate, this.troopName});
   factory _DashboardData.empty() => _DashboardData(events: [], scouts: [], thisMonthCount: 0, avgAttendanceRate: 0);
-  int get pendingTwigScouts => scouts.where((s) => s.pendingTwigBadges > 0).length;
-  int get activeScouts => scouts.where((s) => s.isActive && s.category.isDefaultAttendee).length;
+  int get pendingTwigScouts => scouts.where((s) =>
+      s.isActive &&
+      s.isTwigBadgeEligible &&
+      s.pendingTwigBadges > 0 &&
+      !const [ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined].contains(s.category)
+  ).length;
+  int get activeScouts => scouts.where((s) => s.isActive && (s.category == ScoutCategory.bigBeaver || s.category == ScoutCategory.beaver)).length;
   List<Scout> get birthdayScouts {
     final now = DateTime.now();
     return scouts
@@ -93,7 +99,7 @@ class DashboardPage extends ConsumerWidget {
             ]),
             const SizedBox(height: 12),
             Row(children: [
-              Expanded(child: _MetricCard(label: '平均出席率', value: '${(data.avgAttendanceRate * 100).round()}%', icon: Icons.check_circle_outline, color: cs.tertiaryContainer, iconColor: cs.onTertiaryContainer)),
+              Expanded(child: _MetricCard(label: '今年度の出席率', value: '${(data.avgAttendanceRate * 100).round()}%', icon: Icons.check_circle_outline, color: cs.tertiaryContainer, iconColor: cs.onTertiaryContainer)),
               const SizedBox(width: 12),
               Expanded(child: _MetricCard(label: '小枝章 授与待ち', value: '${data.pendingTwigScouts}名', icon: Icons.military_tech_outlined, color: cs.errorContainer, iconColor: cs.onErrorContainer)),
             ]),
@@ -241,18 +247,26 @@ class _DateBadge extends StatelessWidget {
   final DateTime date;
   const _DateBadge({required this.date});
 
+  static Color _monthColor(int month) {
+    if (month >= 4 && month <= 6)  return const Color(0xFF66BB6A); // 春: 緑
+    if (month >= 7 && month <= 9)  return const Color(0xFF29B6F6); // 夏: 青
+    if (month >= 10 && month <= 12) return const Color(0xFFFF8F00); // 秋: 橙
+    return const Color(0xFF7986CB);                                  // 冬: 鵬色
+  }
+
   @override
   Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
+    final color = _monthColor(date.month);
     return Container(
       width: 40,
-      decoration: BoxDecoration(color: cs.primaryContainer, borderRadius: BorderRadius.circular(8)),
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(8)),
       child: Center(child: RichText(textAlign: TextAlign.center,
         text: TextSpan(children: [
-          TextSpan(text: '${DateFormat('d').format(date)}\n',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: cs.onPrimaryContainer, height: 1.2)),
-          TextSpan(text: DateFormat('M月').format(date),
-              style: TextStyle(fontSize: 9, color: cs.onPrimaryContainer, height: 1.2)),
+          TextSpan(text: '${DateFormat('M月').format(date)}\n',
+              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w400, color: Colors.white, height: 1.4)),
+          TextSpan(text: DateFormat('d').format(date),
+              style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w400, color: Colors.white, height: 1.2)),
         ]))),
     );
   }

@@ -12,6 +12,7 @@ import '../../core/wood_grain_background.dart';
 import '../../core/supabase_config.dart';
 import '../auth/auth_service.dart';
 import '../auth/auth_provider.dart';
+import 'excel_import_page.dart';
 
 final _currentProfileProvider = FutureProvider<Map<String, String?>>((ref) async {
   final isSignedIn = ref.watch(isSignedInProvider);
@@ -164,6 +165,14 @@ class SettingsPage extends ConsumerWidget {
           if (isAdmin) ...[
             _tile(context, Icons.supervised_user_circle_outlined, '利用者管理', '/settings/members'),
             _tile(context, Icons.vpn_key_outlined, '招待コード', '/settings/invite-codes'),
+            ListTile(
+              leading: const Icon(Icons.table_chart_outlined),
+              title: const Text('Excelインポート'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ExcelImportPage()),
+              ),
+            ),
             const Divider(),
           ],
 

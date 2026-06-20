@@ -8,36 +8,64 @@ import '../../core/constants/app_constants.dart';
 import '../../core/wood_grain_background.dart';
 import '../dashboard/dashboard_page.dart';
 
+// スカウトリストと共通の並び順・非表示分類
+const _kCategoryOrder = [
+  ScoutCategory.bigBeaver,
+  ScoutCategory.beaver,
+  ScoutCategory.provisional,
+  ScoutCategory.experience,
+  ScoutCategory.sibling,
+];
+const _kHiddenCategories = [
+  ScoutCategory.promoted,
+  ScoutCategory.withdrawn,
+  ScoutCategory.notJoined,
+];
+
+int _categoryIndex(ScoutCategory c) {
+  final i = _kCategoryOrder.indexOf(c);
+  return i == -1 ? 99 : i;
+}
+
+List<Scout> _sortScouts(List<Scout> scouts) {
+  final list = List<Scout>.from(scouts);
+  list.sort((a, b) {
+    final ci = _categoryIndex(a.category).compareTo(_categoryIndex(b.category));
+    if (ci != 0) return ci;
+    return a.name.compareTo(b.name);
+  });
+  return list;
+}
+
 final badgesProvider = FutureProvider<_BadgesData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
-  if (troopId == null) return _BadgesData(scouts: [], history: []);
+  if (troopId == null) return _BadgesData(scouts: []);
   final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
-  final history = await ref.read(twigBadgeRepositoryProvider).getAll(troopId);
-  return _BadgesData(scouts: scouts, history: history);
+  return _BadgesData(scouts: scouts);
 });
 
 class _BadgesData {
   final List<Scout> scouts;
-  final List<TwigBadgeHistory> history;
-  _BadgesData({required this.scouts, required this.history});
+  _BadgesData({required this.scouts});
 
   List<_PendingTwig> get pendingList {
     final result = <_PendingTwig>[];
-    for (final s in scouts) {
+    for (final s in _sortScouts(scouts)) {
       if (!s.isActive) continue;
-      if (s.isTwigBadgeEligible && s.pendingTwigBadges > 0) {
-        result.add(_PendingTwig(scout: s, count: s.pendingTwigBadges));
+      if (_kHiddenCategories.contains(s.category)) continue;
+      final pending = s.isTwigBadgeEligible ? s.pendingTwigBadges : s.pendingOtherBadges;
+      if (pending > 0) {
+        result.add(_PendingTwig(scout: s, count: pending));
       }
     }
     return result;
   }
 
   List<Scout> get enrollmentTargets {
-    final targets = scouts
-        .where((s) => s.isActive && s.category.isTwigBadgeEligible && s.joinedAt == null)
-        .toList();
-    targets.sort((a, b) => a.name.compareTo(b.name));
-    return targets;
+    return _sortScouts(scouts
+        .where((s) => s.isActive && s.category.isTwigBadgeEligible && s.joinedAt == null
+            && !_kHiddenCategories.contains(s.category))
+        .toList());
   }
 }
 
@@ -314,13 +342,11 @@ class _TwigBadgeTab extends ConsumerWidget {
         ],
       ));
     if (ok != true) return;
-    final scoutRepo = ref.read(scoutRepositoryProvider);
-    final twigRepo = ref.read(twigBadgeRepositoryProvider);
-    final history = await twigRepo.getByScout(scout.id);
-    for (final h in history.where((h) => !h.isAwarded)) {
-      await twigRepo.markAwarded(h.id, scout.troopId);
+    if (scout.isTwigBadgeEligible) {
+      await ref.read(scoutRepositoryProvider).addTwigBadges(scout.id, count);
+    } else {
+      await ref.read(scoutRepositoryProvider).addOtherBadges(scout.id, count);
     }
-    await scoutRepo.addTwigBadges(scout.id, count);
     ref.invalidate(dashboardProvider);
     onRefresh();
   }
@@ -332,10 +358,15 @@ class _LeafBadgeTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = scouts
-        .where((s) => s.isActive && s.category.isDefaultAttendee)
-        .toList()
-      ..sort((a, b) => b.totalLeafBadges.compareTo(a.totalLeafBadges));
+    final active = _sortScouts(scouts
+        .where((s) => s.isActive && !_kHiddenCategories.contains(s.category))
+        .toList())
+      ..sort((a, b) {
+        // 分類順が同じ場合は木の葉章降順
+        final ci = _categoryIndex(a.category).compareTo(_categoryIndex(b.category));
+        if (ci != 0) return ci;
+        return b.totalLeafBadges.compareTo(a.totalLeafBadges);
+      });
     if (active.isEmpty) return const Center(child: Text('スカウトがいません'));
     return ListView.separated(
       padding: const EdgeInsets.all(16),

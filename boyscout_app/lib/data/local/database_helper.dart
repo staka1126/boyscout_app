@@ -72,6 +72,11 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE users RENAME TO leaders');
       } catch (_) {}
     }
+    if (oldVersion < 6) {
+      try {
+        await db.execute('ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0');
+      } catch (_) {}
+    }
   }
 
   Future<void> _create(Database db, int version) async {
@@ -120,6 +125,7 @@ class DatabaseHelper {
         leaf_badges INTEGER NOT NULL DEFAULT 0,
         leaf_badge_offset INTEGER NOT NULL DEFAULT 0,
         twig_badges INTEGER NOT NULL DEFAULT 0,
+        other_badges INTEGER NOT NULL DEFAULT 0,
         is_active INTEGER NOT NULL DEFAULT 1,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,

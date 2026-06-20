@@ -185,6 +185,7 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
 
   Future<void> _showInviteCodeDialog() async {
     final codeCtrl = TextEditingController();
+    bool loading = false;
 
     await showDialog(
       context: context,
@@ -198,20 +199,30 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
             children: [
               const Text('管理者から受け取った6桁のコードを入力してください。'),
               const SizedBox(height: 16),
-              TextField(
-                controller: codeCtrl,
-                decoration: const InputDecoration(
-                  labelText: '招待コード',
-                  hintText: 'A3K9PQ',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.vpn_key_outlined),
+              if (loading)
+                const Center(child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 16),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 12),
+                    Text('データを同期中...'),
+                  ]),
+                ))
+              else
+                TextField(
+                  controller: codeCtrl,
+                  decoration: const InputDecoration(
+                    labelText: '招待コード',
+                    hintText: 'A3K9PQ',
+                    border: OutlineInputBorder(),
+                    prefixIcon: Icon(Icons.vpn_key_outlined),
+                  ),
+                  textCapitalization: TextCapitalization.characters,
+                  maxLength: 6,
                 ),
-                textCapitalization: TextCapitalization.characters,
-                maxLength: 6,
-              ),
             ],
           ),
-          actions: [
+          actions: loading ? [] : [
             TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('キャンセル'),
@@ -225,43 +236,17 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   );
                   return;
                 }
-                setDialogState(() {});
+                setDialogState(() => loading = true);
                 try {
                   final troopId = await AuthService.instance.joinWithInviteCode(code);
-
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  if (!mounted) return;
-
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (_) => const PopScope(
-                      canPop: false,
-                      child: Center(
-                        child: Card(
-                          child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: Column(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                CircularProgressIndicator(),
-                                SizedBox(height: 16),
-                                Text('データを同期中...'),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('troop_id', troopId);
                   await SyncService.instance.syncFromSupabase(troopId);
 
-                  if (!mounted) return;
-                  Navigator.of(context).pop();
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx); // ダイアログを閉じる
 
+                  if (!mounted) return;
                   ref.read(currentTroopIdProvider.notifier).state = troopId;
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -271,16 +256,14 @@ class _OnboardingPageState extends ConsumerState<OnboardingPage> {
                   );
                   context.go('/dashboard');
                 } catch (e) {
-                  if (ctx.mounted) Navigator.of(ctx).pop();
-                  if (mounted) {
-                    try { Navigator.of(context).pop(); } catch (_) {}
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(e.toString().replaceAll('Exception: ', '')),
-                        backgroundColor: Colors.red[700],
-                      ),
-                    );
-                  }
+                  if (!ctx.mounted) return;
+                  setDialogState(() => loading = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(e.toString().replaceAll('Exception: ', '')),
+                      backgroundColor: Colors.red[700],
+                    ),
+                  );
                 }
               },
               child: const Text('参加する'),
