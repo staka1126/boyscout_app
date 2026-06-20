@@ -61,6 +61,17 @@ class DatabaseHelper {
         try { await db.execute(sql); } catch (_) {}
       }
     }
+    if (oldVersion < 4) {
+      try {
+        await db.execute('ALTER TABLE guardians ADD COLUMN troop_id TEXT');
+      } catch (_) {}
+    }
+    if (oldVersion < 5) {
+      // usersテーブルをleadersにリネーム
+      try {
+        await db.execute('ALTER TABLE users RENAME TO leaders');
+      } catch (_) {}
+    }
   }
 
   Future<void> _create(Database db, int version) async {
@@ -76,9 +87,8 @@ class DatabaseHelper {
       )
     ''');
 
-    // email は UNIQUE 制約なし・NULL 許容に変更
     await db.execute('''
-      CREATE TABLE users (
+      CREATE TABLE leaders (
         id TEXT PRIMARY KEY,
         troop_id TEXT NOT NULL,
         name TEXT NOT NULL,
@@ -120,6 +130,7 @@ class DatabaseHelper {
     await db.execute('''
       CREATE TABLE guardians (
         id TEXT PRIMARY KEY,
+        troop_id TEXT,
         name TEXT NOT NULL,
         gender TEXT,
         email TEXT,

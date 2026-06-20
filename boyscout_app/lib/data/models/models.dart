@@ -166,6 +166,7 @@ class Scout {
 // ─── Guardian ────────────────────────────────────────────────
 class Guardian {
   final String id;
+  final String? troopId;
   final String name;
   final String? gender;
   final String? email;
@@ -174,24 +175,25 @@ class Guardian {
   final DateTime updatedAt;
 
   const Guardian({
-    required this.id, required this.name, this.gender, this.email, this.phone,
+    required this.id, this.troopId, required this.name, this.gender, this.email, this.phone,
     required this.createdAt, required this.updatedAt,
   });
 
   factory Guardian.fromMap(Map<String, dynamic> m) => Guardian(
-        id: m['id'] as String, name: m['name'] as String,
+        id: m['id'] as String, troopId: m['troop_id'] as String?,
+        name: m['name'] as String,
         gender: m['gender'] as String?, email: m['email'] as String?,
         phone: m['phone'] as String?,
         createdAt: DateTime.parse(m['created_at'] as String),
         updatedAt: DateTime.parse(m['updated_at'] as String));
 
   Map<String, dynamic> toMap() => {
-        'id': id, 'name': name, 'gender': gender, 'email': email, 'phone': phone,
+        'id': id, 'troop_id': troopId, 'name': name, 'gender': gender, 'email': email, 'phone': phone,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String()};
 
-  Guardian copyWith({String? name, String? gender, String? email, String? phone}) =>
-      Guardian(id: id, name: name ?? this.name, gender: gender ?? this.gender,
+  Guardian copyWith({String? troopId, String? name, String? gender, String? email, String? phone}) =>
+      Guardian(id: id, troopId: troopId ?? this.troopId, name: name ?? this.name, gender: gender ?? this.gender,
           email: email ?? this.email, phone: phone ?? this.phone,
           createdAt: createdAt, updatedAt: DateTime.now());
 }

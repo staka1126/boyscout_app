@@ -74,7 +74,7 @@ class UserRepository {
 
   Future<List<AppUser>> getByTroop(String troopId) async {
     final db = await _db.database;
-    return (await db.query('users', where: 'troop_id = ?', whereArgs: [troopId], orderBy: 'name'))
+    return (await db.query('leaders', where: 'troop_id = ?', whereArgs: [troopId], orderBy: 'name'))
         .map(AppUser.fromMap).toList();
   }
 
@@ -86,14 +86,14 @@ class UserRepository {
     final u = AppUser(id: _uuid.v4(), troopId: troopId, name: name, email: email,
         role: role, gender: gender, phone: phone, createdAt: now, updatedAt: now);
     final db = await _db.database;
-    await db.insert('users', u.toMap());
+    await db.insert('leaders', u.toMap());
     await _syncIfNeeded(troopId);
     return u;
   }
 
   Future<void> update(AppUser u) async {
     final db = await _db.database;
-    await db.update('users', u.toMap(), where: 'id = ?', whereArgs: [u.id]);
+    await db.update('leaders', u.toMap(), where: 'id = ?', whereArgs: [u.id]);
     await _syncIfNeeded(u.troopId);
   }
 
@@ -107,13 +107,13 @@ class UserRepository {
   Future<void> delete(String id) async {
     final db = await _db.database;
     // troopId を取得してから削除
-    final rows = await db.query('users', where: 'id = ?', whereArgs: [id]);
+    final rows = await db.query('leaders', where: 'id = ?', whereArgs: [id]);
     final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
-    await db.delete('users', where: 'id = ?', whereArgs: [id]);
+    await db.delete('leaders', where: 'id = ?', whereArgs: [id]);
     // Supabaseからも削除
     if (SupabaseConfig.isSignedIn) {
       try {
-        await SupabaseConfig.client.from('users').delete().eq('id', id);
+        await SupabaseConfig.client.from('leaders').delete().eq('id', id);
       } catch (e) {
         debugPrint('UserRepository.delete Supabase error: $e');
       }
@@ -235,12 +235,13 @@ class GuardianRepository {
     return rows.map(Guardian.fromMap).toList();
   }
 
-  Future<Guardian> create({required String name, String? gender, String? email, String? phone}) async {
+  Future<Guardian> create({required String name, required String troopId, String? gender, String? email, String? phone}) async {
     final now = DateTime.now();
-    final g = Guardian(id: _uuid.v4(), name: name, gender: gender, email: email, phone: phone,
+    final g = Guardian(id: _uuid.v4(), troopId: troopId, name: name, gender: gender, email: email, phone: phone,
         createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('guardians', g.toMap());
+    await _syncIfNeeded(troopId);
     return g;
   }
 

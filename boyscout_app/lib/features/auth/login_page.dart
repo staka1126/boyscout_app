@@ -139,7 +139,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         await txn.execute('DELETE FROM committee_members');
         await txn.execute('DELETE FROM guardians');
         await txn.execute('DELETE FROM scouts');
-        await txn.execute('DELETE FROM users');
+        await txn.execute('DELETE FROM leaders');
         await txn.execute('DELETE FROM troops');
       });
       // SharedPreferencesもリセット

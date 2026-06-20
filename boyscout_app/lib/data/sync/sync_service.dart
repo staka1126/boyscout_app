@@ -49,7 +49,7 @@ class SyncService {
     try {
       final db = await _dbHelper.database;
 
-      await _uploadTable(db, 'users', troopId: troopId);
+      await _uploadTable(db, 'leaders', troopId: troopId);
       await _uploadTable(db, 'scouts', troopId: troopId);
       await _uploadGuardians(db, troopId);
       await _uploadTable(db, 'committee_members', troopId: troopId);
@@ -76,9 +76,9 @@ class SyncService {
   }
 
   Future<void> _syncUsers(Database db, String troopId) async {
-    final rows = await _client.from('users').select().eq('troop_id', troopId);
+    final rows = await _client.from('leaders').select().eq('troop_id', troopId);
     for (final row in rows as List) {
-      await db.insert('users', _normalize(row),
+      await db.insert('leaders', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }

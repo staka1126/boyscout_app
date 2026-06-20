@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 // ─── DB ─────────────────────────────────────────────────────
 class AppConstants {
   static const String dbName = 'boyscout.db';
-  static const int dbVersion = 3;
+  static const int dbVersion = 5;
 }
 
 // ─── ユーザー種別 ─────────────────────────────────────────────

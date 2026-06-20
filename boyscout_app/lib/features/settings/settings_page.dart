@@ -320,7 +320,7 @@ class SettingsPage extends ConsumerWidget {
         await txn.execute('DELETE FROM committee_members');
         await txn.execute('DELETE FROM guardians');
         await txn.execute('DELETE FROM scouts');
-        await txn.execute('DELETE FROM users');
+        await txn.execute('DELETE FROM leaders');
         await txn.execute('DELETE FROM troops');
       });
 
@@ -561,7 +561,7 @@ class _AdminDeleteBlockDialogState extends State<_AdminDeleteBlockDialog> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('管理者アカウントは直接削除できません。\n\n削除するには、先に利用者管理で他のメンバーに管理者権限を付与し、ご自身の権限をメンバーに変更してから削除してください。'),
+          const Text('管理者アカウントは直接削除できません。\n\n削除するには、先に「利用者管理」で他のメンバーに管理者権限を付与してください。\n\nもしくは、団の利用者全員を強制的に退会させたうえで、再度ログインしてアカウントを削除してください。'),
           if (_showConfirm) ...[
             const SizedBox(height: 16),
             Container(
@@ -573,10 +573,10 @@ class _AdminDeleteBlockDialogState extends State<_AdminDeleteBlockDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('⚠️ 団ごと削除する',
+                  Text('⚠️ 団の全員を強制退会させる',
                       style: TextStyle(fontWeight: FontWeight.w700, color: cs.onErrorContainer)),
                   const SizedBox(height: 4),
-                  Text('この団に所属する全メンバーのアクセスが失われます。\n団のデータはSupabaseから削除されます。\n\n「削除実行」を10秒長押しすると実行されます。',
+                  Text('この団に所属する全メンバーのアクセスが失われます。\n団のデータはSupabaseから削除されます。\n\n「削除実行」を10秒長押しすると、削除されてログイン画面に遷移します。',
                       style: TextStyle(fontSize: 12, color: cs.onErrorContainer)),
                   const SizedBox(height: 12),
                   GestureDetector(
@@ -591,7 +591,7 @@ class _AdminDeleteBlockDialogState extends State<_AdminDeleteBlockDialog> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
-                        _pressing2 ? '押し続けてください...' : '削除実行（10秒長押し）',
+                        _pressing2 ? '押し続けてください...' : '実行（10秒長押し）',
                         textAlign: TextAlign.center,
                         style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
                       ),
@@ -620,7 +620,7 @@ class _AdminDeleteBlockDialogState extends State<_AdminDeleteBlockDialog> {
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                _pressing1 ? '押し続けてください...' : '団を削除する（10秒長押し）',
+                _pressing1 ? '押し続けてください...' : '団全員を強制退会（10秒長押し）',
                 style: TextStyle(
                   color: _pressing1 ? Colors.white : cs.onErrorContainer,
                   fontWeight: FontWeight.w600,

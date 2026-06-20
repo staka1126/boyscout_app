@@ -1,0 +1,10 @@
+        await txn.execute('DELETE FROM twig_badge_history');
+        await txn.execute('DELETE FROM attendances');
+        await txn.execute('DELETE FROM event_leaf_badges');
+        await txn.execute('DELETE FROM events');
+        await txn.execute('DELETE FROM scout_guardians');
+        await txn.execute('DELETE FROM committee_members');
+        await txn.execute('DELETE FROM guardians');
+        await txn.execute('DELETE FROM scouts');
+        await txn.execute('DELETE FROM leaders');
+        await txn.execute('DELETE FROM troops');
