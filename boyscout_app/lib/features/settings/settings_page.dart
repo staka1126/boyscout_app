@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/local/database_helper.dart';
+import '../../data/models/models.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../data/repositories/repositories.dart';
 import '../../core/wood_grain_background.dart';
@@ -40,6 +41,31 @@ final _currentProfileProvider = FutureProvider<Map<String, String?>>((ref) async
   }
 });
 
+// 団情報プロバイダー（currentTroopIdProviderに依存）
+final _troopInfoProvider = FutureProvider.autoDispose<Map<String, String?>?>((ref) async {
+  final troopId = ref.watch(currentTroopIdProvider);
+  if (troopId == null) return null;
+  try {
+    final troop = await SupabaseConfig.client
+        .from('troops')
+        .select('id, name, location')
+        .eq('id', troopId)
+        .maybeSingle();
+    if (troop == null) return null;
+    return {
+      'id': troop['id'] as String?,
+      'name': troop['name'] as String?,
+      'location': troop['location'] as String?,
+    };
+  } catch (e) {
+    print("_troopInfoProvider error: " + e.toString());
+    // オフライン時はローカルから取得
+    final troop = await ref.read(troopRepositoryProvider).getFirst();
+    if (troop == null) return null;
+    return {'id': troop.id, 'name': troop.name, 'location': troop.location};
+  }
+});
+
 class SettingsPage extends ConsumerWidget {
   const SettingsPage({super.key});
 
@@ -47,6 +73,9 @@ class SettingsPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cs = Theme.of(context).colorScheme;
     final profile = ref.watch(_currentProfileProvider);
+    final troopAsync = ref.watch(_troopInfoProvider);
+    final troopId = ref.watch(currentTroopIdProvider);
+    print('troopId=' + troopId.toString());
     final isAdmin = profile.maybeWhen(
       data: (p) => p['role'] == 'admin',
       orElse: () => false,
@@ -67,22 +96,24 @@ class SettingsPage extends ConsumerWidget {
       body: Stack(children: [
         const WoodGrainBackground(),
         ListView(children: [
-          FutureBuilder(
-            future: ref.read(troopRepositoryProvider).getFirst(),
-            builder: (_, snap) {
-              final troop = snap.data;
+          // 団名ヘッダー（currentTroopIdがある場合のみ表示）
+          troopAsync.maybeWhen(
+            data: (troop) {
               if (troop == null) return const SizedBox();
+              final name = troop['name'] ?? '';
+              final location = troop['location'];
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: cs.primaryContainer,
-                  child: Text(troop.name.isNotEmpty ? troop.name[0] : '?',
+                  child: Text(name.isNotEmpty ? name[0] : '?',
                       style: TextStyle(color: cs.onPrimaryContainer, fontWeight: FontWeight.w700)),
                 ),
-                title: Text(troop.name, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: troop.location != null ? Text(troop.location!) : null,
+                title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: location != null ? Text(location) : null,
                 onTap: () => context.go('/settings/troop'),
               );
             },
+            orElse: () => const SizedBox(),
           ),
           const Divider(),
 
@@ -157,21 +188,6 @@ class SettingsPage extends ConsumerWidget {
         onTap: () => context.go(path),
       );
 
-  Future<void> _showGenerateInviteCode(BuildContext context, WidgetRef ref) async {
-    final troopId = ref.read(currentTroopIdProvider);
-    if (troopId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('団が登録されていません')),
-      );
-      return;
-    }
-    await showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => _GenerateCodeDialog(troopId: troopId),
-    );
-  }
-
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(
       context: context,
@@ -196,9 +212,7 @@ class SettingsPage extends ConsumerWidget {
     if (context.mounted) context.go('/login');
   }
 
-  // ─── アカウント削除 ──────────────────────────────────────
   Future<void> _confirmDeleteAccount(BuildContext context, WidgetRef ref) async {
-    // 管理者はアカウント削除不可
     try {
       final member = await SupabaseConfig.client
           .from('troop_members')
@@ -214,14 +228,14 @@ class SettingsPage extends ConsumerWidget {
         }
         return;
       }
-    } catch (_) {}
+    } catch (e) {
+    print("_troopInfoProvider error: " + e.toString());}
 
     final ok1 = await showDialog<bool>(
       context: context,
       builder: (dlgCtx) => AlertDialog(
         title: const Text('アカウントを削除する'),
-        content: const Text(
-            'アカウントを削除すると、このアプリへのアクセスができなくなります。\n\nローカルデータは端末に残ります。\n\nこの操作は取り消せません。'),
+        content: const Text('アカウントを削除すると、このアプリへのアクセスができなくなります。\n\nローカルデータは端末に残ります。\n\nこの操作は取り消せません。'),
         actions: [
           TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
           FilledButton(
@@ -252,18 +266,13 @@ class SettingsPage extends ConsumerWidget {
     if (ok2 != true || !context.mounted) return;
 
     try {
-      // RPC経由でアカウント削除
       await SupabaseConfig.client.rpc('delete_own_account');
-
-      // セッションをクリア（削除後はsignOutが失敗することもあるので握りつぶす）
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('troop_id');
       ref.read(currentTroopIdProvider.notifier).state = null;
       try { await SupabaseConfig.client.auth.signOut(); } catch (_) {}
-
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('アカウントを削除しました')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('アカウントを削除しました')));
         context.go('/login');
       }
     } catch (e) {
@@ -323,7 +332,6 @@ class SettingsPage extends ConsumerWidget {
         await txn.execute('DELETE FROM leaders');
         await txn.execute('DELETE FROM troops');
       });
-
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('ローカルデータを削除しました。ログアウトします。')));
@@ -473,7 +481,6 @@ class _GenerateCodeDialogState extends State<_GenerateCodeDialog> {
   }
 }
 
-// ─── 管理者アカウント削除ブロックダイアログ ──────────────────
 class _AdminDeleteBlockDialog extends StatefulWidget {
   final WidgetRef ref;
   const _AdminDeleteBlockDialog({required this.ref});
@@ -530,8 +537,21 @@ class _AdminDeleteBlockDialogState extends State<_AdminDeleteBlockDialog> {
     Navigator.of(context).pop();
 
     try {
-      // 団の全メンバーを退会させる（SECURITY DEFINER RPC）
       await SupabaseConfig.client.rpc('dissolve_troop');
+
+      final db = await DatabaseHelper.instance.database;
+      await db.transaction((txn) async {
+        await txn.execute('DELETE FROM twig_badge_history');
+        await txn.execute('DELETE FROM attendances');
+        await txn.execute('DELETE FROM event_leaf_badges');
+        await txn.execute('DELETE FROM events');
+        await txn.execute('DELETE FROM scout_guardians');
+        await txn.execute('DELETE FROM committee_members');
+        await txn.execute('DELETE FROM guardians');
+        await txn.execute('DELETE FROM scouts');
+        await txn.execute('DELETE FROM leaders');
+        await txn.execute('DELETE FROM troops');
+      });
 
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('troop_id');
@@ -576,7 +596,7 @@ class _AdminDeleteBlockDialogState extends State<_AdminDeleteBlockDialog> {
                   Text('⚠️ 団の全員を強制退会させる',
                       style: TextStyle(fontWeight: FontWeight.w700, color: cs.onErrorContainer)),
                   const SizedBox(height: 4),
-                  Text('この団に所属する全メンバーのアクセスが失われます。\n団のデータはSupabaseから削除されます。\n\n「削除実行」を10秒長押しすると、削除されてログイン画面に遷移します。',
+                  Text('この団に所属する全メンバーのアクセスが失われます。\n団のデータはSupabaseから削除されます。\n\n「実行」を10秒長押しすると実行されます。',
                       style: TextStyle(fontSize: 12, color: cs.onErrorContainer)),
                   const SizedBox(height: 12),
                   GestureDetector(

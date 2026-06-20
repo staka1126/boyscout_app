@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/supabase_config.dart';
 import '../../core/wood_grain_background.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,7 +12,21 @@ import '../../core/constants/app_constants.dart';
 final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
   if (troopId == null) return _DashboardData.empty();
-  final troop = await ref.read(troopRepositoryProvider).getFirst();
+
+  // 団名はSupabaseから取得
+  String? troopName;
+  try {
+    final troopData = await SupabaseConfig.client
+        .from('troops')
+        .select('name')
+        .eq('id', troopId)
+        .maybeSingle();
+    troopName = troopData?['name'] as String?;
+  } catch (_) {
+    final troop = await ref.read(troopRepositoryProvider).getFirst();
+    troopName = troop?.name;
+  }
+
   final events = await ref.read(eventRepositoryProvider).getRecent(troopId);
   final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
   final rates = await ref.read(attendanceRepositoryProvider).getRates(troopId);
@@ -21,7 +36,7 @@ final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
       .length;
   double avgRate = 0;
   if (rates.isNotEmpty) avgRate = rates.values.reduce((a, b) => a + b) / rates.length;
-  return _DashboardData(events: events, scouts: scouts, thisMonthCount: thisMonthCount, avgAttendanceRate: avgRate, troopName: troop?.name);
+  return _DashboardData(events: events, scouts: scouts, thisMonthCount: thisMonthCount, avgAttendanceRate: avgRate, troopName: troopName);
 });
 
 class _DashboardData {

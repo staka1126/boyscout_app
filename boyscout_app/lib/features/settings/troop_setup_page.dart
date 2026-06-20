@@ -29,13 +29,38 @@ class _TroopSetupPageState extends ConsumerState<TroopSetupPage> {
   }
 
   Future<void> _load() async {
-    final troop = await ref.read(troopRepositoryProvider).getFirst();
-    if (troop != null && mounted) {
-      _existing = troop;
-      _nameCtrl.text = troop.name;
-      _locationCtrl.text = troop.location ?? '';
-      _contactCtrl.text = troop.contact ?? '';
-      setState(() {});
+    final troopId = ref.read(currentTroopIdProvider);
+    if (troopId == null) return;
+
+    try {
+      final troopData = await SupabaseConfig.client
+          .from('troops')
+          .select('id, name, location, contact')
+          .eq('id', troopId)
+          .maybeSingle();
+
+      if (troopData != null && mounted) {
+        final troop = await ref.read(troopRepositoryProvider).upsert(
+          id: troopData['id'] as String,
+          name: troopData['name'] as String,
+          location: troopData['location'] as String?,
+          contact: troopData['contact'] as String?,
+        );
+        _existing = troop;
+        _nameCtrl.text = troop.name;
+        _locationCtrl.text = troop.location ?? '';
+        _contactCtrl.text = troop.contact ?? '';
+        setState(() {});
+      }
+    } catch (_) {
+      final troop = await ref.read(troopRepositoryProvider).getFirst();
+      if (troop != null && mounted) {
+        _existing = troop;
+        _nameCtrl.text = troop.name;
+        _locationCtrl.text = troop.location ?? '';
+        _contactCtrl.text = troop.contact ?? '';
+        setState(() {});
+      }
     }
   }
 
