@@ -75,11 +75,10 @@ class _ExcelImportPageState extends ConsumerState<ExcelImportPage> {
         db: db,
       );
 
-      // Supabase同期
+      // Supabase同期（インポート後はローカルが正なのでUploadのみ）
       try {
         await _clearSupabaseData(troopId);
         await SyncService.instance.syncToSupabase(troopId);
-        await SyncService.instance.syncFromSupabase(troopId);
       } catch (e) {
         debugPrint('Supabase sync error: $e');
         if (mounted) setState(() => _error = 'Supabase同期エラー: $e');

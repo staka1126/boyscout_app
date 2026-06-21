@@ -472,6 +472,7 @@ class ExcelImportService {
         .map((r) => r['id'] as String).toList();
     if (eventIds.isNotEmpty) {
       final ph = eventIds.map((_) => '?').join(',');
+      await txn.delete('event_stats', where: 'event_id IN ($ph)', whereArgs: eventIds);
       await txn.delete('event_leaf_badges', where: 'event_id IN ($ph)', whereArgs: eventIds);
       await txn.delete('attendances', where: 'event_id IN ($ph)', whereArgs: eventIds);
     }
