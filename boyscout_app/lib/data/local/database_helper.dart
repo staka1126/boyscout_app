@@ -67,7 +67,6 @@ class DatabaseHelper {
       } catch (_) {}
     }
     if (oldVersion < 5) {
-      // usersテーブルをleadersにリネーム
       try {
         await db.execute('ALTER TABLE users RENAME TO leaders');
       } catch (_) {}
@@ -76,6 +75,49 @@ class DatabaseHelper {
       try {
         await db.execute('ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0');
       } catch (_) {}
+    }
+    if (oldVersion < 7) {
+      try {
+        await db.execute('''
+          CREATE TABLE IF NOT EXISTS event_stats (
+            event_id TEXT PRIMARY KEY,
+            leader_male INTEGER NOT NULL DEFAULT 0,
+            leader_female INTEGER NOT NULL DEFAULT 0,
+            guardian_male INTEGER NOT NULL DEFAULT 0,
+            guardian_female INTEGER NOT NULL DEFAULT 0,
+            committee_male INTEGER NOT NULL DEFAULT 0,
+            committee_female INTEGER NOT NULL DEFAULT 0,
+            big_beaver_male INTEGER NOT NULL DEFAULT 0,
+            big_beaver_female INTEGER NOT NULL DEFAULT 0,
+            beaver_male INTEGER NOT NULL DEFAULT 0,
+            beaver_female INTEGER NOT NULL DEFAULT 0,
+            provisional_male INTEGER NOT NULL DEFAULT 0,
+            provisional_female INTEGER NOT NULL DEFAULT 0,
+            experience_male INTEGER NOT NULL DEFAULT 0,
+            experience_female INTEGER NOT NULL DEFAULT 0,
+            sibling_male INTEGER NOT NULL DEFAULT 0,
+            sibling_female INTEGER NOT NULL DEFAULT 0,
+            other_child_male INTEGER NOT NULL DEFAULT 0,
+            other_child_female INTEGER NOT NULL DEFAULT 0,
+            updated_at TEXT NOT NULL,
+            FOREIGN KEY (event_id) REFERENCES events(id)
+          )
+        ''');
+      } catch (_) {}
+    }
+    if (oldVersion < 8) {
+      for (final sql in [
+        'ALTER TABLE event_stats ADD COLUMN leader_male_absent INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE event_stats ADD COLUMN leader_female_absent INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE event_stats ADD COLUMN big_beaver_male_absent INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE event_stats ADD COLUMN big_beaver_female_absent INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE event_stats ADD COLUMN beaver_male_absent INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE event_stats ADD COLUMN beaver_female_absent INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE event_stats ADD COLUMN provisional_male_absent INTEGER NOT NULL DEFAULT 0',
+        'ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DEFAULT 0',
+      ]) {
+        try { await db.execute(sql); } catch (_) {}
+      }
     }
   }
 
@@ -230,6 +272,40 @@ class DatabaseHelper {
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,
         FOREIGN KEY (scout_id) REFERENCES scouts(id),
+        FOREIGN KEY (event_id) REFERENCES events(id)
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE event_stats (
+        event_id TEXT PRIMARY KEY,
+        leader_male INTEGER NOT NULL DEFAULT 0,
+        leader_female INTEGER NOT NULL DEFAULT 0,
+        guardian_male INTEGER NOT NULL DEFAULT 0,
+        guardian_female INTEGER NOT NULL DEFAULT 0,
+        committee_male INTEGER NOT NULL DEFAULT 0,
+        committee_female INTEGER NOT NULL DEFAULT 0,
+        big_beaver_male INTEGER NOT NULL DEFAULT 0,
+        big_beaver_female INTEGER NOT NULL DEFAULT 0,
+        beaver_male INTEGER NOT NULL DEFAULT 0,
+        beaver_female INTEGER NOT NULL DEFAULT 0,
+        provisional_male INTEGER NOT NULL DEFAULT 0,
+        provisional_female INTEGER NOT NULL DEFAULT 0,
+        experience_male INTEGER NOT NULL DEFAULT 0,
+        experience_female INTEGER NOT NULL DEFAULT 0,
+        sibling_male INTEGER NOT NULL DEFAULT 0,
+        sibling_female INTEGER NOT NULL DEFAULT 0,
+        other_child_male INTEGER NOT NULL DEFAULT 0,
+        other_child_female INTEGER NOT NULL DEFAULT 0,
+        leader_male_absent INTEGER NOT NULL DEFAULT 0,
+        leader_female_absent INTEGER NOT NULL DEFAULT 0,
+        big_beaver_male_absent INTEGER NOT NULL DEFAULT 0,
+        big_beaver_female_absent INTEGER NOT NULL DEFAULT 0,
+        beaver_male_absent INTEGER NOT NULL DEFAULT 0,
+        beaver_female_absent INTEGER NOT NULL DEFAULT 0,
+        provisional_male_absent INTEGER NOT NULL DEFAULT 0,
+        provisional_female_absent INTEGER NOT NULL DEFAULT 0,
+        updated_at TEXT NOT NULL,
         FOREIGN KEY (event_id) REFERENCES events(id)
       )
     ''');

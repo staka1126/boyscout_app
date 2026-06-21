@@ -81,7 +81,7 @@ class ScoutDetailPage extends ConsumerWidget {
 
               if ([scout.grade, scout.gender, scout.joinedAt, scout.enrollmentYear, scout.birthday].any((v) => v != null))
                 _infoCard(context, '基本情報', [
-                  if (scout.grade != null) _InfoRow('学年', scout.grade!),
+                  if (scout.grade != null) _InfoRow('初期登録時学年', scout.grade!),
                   if (scout.gender != null)
                     _InfoRow('性別', scout.gender == 'male' ? '男性' : scout.gender == 'female' ? '女性' : 'その他'),
                   if (scout.birthday != null)

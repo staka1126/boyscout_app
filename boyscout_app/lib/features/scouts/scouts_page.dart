@@ -226,11 +226,11 @@ class _ScoutCard extends StatelessWidget {
           child: Row(children: [
             CircleAvatar(
                 radius: 22,
-                backgroundColor: cs.primaryContainer,
+                backgroundColor: _categoryAvatarBg(cs, scout.category),
                 child: Text(scout.name.isNotEmpty ? scout.name[0] : '?',
                     style: TextStyle(
                         fontWeight: FontWeight.w700,
-                        color: cs.onPrimaryContainer,
+                        color: _categoryAvatarFg(cs, scout.category),
                         fontSize: 16))),
             const SizedBox(width: 12),
             Expanded(
@@ -246,15 +246,6 @@ class _ScoutCard extends StatelessWidget {
                     ]),
                     const SizedBox(height: 4),
                     Row(children: [
-                      if (scout.grade != null) ...[
-                        Icon(Icons.school_outlined,
-                            size: 13, color: cs.onSurfaceVariant),
-                        const SizedBox(width: 3),
-                        Text(scout.grade!,
-                            style: TextStyle(
-                                fontSize: 12, color: cs.onSurfaceVariant)),
-                        const SizedBox(width: 10),
-                      ],
                       Icon(Icons.eco_outlined,
                           size: 13, color: cs.onSurfaceVariant),
                       const SizedBox(width: 3),
@@ -284,6 +275,32 @@ class _ScoutCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+Color _categoryAvatarBg(ColorScheme cs, ScoutCategory category) {
+  switch (category) {
+    case ScoutCategory.bigBeaver:
+      return cs.primaryContainer;
+    case ScoutCategory.beaver:
+      return cs.secondaryContainer;
+    case ScoutCategory.provisional:
+      return cs.tertiaryContainer;
+    default:
+      return cs.surfaceContainerHighest;
+  }
+}
+
+Color _categoryAvatarFg(ColorScheme cs, ScoutCategory category) {
+  switch (category) {
+    case ScoutCategory.bigBeaver:
+      return cs.onPrimaryContainer;
+    case ScoutCategory.beaver:
+      return cs.onSecondaryContainer;
+    case ScoutCategory.provisional:
+      return cs.onTertiaryContainer;
+    default:
+      return cs.onSurfaceVariant;
   }
 }
 

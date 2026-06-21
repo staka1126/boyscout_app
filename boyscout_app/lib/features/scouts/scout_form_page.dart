@@ -193,7 +193,7 @@ class _ScoutFormPageState extends ConsumerState<ScoutFormPage> {
                         final v = _gradeCtrl.text.isEmpty ? '小1' : _gradeCtrl.text;
                         return valid.contains(v) ? v : 'その他';
                       }(),
-                      decoration: const InputDecoration(labelText: '学年'),
+                      decoration: const InputDecoration(labelText: '初期登録時学年'),
                       items: const [
                         DropdownMenuItem(value: '小2', child: Text('小2')),
                         DropdownMenuItem(value: '小1', child: Text('小1')),

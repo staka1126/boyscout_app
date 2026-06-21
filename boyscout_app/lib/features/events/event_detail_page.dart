@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
+import '../../data/local/database_helper.dart';
+import '../../data/local/event_stats_service.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
@@ -19,7 +21,6 @@ final _eventDetailProvider =
   if (event == null) return null;
   final badges = await ref.read(eventRepositoryProvider).getLeafBadges(id);
   final attendances = await ref.read(attendanceRepositoryProvider).getByEvent(id);
-  // 分類順ソート用にスカウト情報を取得
   final troopId = event.troopId;
   final List<Scout> scouts;
   try {
@@ -48,7 +49,6 @@ class _EventDetailData {
   int get pendingCount => attendances.where((a) => a.status == AttendanceStatus.pending).length;
   List<Attendance> get users  => attendances.where((a) => a.memberType == MemberType.user).toList();
   List<Attendance> get scouts {
-    // member_id → Scoutのマップを作成して分類順ソート
     final scoutMap = {for (final s in scoutList) s.id: s};
     return attendances.where((a) => a.memberType == MemberType.scout).toList()
       ..sort((a, b) {
@@ -233,7 +233,6 @@ class EventDetailPage extends ConsumerWidget {
           await ref.read(scoutRepositoryProvider).subtractLeafBadges(sid, totalBadges);
         }
       }
-      // twig_badge_historyは廃止のため削除処理なし
     }
     await ref.read(eventRepositoryProvider).update(event.copyWith(status: newStatus, completedAt: null));
     _invalidateAll(ref);
@@ -321,6 +320,9 @@ class EventDetailPage extends ConsumerWidget {
         await scoutRepo.addLeafBadges(sid, totalBadges);
       }
     }
+
+    // 参加統計を保存
+    await EventStatsService.instance.saveForEvent(event.id);
 
     if (context.mounted) {
       _invalidateAll(ref);
@@ -584,14 +586,9 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     final all = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
     const hiddenCategories = [ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined];
     const order = [
-      ScoutCategory.bigBeaver,
-      ScoutCategory.beaver,
-      ScoutCategory.provisional,
-      ScoutCategory.experience,
-      ScoutCategory.sibling,
-      ScoutCategory.promoted,
-      ScoutCategory.withdrawn,
-      ScoutCategory.notJoined,
+      ScoutCategory.bigBeaver, ScoutCategory.beaver, ScoutCategory.provisional,
+      ScoutCategory.experience, ScoutCategory.sibling,
+      ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined,
     ];
     return all
         .where((s) => !_existingIds.contains(s.id) && (_showAllScouts || !hiddenCategories.contains(s.category)))

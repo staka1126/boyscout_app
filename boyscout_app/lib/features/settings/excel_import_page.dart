@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/import/excel_import_service.dart';
 import '../../data/local/database_helper.dart';
+import '../../data/local/event_stats_service.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../data/sync/sync_service.dart';
 import '../../core/supabase_config.dart';
@@ -30,7 +31,6 @@ class _ExcelImportPageState extends ConsumerState<ExcelImportPage> {
       return;
     }
 
-    // ファイル選択
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['xlsx'],
@@ -44,7 +44,6 @@ class _ExcelImportPageState extends ConsumerState<ExcelImportPage> {
       return;
     }
 
-    // 確認ダイアログ
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -76,20 +75,25 @@ class _ExcelImportPageState extends ConsumerState<ExcelImportPage> {
         db: db,
       );
 
-      // Supabase側の古いデータを削除してからアップロード
+      // Supabase同期
       try {
         await _clearSupabaseData(troopId);
         await SyncService.instance.syncToSupabase(troopId);
-        // アップロード後に再度ダウンロードしてローカルを最新化（プロバイダーキャッシュもリフレッシュ）
         await SyncService.instance.syncFromSupabase(troopId);
       } catch (e) {
         debugPrint('Supabase sync error: $e');
         if (mounted) setState(() => _error = 'Supabase同期エラー: $e');
       }
 
+      // 確定済みイベントの参加統計を現在のデータで再計算
+      try {
+        await EventStatsService.instance.rebuildAllForTroop(troopId);
+      } catch (e) {
+        debugPrint('EventStats rebuild error: $e');
+      }
+
       if (mounted) {
         setState(() { _result = result; _isLoading = false; });
-        // 全プロバイダーをリフレッシュしてダッシュボード等に反映
         ref.invalidate(dashboardProvider);
         ref.invalidate(badgesProvider);
       }
@@ -209,17 +213,14 @@ class _ExcelImportPageState extends ConsumerState<ExcelImportPage> {
     );
   }
 
-  /// Supabase側の團配下データを全削除
   Future<void> _clearSupabaseData(String troopId) async {
     final client = SupabaseConfig.client;
-    // イベント配下
     final eventIds = (await client.from('events').select('id').eq('troop_id', troopId) as List)
         .map((r) => r['id'] as String).toList();
     if (eventIds.isNotEmpty) {
       await client.from('attendances').delete().inFilter('event_id', eventIds);
       await client.from('event_leaf_badges').delete().inFilter('event_id', eventIds);
     }
-    // スカウト配下
     final scoutIds = (await client.from('scouts').select('id').eq('troop_id', troopId) as List)
         .map((r) => r['id'] as String).toList();
     if (scoutIds.isNotEmpty) {
@@ -229,9 +230,7 @@ class _ExcelImportPageState extends ConsumerState<ExcelImportPage> {
     await client.from('scouts').delete().eq('troop_id', troopId);
     await client.from('leaders').delete().eq('troop_id', troopId);
     await client.from('committee_members').delete().eq('troop_id', troopId);
-    // guardiansは内部の troop_id で絞り込む
     if (scoutIds.isNotEmpty) {
-      // scout_guardiansに綐び付いていた保護者は削除済みなので、troop_idでしかり削除
       await client.from('guardians').delete().eq('troop_id', troopId);
     }
   }

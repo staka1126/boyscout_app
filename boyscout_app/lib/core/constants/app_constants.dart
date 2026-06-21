@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 // ─── DB ─────────────────────────────────────────────────────
 class AppConstants {
   static const String dbName = 'boyscout.db';
-  static const int dbVersion = 6;
+  static const int dbVersion = 8;
 }
 
 // ─── ユーザー種別 ─────────────────────────────────────────────
@@ -38,7 +38,6 @@ enum ScoutCategory {
   final String value;
   final String label;
 
-  /// デフォルト出席者として自動追加する対象
   bool get isDefaultAttendee =>
       this == bigBeaver ||
       this == beaver ||
@@ -46,7 +45,6 @@ enum ScoutCategory {
       this == experience ||
       this == sibling;
 
-  /// 小枝章の授与対象（ビーバー・ビッグビーバーのみ）
   bool get isTwigBadgeEligible =>
       this == bigBeaver || this == beaver;
 
@@ -73,7 +71,7 @@ enum EventType {
 // ─── イベント状態 ─────────────────────────────────────────────
 enum EventStatus {
   planned('planned', '予定'),
-  completed('completed', '確定'),
+  completed('completed', '実施済'),
   cancelled('cancelled', '非開催');
 
   const EventStatus(this.value, this.label);

@@ -33,6 +33,12 @@ dependencies:
   excel: ^4.0.6
   file_picker: ^8.0.0+1
 
+  # レポート出力
+  pdf: ^3.11.1
+  printing: ^5.13.2
+  path_provider: ^2.1.4
+  share_plus: ^10.0.2
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -1,4 +1,4 @@
-package com.example.boyscout_app
+package jp.tshub.beaverlog
 
 import io.flutter.embedding.android.FlutterActivity
 

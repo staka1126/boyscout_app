@@ -168,7 +168,8 @@ class DashboardPage extends ConsumerWidget {
       ),
       ]),
       floatingActionButton: FloatingActionButton(
-        onPressed: () async {
+            heroTag: 'add_event_fab',
+            onPressed: () async {
           final troopId = ref.read(currentTroopIdProvider);
           if (troopId == null) return;
           final users = await ref.read(userRepositoryProvider).getByTroop(troopId);
@@ -185,9 +186,10 @@ class DashboardPage extends ConsumerWidget {
             return;
           }
           context.push('/events/new');
-        },
+          },
         child: const Icon(Icons.add),
       ),
+
     );
   }
 }
@@ -248,10 +250,20 @@ class _DateBadge extends StatelessWidget {
   const _DateBadge({required this.date});
 
   static Color _monthColor(int month) {
-    if (month >= 4 && month <= 6)  return const Color(0xFF66BB6A); // 春: 緑
-    if (month >= 7 && month <= 9)  return const Color(0xFF29B6F6); // 夏: 青
-    if (month >= 10 && month <= 12) return const Color(0xFFFF8F00); // 秋: 橙
-    return const Color(0xFF7986CB);                                  // 冬: 鵬色
+    switch (month) {
+      case 4:  return const Color(0xFF81C784); // 春・淡緑
+      case 5:  return const Color(0xFF4CAF50); // 春・中緑
+      case 6:  return const Color(0xFF2E7D32); // 春・深緑
+      case 7:  return const Color(0xFF4FC3F7); // 夏・淡青
+      case 8:  return const Color(0xFF0288D1); // 夏・中青
+      case 9:  return const Color(0xFF01579B); // 夏・深青
+      case 10: return const Color(0xFFFFB74D); // 秋・淡橙
+      case 11: return const Color(0xFFF57C00); // 秋・中橙
+      case 12: return const Color(0xFFBF360C); // 秋・深赤橙
+      case 1:  return const Color(0xFF9FA8DA); // 冬・淡藍
+      case 2:  return const Color(0xFF5C6BC0); // 冬・中藍
+      default: return const Color(0xFF283593); // 冬・深藍（3月）
+    }
   }
 
   @override

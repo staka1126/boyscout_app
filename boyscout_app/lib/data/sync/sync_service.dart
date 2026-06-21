@@ -19,7 +19,6 @@ class SyncService {
 
   // ─────────────────────────────────────────────────────────
   // Supabase → ローカル（ダウンロード同期）
-  // 起動時・ログイン時に呼ぶ
   // ─────────────────────────────────────────────────────────
   Future<void> syncFromSupabase(String troopId) async {
     try {
@@ -34,7 +33,7 @@ class SyncService {
       await _syncEvents(db, troopId);
       await _syncEventLeafBadges(db, troopId);
       await _syncAttendances(db, troopId);
-
+      await _syncEventStats(db, troopId);
     } catch (e) {
       rethrow;
     }
@@ -42,7 +41,6 @@ class SyncService {
 
   // ─────────────────────────────────────────────────────────
   // ローカル → Supabase（アップロード同期）
-  // データ変更後に呼ぶ
   // ─────────────────────────────────────────────────────────
   Future<void> syncToSupabase(String troopId) async {
     try {
@@ -55,7 +53,7 @@ class SyncService {
       await _uploadTable(db, 'events', troopId: troopId);
       await _uploadEventLeafBadges(db, troopId);
       await _uploadAttendances(db, troopId);
-
+      await _uploadEventStats(db, troopId);
     } catch (e) {
       // アップロード失敗はローカル操作に影響しない
     }
@@ -133,7 +131,6 @@ class SyncService {
 
   Future<void> _syncEvents(Database db, String troopId) async {
     final rows = await _client.from('events').select().eq('troop_id', troopId);
-    // ローカルをクリアしてから全件再検入（削除されたイベントの残流を防ぐ）
     await db.delete('events', where: 'troop_id = ?', whereArgs: [troopId]);
     for (final row in rows as List) {
       await db.insert('events', _normalize(row),
@@ -165,6 +162,21 @@ class SyncService {
         .inFilter('event_id', eventIds);
     for (final row in rows as List) {
       await db.insert('attendances', _normalize(row),
+          conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+  }
+
+  /// event_stats を Supabase → ローカルに同期
+  Future<void> _syncEventStats(Database db, String troopId) async {
+    final eventRows = await _client.from('events').select('id').eq('troop_id', troopId);
+    final eventIds = (eventRows as List).map((r) => r['id'] as String).toList();
+    if (eventIds.isEmpty) return;
+
+    final rows = await _client.from('event_stats')
+        .select()
+        .inFilter('event_id', eventIds);
+    for (final row in rows as List) {
+      await db.insert('event_stats', _normalizeEventStats(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
@@ -245,6 +257,24 @@ class SyncService {
         rows.map((r) => Map<String, dynamic>.from(r)).toList());
   }
 
+  /// event_stats をローカル → Supabase にアップロード
+  Future<void> _uploadEventStats(Database db, String troopId) async {
+    // event_stats は troop_id を持たないのでイベントID経由で絞り込む
+    final eventRows = await db.query('events',
+        columns: ['id'], where: 'troop_id = ?', whereArgs: [troopId]);
+    final eventIds = eventRows.map((r) => r['id'] as String).toList();
+    if (eventIds.isEmpty) return;
+
+    final placeholder = eventIds.map((_) => '?').join(',');
+    final rows = await db.query('event_stats',
+        where: 'event_id IN ($placeholder)', whereArgs: eventIds);
+    if (rows.isEmpty) return;
+
+    // ローカルの updated_at は ISO8601 文字列なので Supabase 向けにそのまま渡す
+    await _client.from('event_stats').upsert(
+        rows.map((r) => Map<String, dynamic>.from(r)).toList());
+  }
+
   // ─────────────────────────────────────────────────────────
   // ヘルパー
   // ─────────────────────────────────────────────────────────
@@ -267,5 +297,10 @@ class SyncService {
       if (value is bool) return MapEntry(key, value ? 1 : 0);
       return MapEntry(key, value);
     });
+  }
+
+  /// event_stats は bool カラムなし・updated_at は TIMESTAMPTZ なのでそのまま渡す
+  Map<String, dynamic> _normalizeEventStats(Map<String, dynamic> row) {
+    return Map<String, dynamic>.from(row);
   }
 }

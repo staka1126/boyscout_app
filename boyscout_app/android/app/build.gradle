@@ -45,10 +45,28 @@ android {
     buildTypes {
         release {
             signingConfig signingConfigs.release
+            minifyEnabled false
+            shrinkResources false
         }
     }
 }
 
 flutter {
     source '../..'
+}
+
+// flutter build apk がAPKを見つけられない問題の回避
+// Gradleビルド後にflutter-apk/ディレクトリにAPKをコピー
+afterEvaluate {
+    tasks.named('assembleRelease').configure {
+        doLast {
+            def src = file("${buildDir}/outputs/apk/release/app-release.apk")
+            def dst = file("${buildDir}/outputs/flutter-apk/app-release.apk")
+            if (src.exists()) {
+                dst.parentFile.mkdirs()
+                dst.bytes = src.bytes
+                println "Copied APK to flutter-apk/"
+            }
+        }
+    }
 }

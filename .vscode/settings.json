@@ -6,5 +6,6 @@
       "model": "llama3.1",
       "apiBase": "http://localhost:11434"
     }
-  ]
+  ],
+  "cmake.sourceDirectory": "/home/takaaki/git-work/boyscout_app/boyscout_app/windows"
 }

@@ -13,6 +13,8 @@ import '../../core/supabase_config.dart';
 import '../auth/auth_service.dart';
 import '../auth/auth_provider.dart';
 import 'excel_import_page.dart';
+import '../dashboard/help_page.dart';
+import 'report_page.dart';
 
 final _currentProfileProvider = FutureProvider<Map<String, String?>>((ref) async {
   final isSignedIn = ref.watch(isSignedInProvider);
@@ -160,6 +162,27 @@ class SettingsPage extends ConsumerWidget {
 
           _tile(context, Icons.contact_phone_outlined, '電話帳', '/settings/phonebook'),
           _tile(context, Icons.no_food_outlined, 'アレルギー情報', '/settings/allergy'),
+          const Divider(),
+
+          // レポート出力
+          ListTile(
+            leading: const Icon(Icons.bar_chart_outlined),
+            title: const Text('レポート出力'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ReportPage()),
+            ),
+          ),
+          const Divider(),
+
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('使い方'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const HelpPage()),
+            ),
+          ),
           const Divider(),
 
           if (isAdmin) ...[
