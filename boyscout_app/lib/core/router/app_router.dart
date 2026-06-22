@@ -26,6 +26,7 @@ import '../../features/auth/login_page.dart';
 import '../../features/auth/auth_provider.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../features/scouts/guardian_form_page.dart';
+import '../../features/settings/batch_register_page.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final notifier = _AuthNotifier(ref);
@@ -147,6 +148,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               ),
               GoRoute(path: 'phonebook', builder: (c, s) => const PhonebookPage()),
               GoRoute(path: 'allergy', builder: (c, s) => const AllergyListPage()),
+              GoRoute(path: 'batch-register', builder: (c, s) => const BatchRegisterPage()),
             ],
           ),
         ],

@@ -13,6 +13,7 @@ import '../../core/supabase_config.dart';
 import '../auth/auth_service.dart';
 import '../auth/auth_provider.dart';
 import 'excel_import_page.dart';
+import 'batch_register_page.dart';
 import '../dashboard/help_page.dart';
 import 'report_page.dart';
 
@@ -191,10 +192,18 @@ class SettingsPage extends ConsumerWidget {
             ListTile(
               leading: const Icon(Icons.table_chart_outlined),
               title: const Text('Excelインポート'),
+              subtitle: const Text('既存ツールからの移行', style: TextStyle(fontSize: 11)),
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ExcelImportPage()),
               ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.group_add_outlined),
+              title: const Text('バッチ登録'),
+              subtitle: const Text('Excelで複数メンバーを一括登録', style: TextStyle(fontSize: 11)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => context.push('/settings/batch-register'),
             ),
             const Divider(),
           ],
