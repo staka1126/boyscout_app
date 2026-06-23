@@ -198,6 +198,59 @@ class _LoginPageState extends ConsumerState<LoginPage>
     }
   }
 
+  Future<void> _showPasswordResetDialog() async {
+    final emailCtrl = TextEditingController(
+        text: _loginEmailCtrl.text.trim());
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('パスワードのリセット'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('登録済みのメールアドレスを入力してください。\nリセット用のリンクを送信します。',
+                style: TextStyle(fontSize: 13)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: emailCtrl,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'メールアドレス',
+                prefixIcon: Icon(Icons.email_outlined),
+                border: OutlineInputBorder(),
+              ),
+              keyboardType: TextInputType.emailAddress,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('キャンセル')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('送信する')),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+    final email = emailCtrl.text.trim();
+    if (email.isEmpty) {
+      _showError('メールアドレスを入力してください');
+      return;
+    }
+    setState(() => _isLoading = true);
+    try {
+      await AuthService.instance.sendPasswordResetEmail(email);
+      if (mounted) _showMessage('リセット用メールを送信しました。メールボックスを確認してください。');
+    } catch (e) {
+      if (mounted) _showError('送信に失敗しました。メールアドレスを確認してください。');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
@@ -316,6 +369,16 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         strokeWidth: 2, color: Colors.white),
                   )
                 : const Text('ログイン'),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(
+            onPressed: _isLoading ? null : _showPasswordResetDialog,
+            style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+            child: const Text('パスワードを忘れた場合',
+                style: TextStyle(fontSize: 13)),
           ),
         ),
         // 開発用ボタン（デバッグビルドのみ表示）

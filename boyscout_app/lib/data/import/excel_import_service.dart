@@ -264,13 +264,36 @@ class ExcelImportService {
           .map((r) => MapEntry(r['id'] as String, r['name'] as String))
           .toList();
 
-      // デフォルト出席スカウト：ビッグビーバー・ビーバーのみ
+      // デフォルト出席スカウト：ビッグビーバー・ビーバー・仮入隊
       final defaultScoutRows = await txn.query('scouts', columns: ['id','name','category'],
           where: 'troop_id = ? AND is_active = 1', whereArgs: [troopId]);
-      const defaultAttendeeCategories = ['big_beaver', 'beaver'];
+      const defaultAttendeeCategories = ['big_beaver', 'beaver', 'provisional'];
       final defaultScouts = defaultScoutRows
           .where((r) => defaultAttendeeCategories.contains(r['category'] as String))
           .toList();
+
+      // デフォルト出席対象スカウト（保護者取得用）のid一覧
+      const guardianTargetCategories = ['big_beaver', 'beaver', 'provisional'];
+      final guardianTargetScoutIds = defaultScoutRows
+          .where((r) => guardianTargetCategories.contains(r['category'] as String))
+          .map((r) => r['id'] as String)
+          .toList();
+
+      // 各スカウトの保護者を取得（重複除去）
+      final defaultGuardianIds = <String>{};
+      final defaultGuardianNames = <String, String>{}; // id → name
+      for (final scoutId in guardianTargetScoutIds) {
+        final sgRows = await txn.rawQuery('''
+          SELECT g.id, g.name FROM guardians g
+          JOIN scout_guardians sg ON sg.guardian_id = g.id
+          WHERE sg.scout_id = ?
+        ''', [scoutId]);
+        for (final row in sgRows) {
+          final gId = row['id'] as String;
+          defaultGuardianIds.add(gId);
+          defaultGuardianNames[gId] = row['name'] as String;
+        }
+      }
 
       // 各イベントのステータスを確認して予定のみデフォルト出欠者を生成
       final allEventRows = await txn.query('events',
@@ -295,6 +318,16 @@ class ExcelImportService {
               'id': _uuid.v4(), 'event_id': dbEventId,
               'member_id': sr['id'] as String, 'member_type': 'scout',
               'member_name': sr['name'] as String, 'status': 'pending', 'is_default': 1,
+            });
+          } catch (_) {}
+        }
+        // デフォルト保護者をpendingで登録
+        for (final gId in defaultGuardianIds) {
+          try {
+            await txn.insert('attendances', {
+              'id': _uuid.v4(), 'event_id': dbEventId,
+              'member_id': gId, 'member_type': 'guardian',
+              'member_name': defaultGuardianNames[gId] ?? '', 'status': 'pending', 'is_default': 1,
             });
           } catch (_) {}
         }

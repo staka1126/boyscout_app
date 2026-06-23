@@ -62,8 +62,10 @@ class _EventDetailData {
         return a.memberName.compareTo(b.memberName);
       });
   }
-  List<Attendance> get others => attendances.where((a) =>
-      a.memberType != MemberType.user && a.memberType != MemberType.scout).toList();
+  List<Attendance> get guardians => attendances.where((a) => a.memberType == MemberType.guardian).toList();
+  List<Attendance> get committees => attendances.where((a) =>
+      a.memberType != MemberType.user && a.memberType != MemberType.scout && a.memberType != MemberType.guardian).toList();
+  List<Attendance> get others => [...guardians, ...committees];
 }
 
 class EventDetailPage extends ConsumerWidget {
@@ -162,13 +164,23 @@ class EventDetailPage extends ConsumerWidget {
                   ]])),
                   const SizedBox(height: 8),
                 ],
-                if (data.others.isNotEmpty) ...[
-                  _sectionLabel(context, 'その他'),
-                  Card(child: Column(children: [for (int i = 0; i < data.others.length; i++) ...[
+                if (data.guardians.isNotEmpty) ...[
+                  _sectionLabel(context, '保護者'),
+                  Card(child: Column(children: [for (int i = 0; i < data.guardians.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
-                    _AttendanceTile(attendance: data.others[i],
-                      onChanged: (s) => _updateAttendStatus(ref, data.others[i].id, s),
-                      onRemove: isCompleted ? null : () => _removeAttendance(ref, data.others[i].id)),
+                    _AttendanceTile(attendance: data.guardians[i],
+                      onChanged: (s) => _updateAttendStatus(ref, data.guardians[i].id, s),
+                      onRemove: isCompleted ? null : () => _removeAttendance(ref, data.guardians[i].id)),
+                  ]])),
+                  const SizedBox(height: 8),
+                ],
+                if (data.committees.isNotEmpty) ...[
+                  _sectionLabel(context, '団委員ほか'),
+                  Card(child: Column(children: [for (int i = 0; i < data.committees.length; i++) ...[
+                    if (i > 0) const Divider(height: 0),
+                    _AttendanceTile(attendance: data.committees[i],
+                      onChanged: (s) => _updateAttendStatus(ref, data.committees[i].id, s),
+                      onRemove: isCompleted ? null : () => _removeAttendance(ref, data.committees[i].id)),
                   ]])),
                 ],
               ],
@@ -610,20 +622,35 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
     final unlinked = all.where((g) => !_existingIds.contains(g.id)).toList();
     if (_showAllGuardians) return unlinked;
 
+    // ビッグビーバー・ビーバー・仮入隊・兄弟姉妹・体験の順で保護者を表示
+    const displayOrder = [
+      ScoutCategory.bigBeaver,
+      ScoutCategory.beaver,
+      ScoutCategory.provisional,
+      ScoutCategory.sibling,
+      ScoutCategory.experience,
+    ];
     final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
-    final eligibleScoutIds = scouts.where((s) => s.category.isTwigBadgeEligible).map((s) => s.id).toSet();
-    final existingAttendances = await ref.read(attendanceRepositoryProvider).getByEvent(widget.event.id);
-    final attendingScoutIds = existingAttendances
-        .where((a) => a.memberType == MemberType.scout && a.memberId != null)
-        .map((a) => a.memberId!).toSet();
-    final targetScoutIds = eligibleScoutIds.union(attendingScoutIds);
+    final targetScouts = scouts.where((s) => displayOrder.contains(s.category)).toList()
+      ..sort((a, b) {
+        final ai = displayOrder.indexOf(a.category);
+        final bi = displayOrder.indexOf(b.category);
+        return ai.compareTo(bi);
+      });
 
-    final linkedGuardianIds = <String>{};
-    for (final scoutId in targetScoutIds) {
-      final guardians = await ref.read(guardianRepositoryProvider).getByScout(scoutId);
-      linkedGuardianIds.addAll(guardians.map((g) => g.id));
+    // スカウト順に保護者を収集（重複除去しつつ順序を保持）
+    final seen = <String>{};
+    final ordered = <Guardian>[];
+    for (final scout in targetScouts) {
+      final guardians = await ref.read(guardianRepositoryProvider).getByScout(scout.id);
+      for (final g in guardians) {
+        if (!seen.contains(g.id) && unlinked.any((u) => u.id == g.id)) {
+          seen.add(g.id);
+          ordered.add(g);
+        }
+      }
     }
-    return unlinked.where((g) => linkedGuardianIds.contains(g.id)).toList();
+    return ordered;
   }
 
   Future<List<CommitteeMember>> _loadCommittee() async {

@@ -67,6 +67,16 @@ class AuthService {
   }
 
   // ─────────────────────────────────────────────
+  // パスワードリセットメール送信
+  // ─────────────────────────────────────────────
+  Future<void> sendPasswordResetEmail(String email) async {
+    await _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: 'https://staka1126.github.io/boyscout_app/reset-password.html',
+    );
+  }
+
+  // ─────────────────────────────────────────────
   // ログアウト
   // ─────────────────────────────────────────────
   Future<void> signOut() async {

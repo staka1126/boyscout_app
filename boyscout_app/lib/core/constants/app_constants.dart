@@ -41,9 +41,7 @@ enum ScoutCategory {
   bool get isDefaultAttendee =>
       this == bigBeaver ||
       this == beaver ||
-      this == provisional ||
-      this == experience ||
-      this == sibling;
+      this == provisional;
 
   bool get isTwigBadgeEligible =>
       this == bigBeaver || this == beaver;

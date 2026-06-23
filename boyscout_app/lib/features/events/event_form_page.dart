@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 import '../../core/constants/app_constants.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
@@ -100,6 +101,33 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
           final users = await ref.read(userRepositoryProvider).getByTroop(troopId);
           final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
           await ref.read(attendanceRepositoryProvider).createDefaults(eventId: saved.id, users: users, scouts: scouts);
+
+          // ビーバー・ビッグビーバー・仮入隊スカウトの保護者をデフォルト追加
+          const guardianTargetCategories = [
+            ScoutCategory.bigBeaver,
+            ScoutCategory.beaver,
+            ScoutCategory.provisional,
+          ];
+          final targetScouts = scouts.where((s) => guardianTargetCategories.contains(s.category));
+          final guardianRepo = ref.read(guardianRepositoryProvider);
+          final attendanceRepo = ref.read(attendanceRepositoryProvider);
+          final addedGuardianIds = <String>{};
+          for (final scout in targetScouts) {
+            final guardians = await guardianRepo.getByScout(scout.id);
+            for (final g in guardians) {
+              if (addedGuardianIds.contains(g.id)) continue;
+              addedGuardianIds.add(g.id);
+              await attendanceRepo.add(Attendance(
+                id: const Uuid().v4(),
+                eventId: saved.id,
+                memberType: MemberType.guardian,
+                memberId: g.id,
+                memberName: g.name,
+                status: AttendanceStatus.pending,
+                isDefault: true,
+              ));
+            }
+          }
         } catch (e) {
           debugPrint('出席者自動生成エラー（無視）: $e');
         }
