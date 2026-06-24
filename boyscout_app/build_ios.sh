@@ -27,7 +27,7 @@ if ! command -v ios-deploy &> /dev/null; then
 fi
 
 # 接続デバイスの確認
-DEVICE_ID=$(ios-deploy --detect --timeout 3 2>/dev/null | grep -oE '[0-9a-f]{40}' | head -1)
+DEVICE_ID=$(ios-deploy --detect --timeout 5 2>/dev/null | grep -oE '[0-9A-Fa-f]{40}' | head -1)
 if [ -z "$DEVICE_ID" ]; then
   echo "エラー: 接続されているiOSデバイスが見つかりません"
   echo "デバイスをUSB接続して再実行してください"
