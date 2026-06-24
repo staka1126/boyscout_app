@@ -77,11 +77,12 @@ adb install -r --no-streaming app-release.apk  # Xiaomiデバイス向け
 ### iOS リリースビルド
 
 ```bash
+brew install ios-deploy  # 初回のみ
 chmod +x build_ios.sh
-./build_ios.sh              # IPAビルド
+./build_ios.sh              # IPAビルド＋実機インストール
 ```
 
-App Store Connect へのアップロードは Xcode Organizer から手動で行う。
+USB接続した実機を自動検出してインストールまで行います。App Store Connect へのアップロードは Xcode Organizer から手動で行う。
 
 ---
 
