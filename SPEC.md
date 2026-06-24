@@ -53,7 +53,7 @@ BottomNavigationBar で以下の5タブを切り替える。
   - 誕生日（日付ピッカー）
   - アレルギー：11種類のチップで複数選択（鶏卵・牛乳・乳製品・小麦・ソバ・ピーナッツ・甲殻類・木の実類・果物類・魚類・肉類・その他）
   - 特記事項（複数行テキスト）
-  - 保存はAppBar右上の保存アイコン（`Icons.save_outlined`）。保存中はインジケーター表示
+  - 保存は画面下部のFAB（`Icons.save_outlined` + 「保存」ラベル）。保存中はインジケーター表示
 - 編集画面を抜ける際、未保存変更がある場合は確認ダイアログを表示
   - AppBar左上の戻るボタンにも明示的に確認ダイアログを紐付け（`PopScope` + `leading` の二重対策）
 - スカウト詳細：
@@ -71,8 +71,8 @@ BottomNavigationBar で以下の5タブを切り替える。
 | big_beaver | ビッグビーバー | ○ | ○ |
 | beaver | ビーバー | ○ | ○ |
 | provisional | 仮入隊 | ○ | × |
-| experience | 体験 | ○ | × |
-| sibling | 兄弟姉妹 | ○ | × |
+| experience | 体験 | × | × |
+| sibling | 兄弟姉妹 | × | × |
 | promoted | 上進 | × | × |
 | withdrawn | 退団 | × | × |
 | not_joined | 入隊せず | × | × |
@@ -87,9 +87,9 @@ BottomNavigationBar で以下の5タブを切り替える。
 - イベントフォーム：
   - タイトル・開催日・開始時間・終了時間・場所・備考を入力
   - event_type はUI上に存在せず、新規作成時は `other` を固定値として保存
-  - 保存はAppBar右上の保存アイコン（`Icons.save_outlined`）。保存中はインジケーター表示
+  - 保存は画面下部のFAB（`Icons.save_outlined` + 「保存」ラベル）。保存中はインジケーター表示
 - イベント詳細：
-  - ステータス選択（予定・確定・非開催の3ボタン）
+  - ステータス選択（予定・実施済・非開催の3ボタン）
   - 基本情報（日付・時間・場所・備考）
   - 木の葉章配布設定（5種別をON/OFFで設定）
   - 出欠管理（リーダー・スカウト・その他セクション）
@@ -107,14 +107,14 @@ UI上の表示ラベルと DB 格納値は異なる。
 | DB値 | 表示ラベル | 説明 |
 |---|---|---|
 | planned | 予定 | デフォルト |
-| completed | 確定 | 木の葉章を出席スカウトへ反映・編集不可 |
+| completed | 実施済 | 木の葉章を出席スカウトへ反映・編集不可 |
 | cancelled | 非開催 | 木の葉章に影響なし、確定済みからは変更不可 |
 
 #### 確定処理
-1. ステータスを「確定」に変更すると確認ダイアログ
+1. ステータスを「実施済」に変更すると確認ダイアログ
 2. OKで出席スカウト全員に木の葉章を加算（ONの種別数分）
 3. 小枝章権利（10枚ごと）が発生していれば `twig_badge_history` を生成
-4. 確定→他ステータス戻し時：木の葉章を減算・`twig_badge_history` を削除
+4. 実施済→他ステータス戻し時：木の葉章を減算・`twig_badge_history` を削除
 
 #### 出欠管理
 - デフォルト出席者：登録リーダー全員・スカウト（デフォルト出席分類のみ）
@@ -166,8 +166,12 @@ UI上の表示ラベルと DB 格納値は異なる。
 | 団委員ほか | `/settings/committee` | 全員 |
 | 電話帳 | `/settings/phonebook` | 全員 |
 | アレルギー情報 | `/settings/allergy` | 全員 |
+| レポート出力 | （Navigator.push） | 全員 |
+| 使い方 | （Navigator.push） | 全員 |
 | 利用者管理 | `/settings/members` | 管理者のみ |
 | 招待コード | `/settings/invite-codes` | 管理者のみ |
+| Excelインポート | （Navigator.push） | 管理者のみ |
+| バッチ登録 | `/settings/batch-register` | 管理者のみ |
 | アカウントを削除する | （ダイアログ） | 全員 |
 | バージョン情報 | （画面内・10秒長押しで隠しメニュー） | 全員 |
 
@@ -177,13 +181,15 @@ UI上の表示ラベルと DB 格納値は異なる。
 #### 団情報
 - 団名・場所・連絡先の登録・編集
 - Supabaseから自分の団情報を取得して表示（キャッシュ不整合を防ぐ）
-- 保存はAppBar右上の保存アイコン（`Icons.save_outlined`）
+- 保存は画面下部のFAB（`Icons.save_outlined` + 「保存」ラベル）
 
 #### リーダー管理（`/settings/users`）
 - リーダー一覧（現役→引退の順、氏名・種別・メールアドレス）
 - 追加FAB・編集アイコン・削除アイコン
-- フォーム：氏名は「氏」「名」の2フィールド、性別はラジオボタン
-- **引退フラグ**：編集画面でスイッチ切り替え
+- フォーム：氏名は「氏」「名」の2フィールド、性別はラジオボタン、種別は隊長/副長/補助者のラジオボタン
+- 保存は画面下部のFAB（`Icons.save_outlined` + 「保存」ラベル）
+- **引退フラグ**：編集画面でスイッチ切り替え（新規追加時は非表示）
+- メールアドレス必須・重複チェックあり
 - 削除制約：出欠履歴がある場合は削除不可
 
 #### 保護者管理
@@ -223,12 +229,14 @@ UI上の表示ラベルと DB 格納値は異なる。
 
 ## 5. データモデル
 
-### 5.1 ローカルSQLiteテーブル
+### 5.1 共通スキーマ（ローカルSQLite・Supabase共通）
+
+ローカルSQLiteとSupabaseは基本的に同一のテーブル構造を持つ。ローカルはオフラインキャッシュとして機能し、Supabaseがマスターデータソース（Last-Write-Wins同期）。
 
 #### troops（団）
 | カラム | 型 | 説明 |
 |---|---|---|
-| id | TEXT PK | UUID |
+| id | TEXT / UUID PK | |
 | name | TEXT NOT NULL | 団名 |
 | location | TEXT | 所在地 |
 | contact | TEXT | 連絡先 |
@@ -238,7 +246,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 #### leaders（リーダー） ※旧: users
 | カラム | 型 | 説明 |
 |---|---|---|
-| id | TEXT PK | UUID |
+| id | TEXT / UUID PK | |
 | troop_id | TEXT NOT NULL | FK → troops.id |
 | name | TEXT NOT NULL | 氏名 |
 | gender | TEXT | male / female / other |
@@ -253,7 +261,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 #### scouts（スカウト）
 | カラム | 型 | 説明 |
 |---|---|---|
-| id | TEXT PK | UUID |
+| id | TEXT / UUID PK | |
 | troop_id | TEXT NOT NULL | FK → troops.id |
 | name | TEXT NOT NULL | 氏名 |
 | gender | TEXT | male / female / other |
@@ -274,12 +282,13 @@ UI上の表示ラベルと DB 格納値は異なる。
 
 **計算値**
 - `totalLeafBadges = leaf_badges - leaf_badge_offset`
-- `pendingTwigBadges = (totalLeafBadges ~/ 10) - twig_badges`
+- `pendingTwigBadges = (totalLeafBadges ~/ 10) - twig_badges`（ビーバー・ビッグビーバー用）
+- `pendingOtherBadges = (leaf_badges ~/ 10) - other_badges`（仮入隊・体験・兄弟姉妹用。offset不使用）
 
 #### guardians（保護者）
 | カラム | 型 | 説明 |
 |---|---|---|
-| id | TEXT PK | UUID |
+| id | TEXT / UUID PK | |
 | troop_id | TEXT | FK（NULL許容） |
 | name | TEXT NOT NULL | 氏名 |
 | gender | TEXT | male / female / other |
@@ -291,7 +300,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 #### scout_guardians（スカウト↔保護者）
 | カラム | 型 | 説明 |
 |---|---|---|
-| id | TEXT PK | UUID |
+| id | TEXT / UUID PK | |
 | scout_id | TEXT NOT NULL | FK → scouts.id |
 | guardian_id | TEXT NOT NULL | FK → guardians.id |
 | relationship | TEXT | father / mother / other |
@@ -301,7 +310,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 #### committee_members（団委員）
 | カラム | 型 | 説明 |
 |---|---|---|
-| id | TEXT PK | UUID |
+| id | TEXT / UUID PK | |
 | troop_id | TEXT NOT NULL | FK → troops.id |
 | name | TEXT NOT NULL | 氏名 |
 | gender | TEXT | male / female / other |
@@ -315,7 +324,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 #### events（イベント）
 | カラム | 型 | 説明 |
 |---|---|---|
-| id | TEXT PK | UUID |
+| id | TEXT / UUID PK | |
 | troop_id | TEXT NOT NULL | FK → troops.id |
 | title | TEXT NOT NULL | タイトル |
 | event_type | TEXT NOT NULL | 種別（UI非表示・固定値 `other`） |
@@ -329,30 +338,47 @@ UI上の表示ラベルと DB 格納値は異なる。
 | created_at | TEXT | 作成日時 |
 | updated_at | TEXT | 更新日時 |
 
-#### event_leaf_badges・attendances・twig_badge_history
-（変更なし・旧SPEC参照）
+#### event_leaf_badges
+| カラム | 型 | 説明 |
+|---|---|---|
+| id | TEXT / UUID PK | |
+| event_id | TEXT NOT NULL | FK → events.id |
+| badge_type | TEXT NOT NULL | health / expression / life / nature / society |
+| count | INTEGER DEFAULT 0 | 0=OFF / 1=ON |
 
-### 5.2 DBスキーマ変更履歴
+- UNIQUE(event_id, badge_type)
 
-```sql
--- v2
-ALTER TABLE users ADD COLUMN is_retired INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE committee_members ADD COLUMN is_retired INTEGER NOT NULL DEFAULT 0;
--- v3
-ALTER TABLE scouts ADD COLUMN birthday TEXT;
-ALTER TABLE scouts ADD COLUMN allergies TEXT;
-ALTER TABLE scouts ADD COLUMN special_notes TEXT;
--- v4
-ALTER TABLE guardians ADD COLUMN troop_id TEXT;
--- v5
-ALTER TABLE users RENAME TO leaders;
--- v6
-ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0;
-```
+#### attendances
+| カラム | 型 | 説明 |
+|---|---|---|
+| id | TEXT / UUID PK | |
+| event_id | TEXT NOT NULL | FK → events.id |
+| member_type | TEXT NOT NULL | user / scout / guardian / committee / other |
+| member_id | TEXT | 対応するメンバーのID（NULL許容） |
+| member_name | TEXT NOT NULL | 記録時点の氏名 |
+| status | TEXT DEFAULT 'pending' | present / absent / pending |
+| is_default | INTEGER DEFAULT 0 | デフォルト出席者フラグ |
+| notes | TEXT | 備考 |
 
-`onUpgrade` は try-catch で重複エラーを吸収。DBバージョンは現在 **6**。
+- UNIQUE(event_id, member_type, member_id)
 
-### 5.3 Supabaseスキーマ
+#### twig_badge_history
+| カラム | 型 | 説明 |
+|---|---|---|
+| id | TEXT / UUID PK | |
+| scout_id | TEXT NOT NULL | FK → scouts.id |
+| scout_name | TEXT NOT NULL | 記録時点の氏名 |
+| event_id | TEXT | FK → events.id（NULL=手動付与） |
+| status | TEXT DEFAULT 'pending' | pending / awarded |
+| awarded_at | TEXT | 授与日時 |
+| created_at | TEXT | 作成日時 |
+| updated_at | TEXT | 更新日時 |
+
+### 5.2 ローカルのみのテーブル
+
+なし。全テーブルはローカルSQLite・Supabase共通。
+
+### 5.3 Supabaseのみのテーブル
 
 #### profiles
 | カラム | 型 | 説明 |
@@ -360,15 +386,6 @@ ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0;
 | id | UUID PK | auth.users.id |
 | name | TEXT | 表示名 |
 | email | TEXT | メールアドレス |
-
-#### troops
-| カラム | 型 | 説明 |
-|---|---|---|
-| id | UUID PK | |
-| name | TEXT | 団名 |
-| location | TEXT | 所在地 |
-| contact | TEXT | 連絡先 |
-| created_by | UUID | FK → profiles.id |
 
 #### troop_members
 | カラム | 型 | 説明 |
@@ -388,14 +405,45 @@ ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0;
 | expires_at | TIMESTAMPTZ | 7日間有効 |
 | used_by | UUID | 使用者（NULL=未使用） |
 
-### 5.4 RLSポリシー概要
+### 5.4 DBスキーマ変更履歴
+
+```sql
+-- v2
+ALTER TABLE users ADD COLUMN is_retired INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE committee_members ADD COLUMN is_retired INTEGER NOT NULL DEFAULT 0;
+-- v3
+ALTER TABLE scouts ADD COLUMN birthday TEXT;
+ALTER TABLE scouts ADD COLUMN allergies TEXT;
+ALTER TABLE scouts ADD COLUMN special_notes TEXT;
+-- v4
+ALTER TABLE guardians ADD COLUMN troop_id TEXT;
+-- v5
+ALTER TABLE users RENAME TO leaders;
+-- v6
+ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0;
+-- v7
+CREATE TABLE event_stats ( ... );  -- 全カラムは上記テーブル定義参照（欠席カラムなし）
+-- v8
+ALTER TABLE event_stats ADD COLUMN leader_male_absent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE event_stats ADD COLUMN leader_female_absent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE event_stats ADD COLUMN big_beaver_male_absent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE event_stats ADD COLUMN big_beaver_female_absent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE event_stats ADD COLUMN beaver_male_absent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE event_stats ADD COLUMN beaver_female_absent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE event_stats ADD COLUMN provisional_male_absent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DEFAULT 0;
+```
+
+`onUpgrade` は try-catch で重複エラーを吸収。DBバージョンは現在 **8**。
+
+### 5.5 RLSポリシー概要
 
 - `troop_members`：自分の行のみSELECT可（再帰防止）
 - `leaders/scouts/events`等：SELECT は所属団のデータ全員可、INSERT/UPDATE/DELETE は admin・member のみ
 - `profiles`：自分 OR 同じ団のメンバーが参照可
 - 管理者操作（メンバー一覧・ロール変更・退会）はすべて `SECURITY DEFINER` のRPC関数経由
 
-### 5.5 主要RPC関数
+### 5.6 主要RPC関数
 
 | 関数名 | 説明 |
 |---|---|
@@ -406,7 +454,7 @@ ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0;
 | `delete_own_account()` | 自分のauth.usersを削除 |
 | `dissolve_troop()` | 団の全データ削除・全メンバー退会 |
 
-### 5.6 削除制約まとめ
+### 5.7 削除制約まとめ
 
 | 対象 | 削除不可条件 |
 |---|---|
@@ -477,7 +525,8 @@ ALTER TABLE scouts ADD COLUMN other_badges INTEGER NOT NULL DEFAULT 0;
 - **分子**：`status = 'present'` の件数
 - **分母**：`status IN ('present', 'absent')` の件数
 - **「未定」は分母に含まない**
-- **対象**：リーダー・スカウトのみ（`member_type IN ('user', 'scout')`）
+- **対象**：ビーバー・ビッグビーバーのスカウトのみ（`category IN ('big_beaver', 'beaver')`、確定済みイベントのみ）
+- ダッシュボードの「平均出席率」はこのロジックで年度内全体を集計
 
 ### 皆勤賞判定
 

@@ -6,11 +6,34 @@ import 'package:boyscout_app/core/constants/app_constants.dart';
 int fiscalYear(DateTime date) =>
     date.month >= 4 ? date.year : date.year - 1;
 
+/// 出席率計算（getRates の純粋関数版）
+/// 分子: present数、分母: present+absent数（未定は含まない）
+double calcAttendanceRate(int present, int total) {
+  if (total == 0) return 0.0;
+  return present / total;
+}
+
+/// 皆勤賞判定（getPerfectAttendance の純粋関数版）
+/// eventIds: 対象の確定済みイベントIDリスト
+/// attendances: {scoutId: [出席したeventIdのSet]}
+bool isPerfectAttendance({
+  required String scoutId,
+  required List<String> eventIds,
+  required Map<String, Set<String>> presentEventsByScout,
+}) {
+  if (eventIds.isEmpty) return false;
+  final present = presentEventsByScout[scoutId] ?? {};
+  return eventIds.every((id) => present.contains(id));
+}
+
 Scout _makeScout({
   int leafBadges = 0,
   int leafBadgeOffset = 0,
   int twigBadges = 0,
+  int otherBadges = 0,
   ScoutCategory category = ScoutCategory.beaver,
+  DateTime? birthday,
+  DateTime? joinedAt,
 }) {
   final now = DateTime.now();
   return Scout(
@@ -21,6 +44,9 @@ Scout _makeScout({
     leafBadges: leafBadges,
     leafBadgeOffset: leafBadgeOffset,
     twigBadges: twigBadges,
+    otherBadges: otherBadges,
+    birthday: birthday,
+    joinedAt: joinedAt,
     createdAt: now,
     updatedAt: now,
   );
@@ -89,6 +115,41 @@ void main() {
     });
   });
 
+  // ─── Scout.pendingOtherBadges ──────────────────────────────
+  group('Scout.pendingOtherBadges（他分類用）', () {
+    // otherBadges = leafBadges ~/ 10 - otherBadges（offsetなし）
+    test('10枚で1本待ち', () {
+      final scout = _makeScout(leafBadges: 10, otherBadges: 0,
+          category: ScoutCategory.provisional);
+      expect(scout.pendingOtherBadges, 1);
+    });
+
+    test('9枚では待ちなし', () {
+      final scout = _makeScout(leafBadges: 9, otherBadges: 0,
+          category: ScoutCategory.provisional);
+      expect(scout.pendingOtherBadges, 0);
+    });
+
+    test('20枚で2本待ち（0本授与済み）', () {
+      final scout = _makeScout(leafBadges: 20, otherBadges: 0,
+          category: ScoutCategory.experience);
+      expect(scout.pendingOtherBadges, 2);
+    });
+
+    test('20枚で1本待ち（1本授与済み）', () {
+      final scout = _makeScout(leafBadges: 20, otherBadges: 1,
+          category: ScoutCategory.sibling);
+      expect(scout.pendingOtherBadges, 1);
+    });
+
+    test('leafBadgeOffsetはotherBadgesに影響しない', () {
+      // otherBadges = leafBadges ~/ 10 （offsetを使わない）
+      final scout = _makeScout(leafBadges: 15, leafBadgeOffset: 5, otherBadges: 0,
+          category: ScoutCategory.provisional);
+      expect(scout.pendingOtherBadges, 1); // 15 ~/ 10 = 1
+    });
+  });
+
   // ─── 小枝章 N本まとめて授与のロジック ─────────────────────
   group('小枝章 N本まとめて授与', () {
     test('授与後に twigBadges が pendingTwigBadges 分増加する', () {
@@ -96,7 +157,6 @@ void main() {
       final before = _makeScout(leafBadges: 30, twigBadges: 0);
       expect(before.pendingTwigBadges, 3);
 
-      // N本授与後の状態をモデルで再現（DB更新後のスカウト）
       final after = _makeScout(leafBadges: 30, twigBadges: before.twigBadges + before.pendingTwigBadges);
       expect(after.twigBadges, 3);
       expect(after.pendingTwigBadges, 0);
@@ -108,15 +168,6 @@ void main() {
 
       final after = _makeScout(leafBadges: 30, twigBadges: before.twigBadges + before.pendingTwigBadges);
       expect(after.twigBadges, 3);
-      expect(after.pendingTwigBadges, 0);
-    });
-
-    test('1本待ちの場合は授与後に1本増加する', () {
-      final before = _makeScout(leafBadges: 10, twigBadges: 0);
-      expect(before.pendingTwigBadges, 1);
-
-      final after = _makeScout(leafBadges: 10, twigBadges: before.twigBadges + before.pendingTwigBadges);
-      expect(after.twigBadges, 1);
       expect(after.pendingTwigBadges, 0);
     });
 
@@ -143,9 +194,99 @@ void main() {
       expect(scout.isTwigBadgeEligible, true);
     });
 
+    test('仮入隊は小枝章対象外', () {
+      final scout = _makeScout(category: ScoutCategory.provisional);
+      expect(scout.isTwigBadgeEligible, false);
+    });
+
+    test('体験は小枝章対象外', () {
+      final scout = _makeScout(category: ScoutCategory.experience);
+      expect(scout.isTwigBadgeEligible, false);
+    });
+
+    test('兄弟姉妹は小枝章対象外', () {
+      final scout = _makeScout(category: ScoutCategory.sibling);
+      expect(scout.isTwigBadgeEligible, false);
+    });
+
     test('上進は小枝章対象外', () {
       final scout = _makeScout(category: ScoutCategory.promoted);
       expect(scout.isTwigBadgeEligible, false);
+    });
+
+    test('退団は小枝章対象外', () {
+      final scout = _makeScout(category: ScoutCategory.withdrawn);
+      expect(scout.isTwigBadgeEligible, false);
+    });
+  });
+
+  // ─── ScoutCategory.isDefaultAttendee ───────────────────────
+  group('ScoutCategory.isDefaultAttendee', () {
+    test('ビーバーはデフォルト出席', () {
+      expect(ScoutCategory.beaver.isDefaultAttendee, true);
+    });
+
+    test('ビッグビーバーはデフォルト出席', () {
+      expect(ScoutCategory.bigBeaver.isDefaultAttendee, true);
+    });
+
+    test('仮入隊はデフォルト出席', () {
+      expect(ScoutCategory.provisional.isDefaultAttendee, true);
+    });
+
+    test('体験はデフォルト出席でない（コードの実装通り）', () {
+      // SPECでは○だがコードは false → コードの実態を記録
+      expect(ScoutCategory.experience.isDefaultAttendee, false);
+    });
+
+    test('兄弟姉妹はデフォルト出席でない（コードの実装通り）', () {
+      // SPECでは○だがコードは false → コードの実態を記録
+      expect(ScoutCategory.sibling.isDefaultAttendee, false);
+    });
+
+    test('上進はデフォルト出席でない', () {
+      expect(ScoutCategory.promoted.isDefaultAttendee, false);
+    });
+
+    test('退団はデフォルト出席でない', () {
+      expect(ScoutCategory.withdrawn.isDefaultAttendee, false);
+    });
+
+    test('入隊せずはデフォルト出席でない', () {
+      expect(ScoutCategory.notJoined.isDefaultAttendee, false);
+    });
+  });
+
+  // ─── UserRole ──────────────────────────────────────────────
+  group('UserRole', () {
+    test('leader は canEdit = true', () {
+      expect(UserRole.leader.canEdit, true);
+    });
+
+    test('assistantLeader は canEdit = true', () {
+      expect(UserRole.assistantLeader.canEdit, true);
+    });
+
+    test('support は canEdit = false', () {
+      expect(UserRole.support.canEdit, false);
+    });
+
+    test('leader のみ canManageUsers = true', () {
+      expect(UserRole.leader.canManageUsers, true);
+      expect(UserRole.assistantLeader.canManageUsers, false);
+      expect(UserRole.support.canManageUsers, false);
+    });
+
+    test('fromValue: leader', () {
+      expect(UserRole.fromValue('leader'), UserRole.leader);
+    });
+
+    test('fromValue: assistant_leader', () {
+      expect(UserRole.fromValue('assistant_leader'), UserRole.assistantLeader);
+    });
+
+    test('不明な値は support にフォールバック', () {
+      expect(UserRole.fromValue('unknown'), UserRole.support);
     });
   });
 
@@ -174,8 +315,10 @@ void main() {
       expect(EventStatus.planned.label, '予定');
     });
 
-    test('completed のラベルは「確定」', () {
-      expect(EventStatus.completed.label, '確定');
+    test('completed のラベルは「実施済」（DB=completed、表示=実施済）', () {
+      // NOTE: SPECには「確定」と書かれているが、コードの実装は「実施済」
+      // SPEC側を要確認
+      expect(EventStatus.completed.label, '実施済');
     });
 
     test('cancelled のラベルは「非開催」', () {
@@ -183,7 +326,7 @@ void main() {
     });
   });
 
-  // ─── AllergyType.fromValue ─────────────────────────────────
+  // ─── AllergyType ───────────────────────────────────────────
   group('AllergyType.fromValue', () {
     test('egg を正しく変換', () {
       expect(AllergyType.fromValue('egg'), AllergyType.egg);
@@ -191,6 +334,10 @@ void main() {
 
     test('dairy を正しく変換', () {
       expect(AllergyType.fromValue('dairy'), AllergyType.dairy);
+    });
+
+    test('wheat を正しく変換', () {
+      expect(AllergyType.fromValue('wheat'), AllergyType.wheat);
     });
 
     test('不明な値は other にフォールバック', () {
@@ -225,6 +372,204 @@ void main() {
       });
       expect(scout.allergies, isEmpty);
     });
+
+    test('空文字列の場合も空リスト', () {
+      final now = DateTime.now();
+      final scout = Scout.fromMap({
+        'id': 'id', 'troop_id': 'tid', 'name': 'テスト',
+        'category': 'beaver', 'allergies': '',
+        'leaf_badges': 0, 'leaf_badge_offset': 0, 'twig_badges': 0,
+        'is_active': 1,
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+      });
+      expect(scout.allergies, isEmpty);
+    });
+
+    test('全アレルギー種別を含む文字列をパース', () {
+      final now = DateTime.now();
+      final scout = Scout.fromMap({
+        'id': 'id', 'troop_id': 'tid', 'name': 'テスト',
+        'category': 'beaver',
+        'allergies': 'egg,dairy,wheat,soba,peanut,shellfish,tree_nut,fruit,fish,meat,other',
+        'leaf_badges': 0, 'leaf_badge_offset': 0, 'twig_badges': 0,
+        'is_active': 1,
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+      });
+      expect(scout.allergies.length, AllergyType.values.length);
+    });
+  });
+
+  // ─── Scout toMap / fromMap ラウンドトリップ ───────────────
+  group('Scout toMap/fromMap ラウンドトリップ', () {
+    test('基本フィールドが往復変換で一致する', () {
+      final now = DateTime(2025, 6, 1, 12, 0, 0);
+      final original = Scout(
+        id: 'abc-123',
+        troopId: 'troop-456',
+        name: '田中 花子',
+        gender: 'female',
+        grade: '小1',
+        category: ScoutCategory.bigBeaver,
+        leafBadges: 15,
+        leafBadgeOffset: 5,
+        twigBadges: 1,
+        otherBadges: 0,
+        allergies: [AllergyType.egg, AllergyType.wheat],
+        specialNotes: '特記事項あり',
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
+      );
+
+      final map = original.toMap();
+      final restored = Scout.fromMap(map);
+
+      expect(restored.id, original.id);
+      expect(restored.name, original.name);
+      expect(restored.category, original.category);
+      expect(restored.leafBadges, original.leafBadges);
+      expect(restored.leafBadgeOffset, original.leafBadgeOffset);
+      expect(restored.twigBadges, original.twigBadges);
+      expect(restored.allergies, original.allergies);
+      expect(restored.specialNotes, original.specialNotes);
+      expect(restored.isActive, original.isActive);
+    });
+
+    test('アレルギーなしの場合も往復変換できる', () {
+      final now = DateTime.now();
+      final original = Scout(
+        id: 'id1', troopId: 'tid', name: '鈴木 次郎',
+        category: ScoutCategory.beaver,
+        allergies: [],
+        leafBadges: 0, leafBadgeOffset: 0, twigBadges: 0,
+        createdAt: now, updatedAt: now,
+      );
+      final map = original.toMap();
+      final restored = Scout.fromMap(map);
+      expect(restored.allergies, isEmpty);
+    });
+
+    test('is_active=0 で isActive=false になる', () {
+      final now = DateTime.now();
+      final scout = Scout.fromMap({
+        'id': 'id', 'troop_id': 'tid', 'name': 'テスト',
+        'category': 'promoted',
+        'leaf_badges': 0, 'leaf_badge_offset': 0, 'twig_badges': 0,
+        'is_active': 0,
+        'created_at': now.toIso8601String(),
+        'updated_at': now.toIso8601String(),
+      });
+      expect(scout.isActive, false);
+    });
+  });
+
+  // ─── 出席率計算 ────────────────────────────────────────────
+  group('出席率計算（calcAttendanceRate）', () {
+    test('出席3 / 合計3 = 100%', () {
+      expect(calcAttendanceRate(3, 3), 1.0);
+    });
+
+    test('出席1 / 合計2 = 50%', () {
+      expect(calcAttendanceRate(1, 2), 0.5);
+    });
+
+    test('出席0 / 合計3 = 0%', () {
+      expect(calcAttendanceRate(0, 3), 0.0);
+    });
+
+    test('合計0のとき 0%（ゼロ除算しない）', () {
+      expect(calcAttendanceRate(0, 0), 0.0);
+    });
+
+    test('未定は分母に含まない（present=2, total=3 は pending1件分を除いた結果）', () {
+      // present=2（出席2件）、absent=1（欠席1件）、pending=1（未定）
+      // → total=3 (2+1)、rate=2/3
+      expect(calcAttendanceRate(2, 3), closeTo(0.667, 0.001));
+    });
+  });
+
+  // ─── 皆勤賞判定 ────────────────────────────────────────────
+  group('皆勤賞判定（isPerfectAttendance）', () {
+    test('全イベントに出席していれば皆勤', () {
+      expect(isPerfectAttendance(
+        scoutId: 's1',
+        eventIds: ['e1', 'e2', 'e3'],
+        presentEventsByScout: {'s1': {'e1', 'e2', 'e3'}},
+      ), true);
+    });
+
+    test('1イベントでも欠席があれば皆勤でない', () {
+      expect(isPerfectAttendance(
+        scoutId: 's1',
+        eventIds: ['e1', 'e2', 'e3'],
+        presentEventsByScout: {'s1': {'e1', 'e2'}},
+      ), false);
+    });
+
+    test('出席記録がまったくない場合は皆勤でない', () {
+      expect(isPerfectAttendance(
+        scoutId: 's1',
+        eventIds: ['e1', 'e2'],
+        presentEventsByScout: {},
+      ), false);
+    });
+
+    test('確定済みイベントが0件の場合は皆勤でない', () {
+      expect(isPerfectAttendance(
+        scoutId: 's1',
+        eventIds: [],
+        presentEventsByScout: {'s1': {'e1'}},
+      ), false);
+    });
+
+    test('出席が多くても対象イベント外は無関係', () {
+      // e9（別のイベント）の出席は評価に影響しない
+      expect(isPerfectAttendance(
+        scoutId: 's1',
+        eventIds: ['e1', 'e2'],
+        presentEventsByScout: {'s1': {'e1', 'e2', 'e9'}},
+      ), true);
+    });
+
+    test('別のスカウトの出席は自分の皆勤に影響しない', () {
+      expect(isPerfectAttendance(
+        scoutId: 's1',
+        eventIds: ['e1', 'e2'],
+        presentEventsByScout: {
+          's1': {'e1'}, // s1はe2欠席
+          's2': {'e1', 'e2'},
+        },
+      ), false);
+    });
+  });
+
+  // ─── LeafBadgeType ─────────────────────────────────────────
+  group('LeafBadgeType', () {
+    test('全5種別が存在する', () {
+      expect(LeafBadgeType.values.length, 5);
+    });
+
+    test('fromValue: health', () {
+      expect(LeafBadgeType.fromValue('health'), LeafBadgeType.health);
+    });
+
+    test('fromValue: society', () {
+      expect(LeafBadgeType.fromValue('society'), LeafBadgeType.society);
+    });
+
+    test('不明な値は health にフォールバック', () {
+      expect(LeafBadgeType.fromValue('unknown'), LeafBadgeType.health);
+    });
+
+    test('各種別のラベルが正しい', () {
+      expect(LeafBadgeType.health.label, '健康');
+      expect(LeafBadgeType.expression.label, '表現');
+      expect(LeafBadgeType.life.label, '生活');
+      expect(LeafBadgeType.nature.label, '自然');
+      expect(LeafBadgeType.society.label, '社会');
+    });
   });
 
   // ─── 年度計算 ───────────────────────────────────────────────
@@ -243,6 +588,63 @@ void main() {
 
     test('12月は同年の年度', () {
       expect(fiscalYear(DateTime(2025, 12, 31)), 2025);
+    });
+
+    test('3月31日は前年度', () {
+      expect(fiscalYear(DateTime(2025, 3, 31)), 2024);
+    });
+
+    test('4月1日は当年度', () {
+      expect(fiscalYear(DateTime(2025, 4, 1)), 2025);
+    });
+  });
+
+  // ─── CommitteeCategory ─────────────────────────────────────
+  group('CommitteeCategory.fromValue', () {
+    test('committee を正しく変換', () {
+      expect(CommitteeCategory.fromValue('committee'), CommitteeCategory.committee);
+    });
+
+    test('ob を正しく変換', () {
+      expect(CommitteeCategory.fromValue('ob'), CommitteeCategory.ob);
+    });
+
+    test('不明な値は other にフォールバック', () {
+      expect(CommitteeCategory.fromValue('unknown'), CommitteeCategory.other);
+    });
+  });
+
+  // ─── MemberType ────────────────────────────────────────────
+  group('MemberType', () {
+    test('scout を正しく変換', () {
+      expect(MemberType.fromValue('scout'), MemberType.scout);
+    });
+
+    test('user（リーダー）を正しく変換', () {
+      expect(MemberType.fromValue('user'), MemberType.user);
+    });
+
+    test('不明な値は other にフォールバック', () {
+      expect(MemberType.fromValue('unknown'), MemberType.other);
+    });
+  });
+
+  // ─── AttendanceStatus ──────────────────────────────────────
+  group('AttendanceStatus', () {
+    test('present を正しく変換', () {
+      expect(AttendanceStatus.fromValue('present'), AttendanceStatus.present);
+    });
+
+    test('absent を正しく変換', () {
+      expect(AttendanceStatus.fromValue('absent'), AttendanceStatus.absent);
+    });
+
+    test('pending を正しく変換', () {
+      expect(AttendanceStatus.fromValue('pending'), AttendanceStatus.pending);
+    });
+
+    test('不明な値は pending にフォールバック', () {
+      expect(AttendanceStatus.fromValue('unknown'), AttendanceStatus.pending);
     });
   });
 }

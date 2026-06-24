@@ -12,10 +12,12 @@ Scout _makeScout({
   int leafBadges = 0,
   int leafBadgeOffset = 0,
   int twigBadges = 0,
+  int otherBadges = 0,
   ScoutCategory category = ScoutCategory.beaver,
   List<AllergyType> allergies = const [],
   String? specialNotes,
   DateTime? birthday,
+  bool isActive = true,
 }) {
   final now = DateTime.now();
   return Scout(
@@ -26,10 +28,11 @@ Scout _makeScout({
     leafBadges: leafBadges,
     leafBadgeOffset: leafBadgeOffset,
     twigBadges: twigBadges,
+    otherBadges: otherBadges,
     allergies: allergies,
     specialNotes: specialNotes,
     birthday: birthday,
-    isActive: true,
+    isActive: isActive,
     createdAt: now,
     updatedAt: now,
   );
@@ -235,11 +238,11 @@ void main() {
       expect(find.text('予定'), findsOneWidget);
     });
 
-    testWidgets('確定ステータスのラベルが表示される', (tester) async {
+    testWidgets('実施済ステータスのラベルが表示される', (tester) async {
       await tester.pumpWidget(_wrap(Scaffold(
         body: statusChip(EventStatus.completed),
       )));
-      expect(find.text('確定'), findsOneWidget);
+      expect(find.text('実施済'), findsOneWidget);
     });
 
     testWidgets('非開催ステータスのラベルが表示される', (tester) async {
@@ -394,6 +397,195 @@ void main() {
       await tester.tap(find.text('キャンセル'));
       await tester.pumpAndSettle();
       expect(find.text('削除しますか？'), findsNothing);
+    });
+  });
+
+  // ─── スカウト分類ラベル ────────────────────────────────────
+  group('ScoutCategory ラベル表示', () {
+    testWidgets('ビーバーのラベルが正しく表示される', (tester) async {
+      final scout = _makeScout(category: ScoutCategory.beaver);
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Text(scout.category.label),
+      )));
+      expect(find.text('ビーバー'), findsOneWidget);
+    });
+
+    testWidgets('ビッグビーバーのラベルが正しく表示される', (tester) async {
+      final scout = _makeScout(category: ScoutCategory.bigBeaver);
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Text(scout.category.label),
+      )));
+      expect(find.text('ビッグビーバー'), findsOneWidget);
+    });
+
+    testWidgets('上進のラベルが正しく表示される', (tester) async {
+      final scout = _makeScout(category: ScoutCategory.promoted, isActive: false);
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Text(scout.category.label),
+      )));
+      expect(find.text('上進'), findsOneWidget);
+    });
+
+    testWidgets('退団のラベルが正しく表示される', (tester) async {
+      final scout = _makeScout(category: ScoutCategory.withdrawn, isActive: false);
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Text(scout.category.label),
+      )));
+      expect(find.text('退団'), findsOneWidget);
+    });
+  });
+
+  // ─── アレルギーラベル ─────────────────────────────────────
+  group('AllergyType ラベル表示', () {
+    testWidgets('全アレルギー種別のラベルがチップとして表示される', (tester) async {
+      final allAllergies = AllergyType.values;
+      final scout = _makeScout(allergies: allAllergies);
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: SingleChildScrollView(
+          child: Wrap(
+            children: scout.allergies
+                .map((a) => Chip(label: Text(a.label)))
+                .toList(),
+          ),
+        ),
+      )));
+      expect(find.text('鶏卵'), findsOneWidget);
+      expect(find.text('牛乳・乳製品'), findsOneWidget);
+      expect(find.text('小麦'), findsOneWidget);
+      expect(find.text('ソバ'), findsOneWidget);
+      expect(find.text('ピーナッツ'), findsOneWidget);
+      expect(find.text('甲殻類'), findsOneWidget);
+      expect(find.text('木の実類'), findsOneWidget);
+      expect(find.text('果物類'), findsOneWidget);
+      expect(find.text('魚類'), findsOneWidget);
+      expect(find.text('肉類'), findsOneWidget);
+      expect(find.text('その他'), findsOneWidget);
+      expect(find.byType(Chip), findsNWidgets(allAllergies.length));
+    });
+  });
+
+  // ─── 出席ステータスアイコン ──────────────────────────────────
+  group('出席ステータス表示', () {
+    Widget attendanceIcon(AttendanceStatus status) {
+      final icon = switch (status) {
+        AttendanceStatus.present => Icons.check_circle,
+        AttendanceStatus.absent  => Icons.cancel,
+        AttendanceStatus.pending => Icons.remove_circle_outline,
+      };
+      return Icon(icon);
+    }
+
+    testWidgets('present のラベルは「出席」', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Text(AttendanceStatus.present.label),
+      )));
+      expect(find.text('出席'), findsOneWidget);
+    });
+
+    testWidgets('absent のラベルは「欠席」', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Text(AttendanceStatus.absent.label),
+      )));
+      expect(find.text('欠席'), findsOneWidget);
+    });
+
+    testWidgets('pending のラベルは「未定」', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Text(AttendanceStatus.pending.label),
+      )));
+      expect(find.text('未定'), findsOneWidget);
+    });
+
+    testWidgets('出席アイコンがレンダリングされる', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: attendanceIcon(AttendanceStatus.present),
+      )));
+      expect(find.byIcon(Icons.check_circle), findsOneWidget);
+    });
+
+    testWidgets('欠席アイコンがレンダリングされる', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: attendanceIcon(AttendanceStatus.absent),
+      )));
+      expect(find.byIcon(Icons.cancel), findsOneWidget);
+    });
+
+    testWidgets('未定アイコンがレンダリングされる', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: attendanceIcon(AttendanceStatus.pending),
+      )));
+      expect(find.byIcon(Icons.remove_circle_outline), findsOneWidget);
+    });
+  });
+
+  // ─── 未保存変更確認ダイアログ ────────────────────────────────
+  group('未保存変更確認ダイアログ', () {
+    // 実際のPopScopeは画面遷移を伴うため、ダイアログのUIのみ検証する
+    Widget _unsavedDialog(BuildContext ctx) => AlertDialog(
+          title: const Text('変更を破棄しますか？'),
+          content: const Text('保存されていない変更があります。'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: const Text('破棄する'),
+            ),
+          ],
+        );
+
+    testWidgets('未保存ダイアログが表示される', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Builder(builder: (ctx) => ElevatedButton(
+          onPressed: () => showDialog(
+            context: ctx,
+            builder: _unsavedDialog,
+          ),
+          child: const Text('戻る'),
+        )),
+      )));
+      await tester.tap(find.text('戻る'));
+      await tester.pumpAndSettle();
+      expect(find.text('変更を破棄しますか？'), findsOneWidget);
+      expect(find.text('キャンセル'), findsOneWidget);
+      expect(find.text('破棄する'), findsOneWidget);
+    });
+
+    testWidgets('キャンセルでダイアログが閉じる', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: Builder(builder: (ctx) => ElevatedButton(
+          onPressed: () => showDialog(
+            context: ctx,
+            builder: _unsavedDialog,
+          ),
+          child: const Text('戻る'),
+        )),
+      )));
+      await tester.tap(find.text('戻る'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('キャンセル'));
+      await tester.pumpAndSettle();
+      expect(find.text('変更を破棄しますか？'), findsNothing);
+    });
+  });
+
+  // ─── 皆勤賞「該当なし」表示 ──────────────────────────────────
+  group('皆勤賞「該当なし」表示', () {
+    testWidgets('該当スカウトがいない場合のメッセージが表示される', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: const Center(child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.emoji_events_outlined, size: 48),
+            SizedBox(height: 8),
+            Text('皆勤賞に該当するスカウトはいません'),
+          ],
+        )),
+      )));
+      expect(find.text('皆勤賞に該当するスカウトはいません'), findsOneWidget);
+      expect(find.byIcon(Icons.emoji_events_outlined), findsOneWidget);
     });
   });
 
