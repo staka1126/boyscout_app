@@ -17,10 +17,17 @@ class SyncService {
   final _client = SupabaseConfig.client;
   final _dbHelper = DatabaseHelper.instance;
 
+  bool _isSyncing = false;
+
   // ─────────────────────────────────────────────────────────
   // Supabase → ローカル（ダウンロード同期）
   // ─────────────────────────────────────────────────────────
   Future<void> syncFromSupabase(String troopId) async {
+    if (_isSyncing) {
+      debugPrint('syncFromSupabase: already running, skipped');
+      return;
+    }
+    _isSyncing = true;
     try {
       final db = await _dbHelper.database;
 
@@ -36,6 +43,8 @@ class SyncService {
       await _syncEventStats(db, troopId);
     } catch (e) {
       rethrow;
+    } finally {
+      _isSyncing = false;
     }
   }
 
@@ -131,7 +140,6 @@ class SyncService {
 
   Future<void> _syncEvents(Database db, String troopId) async {
     final rows = await _client.from('events').select().eq('troop_id', troopId);
-    await db.delete('events', where: 'troop_id = ?', whereArgs: [troopId]);
     for (final row in rows as List) {
       await db.insert('events', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
