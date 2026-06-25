@@ -60,3 +60,25 @@ app.*.map.json
 # 環境変数（APIキー等）
 .env
 .env.*
+
+# vim スワップファイル
+*.swo
+
+# iOS/macOS CocoaPods
+ios/Podfile
+ios/Podfile.lock
+macos/Podfile
+macos/Podfile.lock
+**/Pods/
+
+# Xcode SwiftPM
+ios/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+ios/Runner.xcworkspace/xcshareddata/swiftpm/
+macos/Runner.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/
+macos/Runner.xcworkspace/xcshareddata/swiftpm/
+
+# Xcode xcconfig（Flutter が自動生成）
+ios/Flutter/Debug.xcconfig
+ios/Flutter/Release.xcconfig
+macos/Flutter/Flutter-Debug.xcconfig
+macos/Flutter/Flutter-Release.xcconfig
