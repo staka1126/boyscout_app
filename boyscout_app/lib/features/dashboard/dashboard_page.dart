@@ -1,17 +1,16 @@
 import 'package:flutter/material.dart';
-import '../../core/supabase_config.dart';
-import '../../core/wood_grain_background.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import '../../data/models/models.dart';
-import '../../data/repositories/repositories.dart';
-import '../../data/providers/app_state_provider.dart';
-import '../../data/sync/sync_service.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/supabase_config.dart';
+import '../../core/wood_grain_background.dart';
+import '../../data/models/models.dart';
+import '../../data/providers/app_state_provider.dart';
+import '../../data/repositories/repositories.dart';
+import '../../data/sync/sync_service.dart';
 
-final _dashboardRoleProvider = FutureProvider<String?>((ref) async {
+final _dashboardRoleProvider = FutureProvider.autoDispose<String?>((ref) async {
   final user = SupabaseConfig.currentUser;
   if (user == null) return null;
   final member = await SupabaseConfig.client
@@ -86,7 +85,7 @@ class DashboardPage extends ConsumerWidget {
     final cs = Theme.of(context).colorScheme;
     final isLimited = ref.watch(_dashboardRoleProvider).maybeWhen(
       data: (role) => role == 'limited',
-      orElse: () => false,
+      orElse: () => true, // loading/error中はFAB非表示
     );
 
     return Scaffold(

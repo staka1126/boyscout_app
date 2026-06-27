@@ -115,7 +115,7 @@ class EventDetailPage extends ConsumerWidget {
               ],
             ],
           ),
-          floatingActionButton: isCompleted ? null : FloatingActionButton(
+          floatingActionButton: (isCompleted || isLimited) ? null : FloatingActionButton(
             onPressed: () => _showAddMemberSheet(context, ref, event),
             tooltip: '出席者を追加',
             child: const Icon(Icons.person_add_outlined),
@@ -167,7 +167,7 @@ class EventDetailPage extends ConsumerWidget {
                   Card(child: Column(children: [for (int i = 0; i < data.users.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
                     _AttendanceTile(attendance: data.users[i],
-                      onChanged: (s) => _updateAttendStatus(ref, data.users[i].id, s),
+                      onChanged: (isCompleted && isLimited) ? null : (s) => _updateAttendStatus(ref, data.users[i].id, s),
                       onRemove: isCompleted ? null : () => _confirmRemove(context, ref, data.users[i])),
                   ]])),
                   const SizedBox(height: 8),
@@ -177,7 +177,7 @@ class EventDetailPage extends ConsumerWidget {
                   Card(child: Column(children: [for (int i = 0; i < data.scouts.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
                     _AttendanceTile(attendance: data.scouts[i],
-                      onChanged: (s) => _updateAttendStatus(ref, data.scouts[i].id, s),
+                      onChanged: (isCompleted && isLimited) ? null : (s) => _updateAttendStatus(ref, data.scouts[i].id, s),
                       onRemove: isCompleted ? null : () => _confirmRemove(context, ref, data.scouts[i])),
                   ]])),
                   const SizedBox(height: 8),
@@ -187,7 +187,7 @@ class EventDetailPage extends ConsumerWidget {
                   Card(child: Column(children: [for (int i = 0; i < data.guardians.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
                     _AttendanceTile(attendance: data.guardians[i],
-                      onChanged: (s) => _updateAttendStatus(ref, data.guardians[i].id, s),
+                      onChanged: (isCompleted && isLimited) ? null : (s) => _updateAttendStatus(ref, data.guardians[i].id, s),
                       onRemove: isCompleted ? null : () => _removeAttendance(ref, data.guardians[i].id)),
                   ]])),
                   const SizedBox(height: 8),
@@ -197,7 +197,7 @@ class EventDetailPage extends ConsumerWidget {
                   Card(child: Column(children: [for (int i = 0; i < data.committees.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
                     _AttendanceTile(attendance: data.committees[i],
-                      onChanged: (s) => _updateAttendStatus(ref, data.committees[i].id, s),
+                      onChanged: (isCompleted && isLimited) ? null : (s) => _updateAttendStatus(ref, data.committees[i].id, s),
                       onRemove: isCompleted ? null : () => _removeAttendance(ref, data.committees[i].id)),
                   ]])),
                 ],
@@ -423,7 +423,7 @@ class _AttendBadge extends StatelessWidget {
 
 class _AttendanceTile extends StatelessWidget {
   final Attendance attendance;
-  final ValueChanged<AttendanceStatus> onChanged;
+  final ValueChanged<AttendanceStatus>? onChanged;
   final VoidCallback? onRemove;
   const _AttendanceTile({required this.attendance, required this.onChanged, this.onRemove});
 
@@ -450,21 +450,21 @@ class _AttendanceTile extends StatelessWidget {
 
 class _ToggleGroup extends StatelessWidget {
   final AttendanceStatus current;
-  final ValueChanged<AttendanceStatus> onChanged;
+  final ValueChanged<AttendanceStatus>? onChanged;
   const _ToggleGroup({required this.current, required this.onChanged});
 
   @override
   Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
-    _Btn(icon: Icons.check,  active: current == AttendanceStatus.present, color: const Color(0xFF43A047), tooltip: '出席', onTap: () => onChanged(AttendanceStatus.present)),
+    _Btn(icon: Icons.check,  active: current == AttendanceStatus.present, color: const Color(0xFF43A047), tooltip: '出席', onTap: onChanged == null ? null : () => onChanged!(AttendanceStatus.present)),
     const SizedBox(width: 4),
-    _Btn(icon: Icons.close,  active: current == AttendanceStatus.absent,  color: Colors.red,  tooltip: '欠席', onTap: () => onChanged(AttendanceStatus.absent)),
+    _Btn(icon: Icons.close,  active: current == AttendanceStatus.absent,  color: Colors.red,  tooltip: '欠席', onTap: onChanged == null ? null : () => onChanged!(AttendanceStatus.absent)),
     const SizedBox(width: 4),
-    _Btn(icon: Icons.remove, active: current == AttendanceStatus.pending, color: Colors.grey, tooltip: '未定', onTap: () => onChanged(AttendanceStatus.pending)),
+    _Btn(icon: Icons.remove, active: current == AttendanceStatus.pending, color: Colors.grey, tooltip: '未定', onTap: onChanged == null ? null : () => onChanged!(AttendanceStatus.pending)),
   ]);
 }
 
 class _Btn extends StatelessWidget {
-  final IconData icon; final bool active; final Color color; final String tooltip; final VoidCallback onTap;
+  final IconData icon; final bool active; final Color color; final String tooltip; final VoidCallback? onTap;
   const _Btn({required this.icon, required this.active, required this.color, required this.tooltip, required this.onTap});
 
   @override

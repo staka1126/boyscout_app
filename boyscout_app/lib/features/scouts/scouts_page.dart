@@ -212,7 +212,7 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
           ),
         ]),
       ]),
-      floatingActionButton: troopId != null && _currentRole != 'limited'
+      floatingActionButton: troopId != null && _currentRole != null && _currentRole != 'limited'
           ? FloatingActionButton(
               onPressed: _goAdd,
               tooltip: 'スカウトを追加',

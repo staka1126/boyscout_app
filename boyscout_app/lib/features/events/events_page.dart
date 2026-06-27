@@ -211,7 +211,7 @@ class _EventsPageState extends ConsumerState<EventsPage> {
         },
       ),
       ]),
-      floatingActionButton: troopId != null && _currentRole != 'limited'
+      floatingActionButton: troopId != null && _currentRole != null && _currentRole != 'limited'
           ? FloatingActionButton(
               onPressed: _goAdd,
               tooltip: 'イベントを追加',
