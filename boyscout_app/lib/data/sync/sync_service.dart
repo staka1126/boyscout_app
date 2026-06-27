@@ -61,19 +61,41 @@ class SyncService {
   // ローカル → Supabase（アップロード同期）
   // ─────────────────────────────────────────────────────────
   Future<void> syncToSupabase(String troopId) async {
-    try {
-      final db = await _dbHelper.database;
+    final db = await _dbHelper.database;
 
-      await _uploadTable(db, 'leaders', troopId: troopId);
-      await _uploadTable(db, 'scouts', troopId: troopId);
-      await _uploadGuardians(db, troopId);
-      await _uploadTable(db, 'committee_members', troopId: troopId);
-      await _uploadTable(db, 'events', troopId: troopId);
-      await _uploadEventLeafBadges(db, troopId);
-      await _uploadAttendances(db, troopId);
-      await _uploadEventStats(db, troopId);
-    } catch (e) {
-      // アップロード失敗はローカル操作に影響しない
+    // ロールを取得してアップロード対象を絞り込む
+    String? role;
+    try {
+      final user = _client.auth.currentUser;
+      if (user != null) {
+        final member = await _client
+            .from('troop_members')
+            .select('role')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        role = member?['role'] as String?;
+      }
+    } catch (_) {}
+
+    final isLimited = role == 'limited';
+
+    final fns = <Future<void> Function()>[
+      if (!isLimited) () => _uploadTable(db, 'leaders', troopId: troopId),
+      if (!isLimited) () => _uploadTable(db, 'scouts', troopId: troopId),
+      if (!isLimited) () => _uploadGuardians(db, troopId),
+      if (!isLimited) () => _uploadTable(db, 'committee_members', troopId: troopId),
+      if (!isLimited) () => _uploadTable(db, 'events', troopId: troopId),
+      if (!isLimited) () => _uploadEventLeafBadges(db, troopId),
+      () => _uploadAttendances(db, troopId),
+      if (!isLimited) () => _uploadEventStats(db, troopId),
+    ];
+
+    for (final fn in fns) {
+      try {
+        await fn();
+      } catch (e) {
+        // アップロード失敗はローカル操作に影響しない
+      }
     }
   }
 

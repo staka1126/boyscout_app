@@ -205,8 +205,8 @@ class EventDetailPage extends ConsumerWidget {
                   Card(child: Column(children: [for (int i = 0; i < data.users.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
                     _AttendanceTile(attendance: data.users[i],
-                      onChanged: (isCompleted && isLimited) ? null : (s) => _updateAttendStatus(ref, data.users[i].id, s),
-                      onRemove: isCompleted ? null : () => _confirmRemove(context, ref, data.users[i])),
+                      onChanged: isCompleted ? null : (s) => _updateAttendStatus(ref, data.users[i].id, s),
+                      onRemove: (isCompleted || isLimited) ? null : () => _confirmRemove(context, ref, data.users[i])),
                   ]])),
                   const SizedBox(height: 8),
                 ],
@@ -215,8 +215,8 @@ class EventDetailPage extends ConsumerWidget {
                   Card(child: Column(children: [for (int i = 0; i < data.scouts.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
                     _AttendanceTile(attendance: data.scouts[i],
-                      onChanged: (isCompleted && isLimited) ? null : (s) => _updateAttendStatus(ref, data.scouts[i].id, s),
-                      onRemove: isCompleted ? null : () => _confirmRemove(context, ref, data.scouts[i])),
+                      onChanged: isCompleted ? null : (s) => _updateAttendStatus(ref, data.scouts[i].id, s),
+                      onRemove: (isCompleted || isLimited) ? null : () => _confirmRemove(context, ref, data.scouts[i])),
                   ]])),
                   const SizedBox(height: 8),
                 ],
@@ -225,8 +225,8 @@ class EventDetailPage extends ConsumerWidget {
                   Card(child: Column(children: [for (int i = 0; i < data.guardians.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
                     _AttendanceTile(attendance: data.guardians[i],
-                      onChanged: (isCompleted && isLimited) ? null : (s) => _updateAttendStatus(ref, data.guardians[i].id, s),
-                      onRemove: isCompleted ? null : () => _removeAttendance(ref, data.guardians[i].id)),
+                      onChanged: isCompleted ? null : (s) => _updateAttendStatus(ref, data.guardians[i].id, s),
+                      onRemove: (isCompleted || isLimited) ? null : () => _removeAttendance(ref, data.guardians[i].id)),
                   ]])),
                   const SizedBox(height: 8),
                 ],
@@ -235,8 +235,8 @@ class EventDetailPage extends ConsumerWidget {
                   Card(child: Column(children: [for (int i = 0; i < data.committees.length; i++) ...[
                     if (i > 0) const Divider(height: 0),
                     _AttendanceTile(attendance: data.committees[i],
-                      onChanged: (isCompleted && isLimited) ? null : (s) => _updateAttendStatus(ref, data.committees[i].id, s),
-                      onRemove: isCompleted ? null : () => _removeAttendance(ref, data.committees[i].id)),
+                      onChanged: isCompleted ? null : (s) => _updateAttendStatus(ref, data.committees[i].id, s),
+                      onRemove: (isCompleted || isLimited) ? null : () => _removeAttendance(ref, data.committees[i].id)),
                   ]])),
                 ],
               ],
