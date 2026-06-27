@@ -190,22 +190,7 @@ class SettingsPage extends ConsumerWidget {
           if (isAdmin) ...[
             _tile(context, Icons.supervised_user_circle_outlined, '利用者管理', '/settings/members'),
             _tile(context, Icons.vpn_key_outlined, '招待コード', '/settings/invite-codes'),
-            ListTile(
-              leading: const Icon(Icons.table_chart_outlined),
-              title: const Text('Excelインポート'),
-              subtitle: const Text('既存ツールからの移行', style: TextStyle(fontSize: 11)),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ExcelImportPage()),
-              ),
-            ),
-            ListTile(
-              leading: const Icon(Icons.group_add_outlined),
-              title: const Text('バッチ登録'),
-              subtitle: const Text('Excelで複数メンバーを一括登録', style: TextStyle(fontSize: 11)),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/settings/batch-register'),
-            ),
+            _LongPressBatchTile(context: context),
             const Divider(),
           ],
 
@@ -384,6 +369,69 @@ class SettingsPage extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('削除に失敗しました: $e')));
       }
     }
+  }
+}
+
+class _LongPressBatchTile extends StatefulWidget {
+  final BuildContext context;
+  const _LongPressBatchTile({required this.context});
+
+  @override
+  State<_LongPressBatchTile> createState() => _LongPressBatchTileState();
+}
+
+class _LongPressBatchTileState extends State<_LongPressBatchTile> {
+  Timer? _timer;
+  bool _pressing = false;
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  void _onTapDown(TapDownDetails _) {
+    _timer?.cancel();
+    setState(() => _pressing = true);
+    _timer = Timer(const Duration(seconds: 3), () {
+      if (mounted) {
+        setState(() => _pressing = false);
+        Navigator.of(widget.context).push(
+          MaterialPageRoute(builder: (_) => const ExcelImportPage()),
+        );
+      }
+    });
+  }
+
+  void _cancel() {
+    _timer?.cancel();
+    _timer = null;
+    if (mounted) setState(() => _pressing = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: _onTapDown,
+      onTapUp: (_) => _cancel(),
+      onTapCancel: _cancel,
+      child: ListTile(
+        leading: Icon(
+          Icons.group_add_outlined,
+          color: _pressing ? Theme.of(context).colorScheme.primary : null,
+        ),
+        title: const Text('バッチ登録'),
+        subtitle: Text(
+          _pressing ? '長押してインポートモードへ...' : 'Excelで複数メンバーを一括登録',
+          style: TextStyle(
+            fontSize: 11,
+            color: _pressing ? Theme.of(context).colorScheme.primary : null,
+          ),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push('/settings/batch-register'),
+      ),
+    );
   }
 }
 

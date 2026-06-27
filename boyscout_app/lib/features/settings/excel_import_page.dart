@@ -125,6 +125,7 @@ class _ExcelImportPageState extends ConsumerState<ExcelImportPage> {
                     ]),
                     const SizedBox(height: 8),
                     const Text(
+                      '⚠️ この機能は杉並3団専用デバッグ機能です ⚠️'
                       '「BVS隊務管理」Excelファイル（.xlsx）を読み込み、'
                       'スカウト・リーダー・活動・出欠・表彰データを一括登録します。\n\n'
                       '⚠️ 既存のデータはすべて上書きされます。',
