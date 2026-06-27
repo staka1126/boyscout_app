@@ -160,12 +160,15 @@ class SyncService {
     final eventIds = (eventRows as List).map((r) => r['id'] as String).toList();
     if (eventIds.isEmpty) return;
 
-    final rows = await _client.from('event_leaf_badges')
-        .select()
-        .inFilter('event_id', eventIds);
-    for (final row in rows as List) {
-      await db.insert('event_leaf_badges', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    // 1000件上限回避のためイベントごとに個別取得
+    for (final eventId in eventIds) {
+      final rows = await _client.from('event_leaf_badges')
+          .select()
+          .eq('event_id', eventId);
+      for (final row in rows as List) {
+        await db.insert('event_leaf_badges', _normalize(row),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
     }
   }
 
@@ -174,12 +177,15 @@ class SyncService {
     final eventIds = (eventRows as List).map((r) => r['id'] as String).toList();
     if (eventIds.isEmpty) return;
 
-    final rows = await _client.from('attendances')
-        .select()
-        .inFilter('event_id', eventIds);
-    for (final row in rows as List) {
-      await db.insert('attendances', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    // 1000件上限回避のためイベントごとに個別取得
+    for (final eventId in eventIds) {
+      final rows = await _client.from('attendances')
+          .select()
+          .eq('event_id', eventId);
+      for (final row in rows as List) {
+        await db.insert('attendances', _normalize(row),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
     }
   }
 
@@ -189,12 +195,15 @@ class SyncService {
     final eventIds = (eventRows as List).map((r) => r['id'] as String).toList();
     if (eventIds.isEmpty) return;
 
-    final rows = await _client.from('event_stats')
-        .select()
-        .inFilter('event_id', eventIds);
-    for (final row in rows as List) {
-      await db.insert('event_stats', _normalizeEventStats(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    // 1000件上限回避のためイベントごとに個別取得
+    for (final eventId in eventIds) {
+      final rows = await _client.from('event_stats')
+          .select()
+          .eq('event_id', eventId);
+      for (final row in rows as List) {
+        await db.insert('event_stats', _normalizeEventStats(row),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
     }
   }
 
@@ -203,12 +212,15 @@ class SyncService {
     final scoutIds = (scoutRows as List).map((r) => r['id'] as String).toList();
     if (scoutIds.isEmpty) return;
 
-    final rows = await _client.from('twig_badge_history')
-        .select()
-        .inFilter('scout_id', scoutIds);
-    for (final row in rows as List) {
-      await db.insert('twig_badge_history', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
+    // 1000件上限回避のためスカウトごとに個別取得
+    for (final scoutId in scoutIds) {
+      final rows = await _client.from('twig_badge_history')
+          .select()
+          .eq('scout_id', scoutId);
+      for (final row in rows as List) {
+        await db.insert('twig_badge_history', _normalize(row),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
     }
   }
 

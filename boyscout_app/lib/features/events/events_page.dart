@@ -7,6 +7,7 @@ import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/wood_grain_background.dart';
+import '../../core/supabase_config.dart';
 import '../dashboard/dashboard_page.dart';
 
 final eventsProvider = FutureProvider<List<Event>>((ref) async {
@@ -28,11 +29,24 @@ class EventsPage extends ConsumerStatefulWidget {
 class _EventsPageState extends ConsumerState<EventsPage> {
   EventStatus? _filterStatus;
   late int _selectedYear;
+  String? _currentRole;
 
   @override
   void initState() {
     super.initState();
     _selectedYear = _fiscalYear(DateTime.now());
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final user = SupabaseConfig.currentUser;
+    if (user == null) return;
+    final member = await SupabaseConfig.client
+        .from('troop_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+    if (mounted) setState(() => _currentRole = member?['role'] as String?);
   }
 
   void _refresh() {
@@ -197,7 +211,7 @@ class _EventsPageState extends ConsumerState<EventsPage> {
         },
       ),
       ]),
-      floatingActionButton: troopId != null
+      floatingActionButton: troopId != null && _currentRole != 'limited'
           ? FloatingActionButton(
               onPressed: _goAdd,
               tooltip: 'イベントを追加',

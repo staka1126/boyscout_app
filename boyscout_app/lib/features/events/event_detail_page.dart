@@ -9,6 +9,7 @@ import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/supabase_config.dart';
 import '../dashboard/dashboard_page.dart';
 import '../badges/badges_page.dart';
 import 'events_page.dart';
@@ -16,7 +17,7 @@ import 'events_page.dart';
 const _uuid = Uuid();
 
 final _eventDetailProvider =
-    FutureProvider.family<_EventDetailData?, String>((ref, id) async {
+    FutureProvider.autoDispose.family<_EventDetailData?, String>((ref, id) async {
   final event = await ref.read(eventRepositoryProvider).getById(id);
   if (event == null) return null;
   final badges = await ref.read(eventRepositoryProvider).getLeafBadges(id);
@@ -26,9 +27,22 @@ final _eventDetailProvider =
   try {
     scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
   } catch (_) {
-    return _EventDetailData(event: event, badges: badges, attendances: attendances, scoutList: []);
+    return _EventDetailData(event: event, badges: badges, attendances: attendances, scoutList: [], currentRole: null);
   }
-  return _EventDetailData(event: event, badges: badges, attendances: attendances, scoutList: scouts);
+  // ロールも同時取得
+  String? currentRole;
+  try {
+    final user = SupabaseConfig.currentUser;
+    if (user != null) {
+      final member = await SupabaseConfig.client
+          .from('troop_members')
+          .select('role')
+          .eq('user_id', user.id)
+          .maybeSingle();
+      currentRole = member?['role'] as String?;
+    }
+  } catch (_) {}
+  return _EventDetailData(event: event, badges: badges, attendances: attendances, scoutList: scouts, currentRole: currentRole);
 });
 
 class _EventDetailData {
@@ -36,7 +50,8 @@ class _EventDetailData {
   final List<EventLeafBadge> badges;
   final List<Attendance> attendances;
   final List<Scout> scoutList;
-  _EventDetailData({required this.event, required this.badges, required this.attendances, required this.scoutList});
+  final String? currentRole;
+  _EventDetailData({required this.event, required this.badges, required this.attendances, required this.scoutList, required this.currentRole});
 
   static const _categoryOrder = [
     ScoutCategory.bigBeaver, ScoutCategory.beaver, ScoutCategory.provisional,
@@ -82,19 +97,22 @@ class EventDetailPage extends ConsumerWidget {
         if (data == null) return Scaffold(appBar: AppBar(), body: const Center(child: Text('イベントが見つかりません')));
         final event = data.event;
         final isCompleted = event.status == EventStatus.completed;
+        final isLimited = data.currentRole == 'limited';
         return Scaffold(
           appBar: AppBar(
             title: Text(event.title),
             actions: [
-              IconButton(icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  await context.push('/events/$id/edit');
-                  ref.invalidate(_eventDetailProvider(id));
-                  ref.invalidate(eventsProvider);
-                  ref.invalidate(dashboardProvider);
-                }),
-              IconButton(icon: const Icon(Icons.delete_outline),
-                onPressed: () => _confirmDelete(context, ref, event)),
+              if (!isLimited) ...[
+                IconButton(icon: const Icon(Icons.edit_outlined),
+                  onPressed: () async {
+                    await context.push('/events/$id/edit');
+                    ref.invalidate(_eventDetailProvider(id));
+                    ref.invalidate(eventsProvider);
+                    ref.invalidate(dashboardProvider);
+                  }),
+                IconButton(icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmDelete(context, ref, event)),
+              ],
             ],
           ),
           floatingActionButton: isCompleted ? null : FloatingActionButton(
@@ -107,7 +125,7 @@ class EventDetailPage extends ConsumerWidget {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
               children: [
-                _StatusSelector(current: event.status, onChanged: (s) => _updateEventStatus(context, ref, event, data, s)),
+                _StatusSelector(current: event.status, enabled: !isLimited, onChanged: (s) => _updateEventStatus(context, ref, event, data, s)),
                 const SizedBox(height: 12),
                 Card(child: Padding(padding: const EdgeInsets.all(16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -123,7 +141,7 @@ class EventDetailPage extends ConsumerWidget {
                     Row(children: [
                       const Text('木の葉章配布設定', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                       const Spacer(),
-                      if (!isCompleted)
+                      if (!isCompleted && !isLimited)
                         TextButton(onPressed: () => _editLeafBadges(context, ref, event, data.badges), child: const Text('編集')),
                     ]),
                     const SizedBox(height: 8),
@@ -352,8 +370,9 @@ class EventDetailPage extends ConsumerWidget {
 // ─── StatusSelector ──────────────────────────────────────────
 class _StatusSelector extends StatelessWidget {
   final EventStatus current;
+  final bool enabled;
   final ValueChanged<EventStatus> onChanged;
-  const _StatusSelector({super.key, required this.current, required this.onChanged});
+  const _StatusSelector({super.key, required this.current, this.enabled = true, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
@@ -363,7 +382,7 @@ class _StatusSelector extends StatelessWidget {
       return Expanded(child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 3),
         child: GestureDetector(
-          onTap: isSelected ? null : () => onChanged(s),
+          onTap: (isSelected || !enabled) ? null : () => onChanged(s),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
             padding: const EdgeInsets.symmetric(vertical: 9),

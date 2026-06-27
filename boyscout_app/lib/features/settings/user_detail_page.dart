@@ -3,8 +3,20 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
+import '../../core/supabase_config.dart';
 import '../dashboard/dashboard_page.dart';
 import 'users_list_page.dart';
+
+final _currentRoleProvider = FutureProvider<String?>((ref) async {
+  final user = SupabaseConfig.currentUser;
+  if (user == null) return null;
+  final member = await SupabaseConfig.client
+      .from('troop_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+  return member?['role'] as String?;
+});
 
 final _userDetailProvider = FutureProvider.family<AppUser?, String>((ref, id) async {
   return ref.read(userRepositoryProvider).getById(id);
@@ -17,7 +29,10 @@ class UserDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_userDetailProvider(id));
-
+    final isLimited = ref.watch(_currentRoleProvider).maybeWhen(
+      data: (role) => role == 'limited',
+      orElse: () => false,
+    );
     return async.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('エラー: $e'))),
@@ -31,19 +46,21 @@ class UserDetailPage extends ConsumerWidget {
           appBar: AppBar(
             title: Text(user.name),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  await context.push('/settings/users/${user.id}/edit');
-                  ref.invalidate(_userDetailProvider(id));
-                  ref.invalidate(usersProvider);
-                  ref.invalidate(dashboardProvider);
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _confirmDelete(context, ref, user),
-              ),
+              if (!isLimited) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () async {
+                    await context.push('/settings/users/${user.id}/edit');
+                    ref.invalidate(_userDetailProvider(id));
+                    ref.invalidate(usersProvider);
+                    ref.invalidate(dashboardProvider);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmDelete(context, ref, user),
+                ),
+              ],
             ],
           ),
           body: ListView(

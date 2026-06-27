@@ -160,20 +160,20 @@ UI上の表示ラベルと DB 格納値は異なる。
 
 | 項目 | 遷移先 | 表示条件 |
 |---|---|---|
-| 団情報 | `/settings/troop` | 全員 |
-| リーダー | `/settings/users` | 全員 |
-| 保護者 | `/settings/guardians` | 全員 |
-| 団委員ほか | `/settings/committee` | 全員 |
-| 電話帳 | `/settings/phonebook` | 全員 |
-| アレルギー情報 | `/settings/allergy` | 全員 |
-| レポート出力 | （Navigator.push） | 全員 |
-| 使い方 | （Navigator.push） | 全員 |
-| 利用者管理 | `/settings/members` | 管理者のみ |
-| 招待コード | `/settings/invite-codes` | 管理者のみ |
-| Excelインポート | （Navigator.push） | 管理者のみ |
-| バッチ登録 | `/settings/batch-register` | 管理者のみ |
+| 団情報 | `/settings/troop` | admin / member |
+| リーダー | `/settings/users` | 全員（limited は閲覧のみ・追加/編集/削除ボタン非表示） |
+| 保護者 | `/settings/guardians` | admin / member |
+| 団委員ほか | `/settings/committee` | admin / member |
+| 電話帳 | `/settings/phonebook` | admin / member |
+| アレルギー情報 | `/settings/allergy` | admin / member |
+| レポート出力 | （Navigator.push） | admin / member |
+| 使い方 | （Navigator.push） | admin / member |
+| 利用者管理 | `/settings/members` | admin のみ |
+| 招待コード | `/settings/invite-codes` | admin のみ |
+| Excelインポート | （Navigator.push） | admin のみ |
+| バッチ登録 | `/settings/batch-register` | admin のみ |
 | アカウントを削除する | （ダイアログ） | 全員 |
-| バージョン情報 | （画面内・10秒長押しで隠しメニュー） | 全員 |
+| バージョン情報 | （画面内・10秒長押しで隠しメニュー） | 全員（limited は隠しメニューなし） |
 
 - ログアウトはAppBar右上のアイコンボタン
 - データ全削除は「バージョン情報」10秒長押しの隠しメニューに移動（二段階確認）
@@ -220,6 +220,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 - 同じ団への招待コード一覧を表示（使用済み・未使用・期限切れの状態を表示）
 - 使用済みの場合は使用者名を表示
 - FABから新規発行（6桁英数字・7日間有効・使い捨て）
+- 発行時にロール（メンバー / 制限メンバー）を選択
 - RPC関数：`get_invite_codes()`
 
 #### アカウント削除
@@ -393,7 +394,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 | id | UUID PK | |
 | user_id | UUID | FK → profiles.id |
 | troop_id | UUID | FK → troops.id |
-| role | TEXT | admin / member / readonly |
+| role | TEXT | admin / member / limited |
 
 #### invite_codes
 | カラム | 型 | 説明 |
@@ -402,6 +403,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 | code | TEXT | 6桁英数字（0/O・1/I除外） |
 | troop_id | UUID | FK → troops.id |
 | created_by | UUID | FK → profiles.id |
+| role | TEXT DEFAULT 'member' | 招待後のロール（member / limited） |
 | expires_at | TIMESTAMPTZ | 7日間有効 |
 | used_by | UUID | 使用者（NULL=未使用） |
 
@@ -512,7 +514,7 @@ ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DE
 ### 認証フロー
 1. 新規登録 → `profiles` にINSERT
 2. 団を新規登録 → `troops` にINSERT → `troop_members` に admin で登録
-3. 招待コードで参加 → `troop_members` に member で登録 → syncFromSupabase
+3. 招待コードで参加 → `troop_members` にコードの role で登録 → syncFromSupabase
 4. ログアウト → SharedPreferences の troop_id をクリア
 
 ### 起動時の整合性チェック

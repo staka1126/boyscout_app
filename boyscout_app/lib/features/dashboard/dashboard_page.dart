@@ -9,6 +9,18 @@ import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../data/sync/sync_service.dart';
 import '../../core/constants/app_constants.dart';
+import '../../core/supabase_config.dart';
+
+final _dashboardRoleProvider = FutureProvider<String?>((ref) async {
+  final user = SupabaseConfig.currentUser;
+  if (user == null) return null;
+  final member = await SupabaseConfig.client
+      .from('troop_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+  return member?['role'] as String?;
+});
 
 final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
@@ -72,6 +84,10 @@ class DashboardPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(dashboardProvider);
     final cs = Theme.of(context).colorScheme;
+    final isLimited = ref.watch(_dashboardRoleProvider).maybeWhen(
+      data: (role) => role == 'limited',
+      orElse: () => false,
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -175,7 +191,7 @@ class DashboardPage extends ConsumerWidget {
         ),
       ),
       ]),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: isLimited ? null : FloatingActionButton(
             heroTag: 'add_event_fab',
             onPressed: () async {
           final troopId = ref.read(currentTroopIdProvider);

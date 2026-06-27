@@ -110,7 +110,7 @@ class AuthService {
 
     final invite = await _client
         .from('invite_codes')
-        .select('id, troop_id, expires_at, used_by')
+        .select('id, troop_id, expires_at, used_by, role')
         .eq('code', code.toUpperCase())
         .maybeSingle();
 
@@ -123,6 +123,7 @@ class AuthService {
 
     final troopId = invite['troop_id'] as String;
     final inviteId = invite['id'] as String;
+    final role = invite['role'] as String? ?? 'member';
 
     // profilesが存在しない場合に備えてupsertで保証
     await _client.from('profiles').upsert({
@@ -134,7 +135,7 @@ class AuthService {
     await _client.from('troop_members').insert({
       'user_id': user.id,
       'troop_id': troopId,
-      'role': 'member',
+      'role': role,
     });
 
 
@@ -150,7 +151,7 @@ class AuthService {
   // ─────────────────────────────────────────────
   // 招待コード発行（管理者のみ）
   // ─────────────────────────────────────────────
-  Future<String> generateInviteCode(String troopId) async {
+  Future<String> generateInviteCode(String troopId, {String role = 'member'}) async {
     final user = currentUser;
     if (user == null) throw Exception('ログインが必要です');
 
@@ -160,6 +161,7 @@ class AuthService {
       'code': code,
       'troop_id': troopId,
       'created_by': user.id,
+      'role': role,
       'expires_at': DateTime.now().add(const Duration(days: 7)).toIso8601String(),
     });
 

@@ -6,6 +6,7 @@ import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/wood_grain_background.dart';
+import '../../core/supabase_config.dart';
 import '../badges/badges_page.dart';
 import '../dashboard/dashboard_page.dart';
 
@@ -42,6 +43,25 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
   String _query = '';
   ScoutCategory? _filterCategory;
   bool _showHidden = false;
+
+  String? _currentRole;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRole();
+  }
+
+  Future<void> _loadRole() async {
+    final user = SupabaseConfig.currentUser;
+    if (user == null) return;
+    final member = await SupabaseConfig.client
+        .from('troop_members')
+        .select('role')
+        .eq('user_id', user.id)
+        .maybeSingle();
+    if (mounted) setState(() => _currentRole = member?['role'] as String?);
+  }
 
   void _refresh() {
     ref.invalidate(scoutsProvider);
@@ -192,7 +212,7 @@ class _ScoutsPageState extends ConsumerState<ScoutsPage> {
           ),
         ]),
       ]),
-      floatingActionButton: troopId != null
+      floatingActionButton: troopId != null && _currentRole != 'limited'
           ? FloatingActionButton(
               onPressed: _goAdd,
               tooltip: 'スカウトを追加',

@@ -8,6 +8,7 @@ import '../../core/supabase_config.dart';
 class _InviteCode {
   final String id;
   final String code;
+  final String role;
   final DateTime expiresAt;
   final String? usedBy;
   final String? usedByName;
@@ -15,6 +16,7 @@ class _InviteCode {
   const _InviteCode({
     required this.id,
     required this.code,
+    required this.role,
     required this.expiresAt,
     this.usedBy,
     this.usedByName,
@@ -33,6 +35,7 @@ final _inviteCodesProvider = FutureProvider.autoDispose<List<_InviteCode>>((ref)
   return (rows as List).map((r) => _InviteCode(
     id: r['id'] as String,
     code: r['code'] as String,
+    role: r['role'] as String? ?? 'member',
     expiresAt: DateTime.parse(r['expires_at'] as String),
     usedBy: r['used_by'] as String?,
     usedByName: r['used_by_name'] as String?,
@@ -107,6 +110,52 @@ class InviteCodesPage extends ConsumerWidget {
     if (myMember == null || !context.mounted) return;
     final troopId = myMember['troop_id'] as String;
 
+    // ロール選択ダイアログ
+    String selectedRole = 'member';
+    final roleResult = await showDialog<String>(
+      context: context,
+      builder: (dlgCtx) => StatefulBuilder(
+        builder: (ctx, setState) => AlertDialog(
+          title: const Text('招待コードの発行'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('招待するメンバーの種別を選んでください。'),
+              const SizedBox(height: 16),
+              RadioListTile<String>(
+                value: 'member',
+                groupValue: selectedRole,
+                onChanged: (v) => setState(() => selectedRole = v!),
+                title: const Text('メンバー'),
+                subtitle: const Text('全機能を利用できます（リーダー向け）'),
+                contentPadding: EdgeInsets.zero,
+              ),
+              RadioListTile<String>(
+                value: 'limited',
+                groupValue: selectedRole,
+                onChanged: (v) => setState(() => selectedRole = v!),
+                title: const Text('制限メンバー'),
+                subtitle: const Text('閲覧・出欠入力のみ（保護者・団委員向け）'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dlgCtx),
+              child: const Text('キャンセル'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dlgCtx, selectedRole),
+              child: const Text('発行する'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (roleResult == null || !context.mounted) return;
+
     // ランダムコード生成（0/O・1/I除外）
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final now = DateTime.now().microsecondsSinceEpoch;
@@ -119,6 +168,7 @@ class InviteCodesPage extends ConsumerWidget {
         'code': code,
         'troop_id': troopId,
         'created_by': user.id,
+        'role': roleResult,
         'expires_at': expiresAt.toIso8601String(),
       });
 
@@ -132,7 +182,9 @@ class InviteCodesPage extends ConsumerWidget {
             content: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text('このコードを招待したいメンバーに伝えてください。\n有効期限は7日間です。'),
+                Text('種別：${roleResult == 'limited' ? '制限メンバー' : 'メンバー'}'),
+                const SizedBox(height: 4),
+                const Text('このコードを招待したいメンバーに伝えてください。有効期限は7日間です。'),
                 const SizedBox(height: 24),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
@@ -196,6 +248,10 @@ class _InviteCodeCard extends StatelessWidget {
             ? ('期限切れ', cs.onSurfaceVariant, cs.surfaceContainerHighest)
             : ('未使用', cs.onPrimaryContainer, cs.primaryContainer);
 
+    final roleLabel = code.role == 'limited' ? '制限' : 'メンバー';
+    final roleBg = code.role == 'limited' ? cs.tertiaryContainer : cs.surfaceContainerHighest;
+    final roleColor = code.role == 'limited' ? cs.onTertiaryContainer : cs.onSurfaceVariant;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -222,12 +278,24 @@ class _InviteCodeCard extends StatelessWidget {
                   ),
               ]),
               const SizedBox(height: 4),
-              if (code.isUsed)
-                Text('使用者: ${code.usedByName ?? '不明'}',
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))
-              else
-                Text('有効期限: ${fmt.format(code.expiresAt.toLocal())}',
-                    style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+              Row(children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: roleBg,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(roleLabel,
+                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: roleColor)),
+                ),
+                const SizedBox(width: 8),
+                if (code.isUsed)
+                  Text('使用者: ${code.usedByName ?? '不明'}',
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))
+                else
+                  Text('有効期限: ${fmt.format(code.expiresAt.toLocal())}',
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+              ]),
             ]),
           ),
           Container(

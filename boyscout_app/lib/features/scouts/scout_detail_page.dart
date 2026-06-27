@@ -4,9 +4,21 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
+import '../../core/supabase_config.dart';
 import '../badges/badges_page.dart';
 import '../dashboard/dashboard_page.dart';
 import 'scouts_page.dart';
+
+final _scoutDetailRoleProvider = FutureProvider<String?>((ref) async {
+  final user = SupabaseConfig.currentUser;
+  if (user == null) return null;
+  final member = await SupabaseConfig.client
+      .from('troop_members')
+      .select('role')
+      .eq('user_id', user.id)
+      .maybeSingle();
+  return member?['role'] as String?;
+});
 
 final _scoutDetailProvider =
     FutureProvider.family<_ScoutDetailData, String>((ref, id) async {
@@ -28,6 +40,10 @@ class ScoutDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final async = ref.watch(_scoutDetailProvider(id));
+    final isLimited = ref.watch(_scoutDetailRoleProvider).maybeWhen(
+      data: (role) => role == 'limited',
+      orElse: () => false,
+    );
 
     return async.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
@@ -44,20 +60,22 @@ class ScoutDetailPage extends ConsumerWidget {
           appBar: AppBar(
             title: Text(scout.name),
             actions: [
-              IconButton(
-                icon: const Icon(Icons.edit_outlined),
-                onPressed: () async {
-                  await context.push('/scouts/$id/edit');
-                  ref.invalidate(_scoutDetailProvider(id));
-                  ref.invalidate(scoutsProvider);
-                  ref.invalidate(badgesProvider);
-                  ref.invalidate(dashboardProvider);
-                },
-              ),
-              IconButton(
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _confirmDelete(context, ref, scout),
-              ),
+              if (!isLimited) ...[
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () async {
+                    await context.push('/scouts/$id/edit');
+                    ref.invalidate(_scoutDetailProvider(id));
+                    ref.invalidate(scoutsProvider);
+                    ref.invalidate(badgesProvider);
+                    ref.invalidate(dashboardProvider);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  onPressed: () => _confirmDelete(context, ref, scout),
+                ),
+              ],
             ],
           ),
           body: ListView(
@@ -148,11 +166,12 @@ class ScoutDetailPage extends ConsumerWidget {
                     Text('保護者', style: Theme.of(context).textTheme.labelLarge
                         ?.copyWith(color: cs.primary)),
                     const Spacer(),
-                    TextButton.icon(
-                      icon: const Icon(Icons.link, size: 16),
-                      label: const Text('紐付け'),
-                      onPressed: () => _showLinkSheet(context, ref, scout, data.guardians),
-                    ),
+                    if (!isLimited)
+                      TextButton.icon(
+                        icon: const Icon(Icons.link, size: 16),
+                        label: const Text('紐付け'),
+                        onPressed: () => _showLinkSheet(context, ref, scout, data.guardians),
+                      ),
                   ]),
                   const SizedBox(height: 8),
                   if (data.guardians.isEmpty)
@@ -175,7 +194,7 @@ class ScoutDetailPage extends ConsumerWidget {
                         IconButton(
                           icon: Icon(Icons.link_off, size: 18, color: cs.error),
                           tooltip: '紐付けを解除',
-                          onPressed: () => _confirmUnlink(context, ref, scout, g),
+                          onPressed: isLimited ? null : () => _confirmUnlink(context, ref, scout, g),
                           padding: EdgeInsets.zero,
                           constraints: const BoxConstraints(),
                         ),

@@ -92,7 +92,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(path: 'new', builder: (c, s) => const EventFormPage()),
               GoRoute(
                 path: ':id',
-                builder: (c, s) => EventDetailPage(id: s.pathParameters['id']!),
+                builder: (c, s) => EventDetailPage(
+                  key: ValueKey(s.pathParameters['id']),
+                  id: s.pathParameters['id']!,
+                ),
                 routes: [
                   GoRoute(
                     path: 'edit',

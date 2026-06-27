@@ -85,6 +85,10 @@ class SettingsPage extends ConsumerWidget {
       data: (p) => p['role'] == 'admin',
       orElse: () => false,
     );
+    final isLimited = profile.maybeWhen(
+      data: (p) => p['role'] == 'limited',
+      orElse: () => false,
+    );
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -115,7 +119,7 @@ class SettingsPage extends ConsumerWidget {
                 ),
                 title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: location != null ? Text(location) : null,
-                onTap: () => context.go('/settings/troop'),
+                onTap: isLimited ? null : () => context.go('/settings/troop'),
               );
             },
             orElse: () => const SizedBox(),
@@ -128,7 +132,7 @@ class SettingsPage extends ConsumerWidget {
             data: (p) {
               final name = p['name'] ?? '';
               final email = p['email'] ?? '';
-              final role = p['role'] == 'admin' ? '管理者' : p['role'] == 'readonly' ? '参照のみ' : 'メンバー';
+              final role = p['role'] == 'admin' ? '管理者' : p['role'] == 'limited' ? '制限メンバー' : 'メンバー';
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor: cs.secondaryContainer,
@@ -140,52 +144,65 @@ class SettingsPage extends ConsumerWidget {
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: p['role'] == 'admin' ? cs.primaryContainer : cs.surfaceContainerHighest,
+                    color: p['role'] == 'admin'
+                        ? cs.primaryContainer
+                        : p['role'] == 'limited'
+                            ? cs.tertiaryContainer
+                            : cs.surfaceContainerHighest,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(role,
                       style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
-                          color: p['role'] == 'admin' ? cs.onPrimaryContainer : cs.onSurfaceVariant)),
+                          color: p['role'] == 'admin'
+                              ? cs.onPrimaryContainer
+                              : p['role'] == 'limited'
+                                  ? cs.onTertiaryContainer
+                                  : cs.onSurfaceVariant)),
                 ),
               );
             },
           ),
           const Divider(),
 
-          _tile(context, Icons.home_outlined, '団情報', '/settings/troop'),
+          if (!isLimited)
+            _tile(context, Icons.home_outlined, '団情報', '/settings/troop'),
           const Divider(),
 
           _tile(context, Icons.manage_accounts_outlined, 'リーダー', '/settings/users'),
-          _tile(context, Icons.family_restroom_outlined, '保護者', '/settings/guardians'),
-          _tile(context, Icons.groups_outlined, '団委員ほか', '/settings/committee'),
+          if (!isLimited) ...[
+            _tile(context, Icons.family_restroom_outlined, '保護者', '/settings/guardians'),
+            _tile(context, Icons.groups_outlined, '団委員ほか', '/settings/committee'),
+          ],
           const Divider(),
 
-          _tile(context, Icons.contact_phone_outlined, '電話帳', '/settings/phonebook'),
-          _tile(context, Icons.no_food_outlined, 'アレルギー情報', '/settings/allergy'),
-          const Divider(),
+          if (!isLimited) ...[
+            _tile(context, Icons.contact_phone_outlined, '電話帳', '/settings/phonebook'),
+            _tile(context, Icons.no_food_outlined, 'アレルギー情報', '/settings/allergy'),
+            const Divider(),
 
-          // レポート出力
-          ListTile(
-            leading: const Icon(Icons.bar_chart_outlined),
-            title: const Text('レポート出力'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const ReportPage()),
+            // レポート出力
+            ListTile(
+              leading: const Icon(Icons.bar_chart_outlined),
+              title: const Text('レポート出力'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ReportPage()),
+              ),
             ),
-          ),
-          const Divider(),
+            const Divider(),
 
-          ListTile(
-            leading: const Icon(Icons.help_outline),
-            title: const Text('使い方'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => Navigator.of(context).push(
-              MaterialPageRoute(builder: (_) => const HelpPage()),
+            ListTile(
+              leading: const Icon(Icons.help_outline),
+              title: const Text('使い方'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const HelpPage()),
+              ),
             ),
-          ),
-          const Divider(),
+            const Divider(),
+          ],
 
           if (isAdmin) ...[
             _tile(context, Icons.supervised_user_circle_outlined, '利用者管理', '/settings/members'),
@@ -201,7 +218,10 @@ class SettingsPage extends ConsumerWidget {
           ),
           const Divider(),
 
-          _LongPressVersionTile(onActivate: () => _confirmClearData(context, ref)),
+          _LongPressVersionTile(
+            showHiddenMenu: !isLimited,
+            onActivate: () => _confirmClearData(context, ref),
+          ),
         ]),
       ]),
     );
@@ -437,7 +457,8 @@ class _LongPressBatchTileState extends State<_LongPressBatchTile> {
 
 class _LongPressVersionTile extends StatefulWidget {
   final VoidCallback onActivate;
-  const _LongPressVersionTile({required this.onActivate});
+  final bool showHiddenMenu;
+  const _LongPressVersionTile({required this.onActivate, this.showHiddenMenu = true});
 
   @override
   State<_LongPressVersionTile> createState() => _LongPressVersionTileState();
@@ -454,6 +475,7 @@ class _LongPressVersionTileState extends State<_LongPressVersionTile> {
   }
 
   void _onTapDown(TapDownDetails _) {
+    if (!widget.showHiddenMenu) return;
     _timer?.cancel();
     setState(() => _pressing = true);
     _timer = Timer(const Duration(seconds: 10), () {
