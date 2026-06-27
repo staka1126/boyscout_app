@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../../data/sync/sync_service.dart';
 import '../../core/constants/app_constants.dart';
 
 final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
@@ -81,7 +82,14 @@ class DashboardPage extends ConsumerWidget {
           data: (data) => Text(data.troopName != null ? '${data.troopName} ビーバー隊' : 'ビーバー隊'),
         ),
         actions: [
-          IconButton(icon: const Icon(Icons.refresh_outlined), onPressed: () => ref.invalidate(dashboardProvider)),
+          IconButton(icon: const Icon(Icons.refresh_outlined), onPressed: () async {
+            final troopId = ref.read(currentTroopIdProvider);
+            if (troopId == null) return;
+            try {
+              await SyncService.instance.syncFromSupabase(troopId, force: true);
+            } catch (_) {}
+            ref.invalidate(dashboardProvider);
+          }),
         ],
       ),
       body: Stack(children: [

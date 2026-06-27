@@ -572,38 +572,73 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
   bool _showRetired = false;
   bool _showAllScouts = false;
   bool _showAllGuardians = false;
-  Set<String> _existingIds = {};
+
+  // 全データをまとめてロードする Future（existingIds込み）
+  late Future<_SheetData> _dataFuture;
 
   @override
   void initState() {
     super.initState();
-    _loadExistingIds();
+    _dataFuture = _loadAll();
   }
 
-  Future<void> _loadExistingIds() async {
+  Future<_SheetData> _loadAll() async {
+    final troopId = ref.read(currentTroopIdProvider);
     final existing = await ref.read(attendanceRepositoryProvider).getByEvent(widget.event.id);
-    if (mounted) setState(() => _existingIds = existing.map((a) => a.memberId ?? '').toSet());
+    final existingIds = existing.map((a) => a.memberId ?? '').toSet();
+
+    if (troopId == null) return _SheetData(existingIds: existingIds);
+
+    final allUsers = await ref.read(userRepositoryProvider).getByTroop(troopId);
+    final allScouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
+    final allGuardians = await ref.read(guardianRepositoryProvider).getAll(troopId: troopId);
+    final allCommittee = await ref.read(committeeRepositoryProvider).getByTroop(troopId);
+
+    // 保護者の順序付け（ビーバー系スカウトの保護者を優先）
+    const guardianDisplayOrder = [
+      ScoutCategory.bigBeaver, ScoutCategory.beaver, ScoutCategory.provisional,
+      ScoutCategory.sibling, ScoutCategory.experience,
+    ];
+    final targetScouts = allScouts.where((s) => guardianDisplayOrder.contains(s.category)).toList()
+      ..sort((a, b) => guardianDisplayOrder.indexOf(a.category).compareTo(guardianDisplayOrder.indexOf(b.category)));
+    final seen = <String>{};
+    final orderedGuardians = <Guardian>[];
+    for (final scout in targetScouts) {
+      final gs = await ref.read(guardianRepositoryProvider).getByScout(scout.id);
+      for (final g in gs) {
+        if (!seen.contains(g.id) && !existingIds.contains(g.id)) {
+          seen.add(g.id);
+          orderedGuardians.add(g);
+        }
+      }
+    }
+    // すべて表示用：上記に含まれない残りの保護者
+    final remainingGuardians = allGuardians.where((g) => !seen.contains(g.id) && !existingIds.contains(g.id)).toList();
+
+    return _SheetData(
+      existingIds: existingIds,
+      allUsers: allUsers,
+      allScouts: allScouts,
+      priorityGuardians: orderedGuardians,
+      remainingGuardians: remainingGuardians,
+      allCommittee: allCommittee,
+    );
   }
 
-  Future<List<AppUser>> _loadUsers() async {
-    final troopId = ref.read(currentTroopIdProvider);
-    if (troopId == null) return [];
-    final all = await ref.read(userRepositoryProvider).getByTroop(troopId);
-    return all.where((u) => !_existingIds.contains(u.id) && (_showRetired || !u.isRetired)).toList();
-  }
+  void _reload() => setState(() { _dataFuture = _loadAll(); });
 
-  Future<List<Scout>> _loadScouts() async {
-    final troopId = ref.read(currentTroopIdProvider);
-    if (troopId == null) return [];
-    final all = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
+  List<AppUser> _filterUsers(_SheetData d) =>
+      d.allUsers.where((u) => !d.existingIds.contains(u.id) && (_showRetired || !u.isRetired)).toList();
+
+  List<Scout> _filterScouts(_SheetData d) {
     const hiddenCategories = [ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined];
     const order = [
       ScoutCategory.bigBeaver, ScoutCategory.beaver, ScoutCategory.provisional,
       ScoutCategory.experience, ScoutCategory.sibling,
       ScoutCategory.promoted, ScoutCategory.withdrawn, ScoutCategory.notJoined,
     ];
-    return all
-        .where((s) => !_existingIds.contains(s.id) && (_showAllScouts || !hiddenCategories.contains(s.category)))
+    return d.allScouts
+        .where((s) => !d.existingIds.contains(s.id) && (_showAllScouts || !hiddenCategories.contains(s.category)))
         .toList()
       ..sort((a, b) {
         final ai = order.indexOf(a.category);
@@ -615,50 +650,13 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
       });
   }
 
-  Future<List<Guardian>> _loadGuardians() async {
-    final troopId = ref.read(currentTroopIdProvider);
-    if (troopId == null) return [];
-    final all = await ref.read(guardianRepositoryProvider).getAll(troopId: troopId);
-    final unlinked = all.where((g) => !_existingIds.contains(g.id)).toList();
-    if (_showAllGuardians) return unlinked;
-
-    // ビッグビーバー・ビーバー・仮入隊・兄弟姉妹・体験の順で保護者を表示
-    const displayOrder = [
-      ScoutCategory.bigBeaver,
-      ScoutCategory.beaver,
-      ScoutCategory.provisional,
-      ScoutCategory.sibling,
-      ScoutCategory.experience,
-    ];
-    final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
-    final targetScouts = scouts.where((s) => displayOrder.contains(s.category)).toList()
-      ..sort((a, b) {
-        final ai = displayOrder.indexOf(a.category);
-        final bi = displayOrder.indexOf(b.category);
-        return ai.compareTo(bi);
-      });
-
-    // スカウト順に保護者を収集（重複除去しつつ順序を保持）
-    final seen = <String>{};
-    final ordered = <Guardian>[];
-    for (final scout in targetScouts) {
-      final guardians = await ref.read(guardianRepositoryProvider).getByScout(scout.id);
-      for (final g in guardians) {
-        if (!seen.contains(g.id) && unlinked.any((u) => u.id == g.id)) {
-          seen.add(g.id);
-          ordered.add(g);
-        }
-      }
-    }
-    return ordered;
+  List<Guardian> _filterGuardians(_SheetData d) {
+    if (_showAllGuardians) return [...d.priorityGuardians, ...d.remainingGuardians];
+    return d.priorityGuardians;
   }
 
-  Future<List<CommitteeMember>> _loadCommittee() async {
-    final troopId = ref.read(currentTroopIdProvider);
-    if (troopId == null) return [];
-    final all = await ref.read(committeeRepositoryProvider).getByTroop(troopId);
-    return all.where((c) => !_existingIds.contains(c.id) && (_showRetired || !c.isRetired)).toList();
-  }
+  List<CommitteeMember> _filterCommittee(_SheetData d) =>
+      d.allCommittee.where((c) => !d.existingIds.contains(c.id) && (_showRetired || !c.isRetired)).toList();
 
   Future<void> _add(MemberType type, String? memberId, String memberName) async {
     await ref.read(attendanceRepositoryProvider).add(Attendance(
@@ -671,106 +669,116 @@ class _AddMemberSheetState extends ConsumerState<_AddMemberSheet> {
   Widget build(BuildContext context) {
     return DraggableScrollableSheet(
       initialChildSize: 0.65, maxChildSize: 0.95, minChildSize: 0.4, expand: false,
-      builder: (_, controller) => Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('出席者を追加', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: SegmentedButton<_AddTab>(
-                style: ButtonStyle(
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  visualDensity: VisualDensity.compact,
-                  padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
+      builder: (_, controller) => FutureBuilder<_SheetData>(
+        future: _dataFuture,
+        builder: (_, snap) {
+          if (!snap.hasData) return const Center(child: CircularProgressIndicator());
+          final data = snap.data!;
+          return Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('出席者を追加', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: SegmentedButton<_AddTab>(
+                    style: ButtonStyle(
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                      padding: WidgetStateProperty.all(const EdgeInsets.symmetric(horizontal: 8)),
+                    ),
+                    segments: const [
+                      ButtonSegment(value: _AddTab.leader,    label: Text('リーダー')),
+                      ButtonSegment(value: _AddTab.scout,     label: Text('スカウト')),
+                      ButtonSegment(value: _AddTab.guardian,  label: Text('保護者')),
+                      ButtonSegment(value: _AddTab.committee, label: Text('団委員ほか')),
+                    ],
+                    selected: {_tab},
+                    onSelectionChanged: (s) => setState(() => _tab = s.first),
+                  ),
                 ),
-                segments: const [
-                  ButtonSegment(value: _AddTab.leader,    label: Text('リーダー')),
-                  ButtonSegment(value: _AddTab.scout,     label: Text('スカウト')),
-                  ButtonSegment(value: _AddTab.guardian,  label: Text('保護者')),
-                  ButtonSegment(value: _AddTab.committee, label: Text('団委員ほか')),
-                ],
-                selected: {_tab},
-                onSelectionChanged: (s) => setState(() => _tab = s.first),
-              ),
+                const SizedBox(height: 8),
+                Row(children: [
+                  const Spacer(),
+                  Text('すべて表示', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                  const SizedBox(width: 4),
+                  Switch(
+                    value: _tab == _AddTab.scout ? _showAllScouts : _tab == _AddTab.guardian ? _showAllGuardians : _showRetired,
+                    onChanged: (v) => setState(() {
+                      if (_tab == _AddTab.scout) _showAllScouts = v;
+                      else if (_tab == _AddTab.guardian) _showAllGuardians = v;
+                      else _showRetired = v;
+                    }),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ]),
+              ]),
             ),
-            const SizedBox(height: 8),
-            Row(children: [
-              const Spacer(),
-              Text('すべて表示', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant)),
-              const SizedBox(width: 4),
-              Switch(
-                value: _tab == _AddTab.scout ? _showAllScouts : _tab == _AddTab.guardian ? _showAllGuardians : _showRetired,
-                onChanged: (v) => setState(() {
-                  if (_tab == _AddTab.scout) _showAllScouts = v;
-                  else if (_tab == _AddTab.guardian) _showAllGuardians = v;
-                  else _showRetired = v;
-                }),
-                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
-            ]),
-          ]),
-        ),
-        Expanded(child: _buildList(controller)),
-      ]),
+            Expanded(child: _buildList(controller, data)),
+          ]);
+        },
+      ),
     );
   }
 
-  Widget _buildList(ScrollController controller) {
+  Widget _buildList(ScrollController controller, _SheetData data) {
     switch (_tab) {
       case _AddTab.leader:
-        return FutureBuilder<List<AppUser>>(
-          future: _loadUsers(),
-          builder: (_, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-            if (snap.data!.isEmpty) return const Center(child: Text('追加できるリーダーはいません'));
-            return ListView.builder(controller: controller, itemCount: snap.data!.length,
-              itemBuilder: (_, i) {
-                final u = snap.data![i];
-                return ListTile(title: Text(u.name), subtitle: Text(u.role.label),
-                    trailing: const Icon(Icons.add), onTap: () => _add(MemberType.user, u.id, u.name));
-              });
+        final users = _filterUsers(data);
+        if (users.isEmpty) return const Center(child: Text('追加できるリーダーはいません'));
+        return ListView.builder(controller: controller, itemCount: users.length,
+          itemBuilder: (_, i) {
+            final u = users[i];
+            return ListTile(title: Text(u.name), subtitle: Text(u.role.label),
+                trailing: const Icon(Icons.add), onTap: () => _add(MemberType.user, u.id, u.name));
           });
       case _AddTab.scout:
-        return FutureBuilder<List<Scout>>(
-          future: _loadScouts(),
-          builder: (_, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-            if (snap.data!.isEmpty) return const Center(child: Text('追加できるスカウトはいません'));
-            return ListView.builder(controller: controller, itemCount: snap.data!.length,
-              itemBuilder: (_, i) {
-                final s = snap.data![i];
-                return ListTile(title: Text(s.name), subtitle: Text(s.category.label),
-                    trailing: const Icon(Icons.add), onTap: () => _add(MemberType.scout, s.id, s.name));
-              });
+        final scouts = _filterScouts(data);
+        if (scouts.isEmpty) return const Center(child: Text('追加できるスカウトはいません'));
+        return ListView.builder(controller: controller, itemCount: scouts.length,
+          itemBuilder: (_, i) {
+            final s = scouts[i];
+            return ListTile(title: Text(s.name), subtitle: Text(s.category.label),
+                trailing: const Icon(Icons.add), onTap: () => _add(MemberType.scout, s.id, s.name));
           });
       case _AddTab.guardian:
-        return FutureBuilder<List<Guardian>>(
-          future: _loadGuardians(),
-          builder: (_, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-            if (snap.data!.isEmpty) return const Center(child: Text('追加できる保護者はいません'));
-            return ListView.builder(controller: controller, itemCount: snap.data!.length,
-              itemBuilder: (_, i) {
-                final g = snap.data![i];
-                return ListTile(title: Text(g.name), subtitle: g.phone != null ? Text(g.phone!) : null,
-                    trailing: const Icon(Icons.add), onTap: () => _add(MemberType.guardian, g.id, g.name));
-              });
+        final guardians = _filterGuardians(data);
+        if (guardians.isEmpty) return const Center(child: Text('追加できる保護者はいません'));
+        return ListView.builder(controller: controller, itemCount: guardians.length,
+          itemBuilder: (_, i) {
+            final g = guardians[i];
+            return ListTile(title: Text(g.name), subtitle: g.phone != null ? Text(g.phone!) : null,
+                trailing: const Icon(Icons.add), onTap: () => _add(MemberType.guardian, g.id, g.name));
           });
       case _AddTab.committee:
-        return FutureBuilder<List<CommitteeMember>>(
-          future: _loadCommittee(),
-          builder: (_, snap) {
-            if (!snap.hasData) return const Center(child: CircularProgressIndicator());
-            if (snap.data!.isEmpty) return const Center(child: Text('追加できる団委員はいません'));
-            return ListView.builder(controller: controller, itemCount: snap.data!.length,
-              itemBuilder: (_, i) {
-                final c = snap.data![i];
-                return ListTile(title: Text(c.name), subtitle: Text(c.category.label),
-                    trailing: const Icon(Icons.add), onTap: () => _add(MemberType.committee, c.id, c.name));
-              });
+        final committee = _filterCommittee(data);
+        if (committee.isEmpty) return const Center(child: Text('追加できる団委員はいません'));
+        return ListView.builder(controller: controller, itemCount: committee.length,
+          itemBuilder: (_, i) {
+            final c = committee[i];
+            return ListTile(title: Text(c.name), subtitle: Text(c.category.label),
+                trailing: const Icon(Icons.add), onTap: () => _add(MemberType.committee, c.id, c.name));
           });
     }
   }
+}
+
+// ─── SheetData ───────────────────────────────────────────────
+class _SheetData {
+  final Set<String> existingIds;
+  final List<AppUser> allUsers;
+  final List<Scout> allScouts;
+  final List<Guardian> priorityGuardians;
+  final List<Guardian> remainingGuardians;
+  final List<CommitteeMember> allCommittee;
+
+  _SheetData({
+    required this.existingIds,
+    this.allUsers = const [],
+    this.allScouts = const [],
+    this.priorityGuardians = const [],
+    this.remainingGuardians = const [],
+    this.allCommittee = const [],
+  });
 }

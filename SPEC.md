@@ -468,8 +468,46 @@ ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DE
 
 ### 同期方針
 - **Supabaseがマスター**、ローカルSQLiteはオフラインキャッシュ（Last-Write-Wins）
-- ログイン時：Supabase → ローカル（syncFromSupabase）
-- 各CRUD操作後：ローカル → Supabase（syncToSupabase）
+- Supabase → ローカル：`syncFromSupabase`
+- ローカル → Supabase：`syncToSupabase`（各リポジトリの CRUD 操作後に自動呼び出し）
+
+### 同期タイミング一覧
+
+#### Supabase → ローカル（syncFromSupabase）
+| タイミング | 場所 |
+|---|---|
+| アプリ起動時（ログイン済み） | `initTroopProvider` |
+| 招待コードで団に参加したとき | `OnboardingPage._showInviteCodeDialog` |
+| ダッシュボードの更新ボタン押下 | `DashboardPage` AppBar |
+| DEVモード: DBリセット＋同期ボタン | `_dev_reset_patch.dart`（kDebugModeのみ） |
+
+#### ローカル → Supabase（syncToSupabase）
+各リポジトリの書き込み操作（create / update / delete / upsert）後に `_syncIfNeeded()` 経由で自動実行。対象テーブルは以下の通り。
+
+| テーブル | トリガー操作 |
+|---|---|
+| leaders | create / update / delete |
+| scouts | create / update / delete / addLeafBadges / subtractLeafBadges / addTwigBadges |
+| guardians | create / update / link / unlink |
+| committee_members | create / update / delete |
+| events | create / update / delete |
+| event_leaf_badges | upsert |
+| attendances | createDefaults / add / updateStatus |
+| event_stats | saveForEvent（イベント確定時） |
+
+- ログイン済み（`SupabaseConfig.isSignedIn`）の場合のみ実行。未ログイン時はスキップ
+- アップロード失敗はローカル操作に影響しない（エラーを握り潰す）
+- `syncFromSupabase` は `_isSyncing` フラグで多重実行を防止
+- リアルタイム（プッシュ型）同期は未実装。他ユーザーの変更はダッシュボードの更新ボタンで手動取得する
+
+### ログイン時の処理
+1. ローカルDBを全テーブルクリア（古いキャッシュの残留対策）
+2. `syncFromSupabase(force: true)` でSupabaseから全件取得
+3. `initTroopProvider` を invalidate（キャッシュリセット）
+4. `currentTroopIdProvider` をセットして `/dashboard` へ遷移
+
+> **背景：** Xiaomi等の一部Android端末はアンインストール後もローカルDBが残る。
+> ログイン時に必ずDBクリア→同期することで重複を防止。
 
 ### 認証フロー
 1. 新規登録 → `profiles` にINSERT

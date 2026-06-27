@@ -3,6 +3,7 @@
     await prefs.remove('troop_id');
     ref.read(currentTroopIdProvider.notifier).state = null;
     ref.invalidate(_currentProfileProvider);
+    SyncService.instance.resetSyncedFlag();
     await AuthService.instance.signOut();
     if (context.mounted) context.go('/login');
   }

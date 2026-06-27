@@ -14,6 +14,24 @@ final currentTroopIdProvider = StateProvider<String?>((ref) => null);
 // ─── ログイン処理中フラグ（trueの間はルーターのリダイレクトを抑制）
 final isLoggingInProvider = StateProvider<bool>((ref) => false);
 
+Future<void> _resetLocalDb(SharedPreferences prefs) async {
+  final db = await DatabaseHelper.instance.database;
+  await db.transaction((txn) async {
+    await txn.execute('DELETE FROM twig_badge_history');
+    await txn.execute('DELETE FROM attendances');
+    await txn.execute('DELETE FROM event_leaf_badges');
+    await txn.execute('DELETE FROM events');
+    await txn.execute('DELETE FROM scout_guardians');
+    await txn.execute('DELETE FROM committee_members');
+    await txn.execute('DELETE FROM guardians');
+    await txn.execute('DELETE FROM scouts');
+    await txn.execute('DELETE FROM leaders');
+    await txn.execute('DELETE FROM troops');
+  });
+  await prefs.remove('troop_id');
+  debugPrint('_resetLocalDb: local DB cleared');
+}
+
 // ─── 起動時に団を読み込み、Supabaseから同期する ──────────────
 final initTroopProvider = FutureProvider<String?>((ref) async {
   final prefs = await SharedPreferences.getInstance();
@@ -38,38 +56,40 @@ final initTroopProvider = FutureProvider<String?>((ref) async {
   }
 
   // Supabaseにログイン済みの場合、troop_membersの存在確認
-  if (troopId != null && SupabaseConfig.isSignedIn) {
+  if (SupabaseConfig.isSignedIn) {
     try {
       final user = SupabaseConfig.currentUser;
       if (user != null) {
         final member = await SupabaseConfig.client
             .from('troop_members')
-            .select('id')
+            .select('troop_id')
             .eq('user_id', user.id)
             .maybeSingle();
 
         if (member == null) {
           // troop_membersにレコードがない → ローカルDBをリセットしてオンボーディングへ
           debugPrint('initTroopProvider: troop_members not found, resetting local DB');
-          final db = await DatabaseHelper.instance.database;
-          await db.transaction((txn) async {
-            await txn.execute('DELETE FROM twig_badge_history');
-            await txn.execute('DELETE FROM attendances');
-            await txn.execute('DELETE FROM event_leaf_badges');
-            await txn.execute('DELETE FROM events');
-            await txn.execute('DELETE FROM scout_guardians');
-            await txn.execute('DELETE FROM committee_members');
-            await txn.execute('DELETE FROM guardians');
-            await txn.execute('DELETE FROM scouts');
-            await txn.execute('DELETE FROM leaders');
-            await txn.execute('DELETE FROM troops');
-          });
-          await prefs.remove('troop_id');
+          await _resetLocalDb(prefs);
           return null;
         }
-      }
 
-      await SyncService.instance.syncFromSupabase(troopId);
+        final remoteTroopId = member['troop_id']?.toString();
+
+        // ローカルのtroop_idとSupabase側が一致しない場合はリセット
+        if (remoteTroopId != null && troopId != null && troopId != remoteTroopId) {
+          debugPrint('initTroopProvider: troop_id mismatch local=$troopId remote=$remoteTroopId, resetting');
+          await _resetLocalDb(prefs);
+          troopId = remoteTroopId;
+          await prefs.setString('troop_id', troopId);
+        } else if (remoteTroopId != null && troopId == null) {
+          troopId = remoteTroopId;
+          await prefs.setString('troop_id', troopId);
+        }
+
+        if (troopId != null) {
+          await SyncService.instance.syncFromSupabase(troopId);
+        }
+      }
     } catch (e) {
       debugPrint('initTroopProvider: error $e');
     }

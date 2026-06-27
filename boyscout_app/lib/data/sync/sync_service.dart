@@ -18,11 +18,19 @@ class SyncService {
   final _dbHelper = DatabaseHelper.instance;
 
   bool _isSyncing = false;
+  final Set<String> _syncedTroopIds = {};
+
+  /// セッション中の同期済みフラグをリセット（ログアウト時に呼ぶ）
+  void resetSyncedFlag() => _syncedTroopIds.clear();
 
   // ─────────────────────────────────────────────────────────
   // Supabase → ローカル（ダウンロード同期）
   // ─────────────────────────────────────────────────────────
-  Future<void> syncFromSupabase(String troopId) async {
+  Future<void> syncFromSupabase(String troopId, {bool force = false}) async {
+    if (!force && _syncedTroopIds.contains(troopId)) {
+      debugPrint('syncFromSupabase: already synced for $troopId, skipped');
+      return;
+    }
     if (_isSyncing) {
       debugPrint('syncFromSupabase: already running, skipped');
       return;
@@ -41,6 +49,7 @@ class SyncService {
       await _syncEventLeafBadges(db, troopId);
       await _syncAttendances(db, troopId);
       await _syncEventStats(db, troopId);
+      _syncedTroopIds.add(troopId);
     } catch (e) {
       rethrow;
     } finally {

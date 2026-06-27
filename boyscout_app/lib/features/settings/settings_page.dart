@@ -10,6 +10,7 @@ import '../../data/providers/app_state_provider.dart';
 import '../../data/repositories/repositories.dart';
 import '../../core/wood_grain_background.dart';
 import '../../core/supabase_config.dart';
+import '../../data/sync/sync_service.dart';
 import '../auth/auth_service.dart';
 import '../auth/auth_provider.dart';
 import 'excel_import_page.dart';
