@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart';
+import '../../core/wood_grain_background.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
@@ -65,42 +66,46 @@ class _PhonebookPageState extends ConsumerState<PhonebookPage> {
     final async = ref.watch(_phonebookProvider);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('電話帳')),
-      body: Column(children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-          child: TextField(
-            decoration: const InputDecoration(
-              hintText: '氏名で検索',
-              prefixIcon: Icon(Icons.search, size: 20),
-              isDense: true,
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        Column(children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: TextField(
+              decoration: const InputDecoration(
+                hintText: '氏名で検索',
+                prefixIcon: Icon(Icons.search, size: 20),
+                isDense: true,
+              ),
+              onChanged: (v) => setState(() => _query = v),
             ),
-            onChanged: (v) => setState(() => _query = v),
           ),
-        ),
-        const SizedBox(height: 8),
-        Expanded(child: async.when(
-          loading: () => const Center(child: CircularProgressIndicator()),
-          error: (e, _) => Center(child: Text('エラー: $e')),
-          data: (contacts) {
-            final filtered = _query.isEmpty
-                ? contacts
-                : contacts.where((c) => c.name.contains(_query)).toList();
+          const SizedBox(height: 8),
+          Expanded(child: async.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (e, _) => Center(child: Text('エラー: $e')),
+            data: (contacts) {
+              final filtered = _query.isEmpty
+                  ? contacts
+                  : contacts.where((c) => c.name.contains(_query)).toList();
 
-            if (filtered.isEmpty) {
-              return const Center(
-                  child: Text('該当する連絡先がありません',
-                      style: TextStyle(color: Colors.grey)));
-            }
+              if (filtered.isEmpty) {
+                return const Center(
+                    child: Text('該当する連絡先がありません',
+                        style: TextStyle(color: Colors.grey)));
+              }
 
-            return ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: filtered.length,
-              separatorBuilder: (_, __) => const SizedBox(height: 8),
-              itemBuilder: (_, i) => _ContactCard(contact: filtered[i]),
-            );
-          },
-        )),
+              return ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: filtered.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (_, i) => _ContactCard(contact: filtered[i]),
+              );
+            },
+          )),
+        ]),
       ]),
     );
   }

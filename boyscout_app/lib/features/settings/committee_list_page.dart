@@ -4,9 +4,10 @@ import 'package:go_router/go_router.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../../core/wood_grain_background.dart';
 import '../dashboard/dashboard_page.dart';
 
-final _committeeProvider = FutureProvider<List<CommitteeMember>>((ref) async {
+final committeeProvider = FutureProvider<List<CommitteeMember>>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
   if (troopId == null) return [];
   return ref.read(committeeRepositoryProvider).getByTroop(troopId);
@@ -17,14 +18,15 @@ class CommitteeListPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final async = ref.watch(_committeeProvider);
+    final async = ref.watch(committeeProvider);
     final troopId = ref.watch(currentTroopIdProvider);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('団委員ほか管理')),
-      body: troopId == null
-          ? _NoTroopView()
-          : async.when(
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        troopId == null ? _NoTroopView() : async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
         data: (members) {
@@ -79,20 +81,8 @@ class CommitteeListPage extends ConsumerWidget {
                         ),
                     ]),
                     subtitle: Text(subtitle),
-                    trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        onPressed: () async {
-                          await context.push('/settings/committee/${m.id}/edit');
-                          ref.invalidate(_committeeProvider);
-                          ref.invalidate(dashboardProvider);
-                        },
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline, color: cs.error),
-                        onPressed: () => _confirmDelete(context, ref, m),
-                      ),
-                    ]),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/settings/committee/${m.id}'),
                   ),
                 ),
               );
@@ -100,49 +90,18 @@ class CommitteeListPage extends ConsumerWidget {
           );
         },
       ),
+      ]),
       floatingActionButton: troopId != null
           ? FloatingActionButton(
               onPressed: () async {
                 await context.push('/settings/committee/new');
-                ref.invalidate(_committeeProvider);
+                ref.invalidate(committeeProvider);
               },
               tooltip: '団委員を追加',
               child: const Icon(Icons.person_add_outlined),
             )
           : null,
     );
-  }
-
-  Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, CommitteeMember member) async {
-    final canDelete = await ref.read(committeeRepositoryProvider).canDelete(member.id);
-    if (!context.mounted) return;
-    if (!canDelete) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('出欠履歴があるため削除できません')));
-      return;
-    }
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (dlgCtx) => AlertDialog(
-        title: const Text('団委員を削除'),
-        content: Text('${member.name} を削除しますか？'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.of(dlgCtx).pop(false),
-              child: const Text('キャンセル')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.of(dlgCtx).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ),
-    );
-    if (ok == true && context.mounted) {
-      await ref.read(committeeRepositoryProvider).delete(member.id);
-      ref.invalidate(_committeeProvider);
-    }
   }
 }
 

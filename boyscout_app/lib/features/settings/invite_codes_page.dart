@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../core/wood_grain_background.dart';
 import '../../core/supabase_config.dart';
 
 class _InviteCode {
@@ -46,6 +47,7 @@ class InviteCodesPage extends ConsumerWidget {
     final async = ref.watch(_inviteCodesProvider);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('招待コード'),
         actions: [
@@ -60,33 +62,36 @@ class InviteCodesPage extends ConsumerWidget {
         icon: const Icon(Icons.add),
         label: const Text('新しく発行'),
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('エラー: $e')),
-        data: (codes) {
-          if (codes.isEmpty) {
-            return const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.vpn_key_outlined, size: 48, color: Colors.grey),
-                  SizedBox(height: 8),
-                  Text('招待コードがまだありません'),
-                  SizedBox(height: 4),
-                  Text('右下のボタンから発行してください',
-                      style: TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('エラー: $e')),
+          data: (codes) {
+            if (codes.isEmpty) {
+              return const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.vpn_key_outlined, size: 48, color: Colors.grey),
+                    SizedBox(height: 8),
+                    Text('招待コードがまだありません'),
+                    SizedBox(height: 4),
+                    Text('右下のボタンから発行してください',
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
+                  ],
+                ),
+              );
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
+              itemCount: codes.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => _InviteCodeCard(code: codes[i]),
             );
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 80),
-            itemCount: codes.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) => _InviteCodeCard(code: codes[i]),
-          );
-        },
-      ),
+          },
+        ),
+      ]),
     );
   }
 

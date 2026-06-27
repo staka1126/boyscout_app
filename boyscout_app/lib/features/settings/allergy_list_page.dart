@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../../core/wood_grain_background.dart';
 import '../../core/constants/app_constants.dart';
 
 class AllergyListPage extends ConsumerWidget {
@@ -13,53 +14,54 @@ class AllergyListPage extends ConsumerWidget {
     final troopId = ref.watch(currentTroopIdProvider);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('アレルギー情報')),
-      body: troopId == null
-          ? const Center(child: Text('先に団情報を登録してください'))
-          : FutureBuilder<List<Scout>>(
-              future: ref.read(scoutRepositoryProvider).getByTroop(troopId),
-              builder: (context, snap) {
-                if (!snap.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final scouts = snap.data!
-                    .where((s) => s.isActive && s.allergies.isNotEmpty)
-                    .toList();
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        troopId == null
+            ? const Center(child: Text('先に団情報を登録してください'))
+            : FutureBuilder<List<Scout>>(
+                future: ref.read(scoutRepositoryProvider).getByTroop(troopId),
+                builder: (context, snap) {
+                  if (!snap.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final scouts = snap.data!
+                      .where((s) => s.isActive && s.allergies.isNotEmpty)
+                      .toList();
 
-                if (scouts.isEmpty) {
-                  return const Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
-                        SizedBox(height: 8),
-                        Text('アレルギーのあるスカウトはいません'),
-                      ],
-                    ),
+                  if (scouts.isEmpty) {
+                    return const Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle_outline, size: 48, color: Colors.green),
+                          SizedBox(height: 8),
+                          Text('アレルギーのあるスカウトはいません'),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final Map<AllergyType, List<Scout>> grouped = {};
+                  for (final type in AllergyType.values) {
+                    final matched = scouts.where((s) => s.allergies.contains(type)).toList()
+                      ..sort((a, b) => a.name.compareTo(b.name));
+                    if (matched.isNotEmpty) grouped[type] = matched;
+                  }
+
+                  return ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      _summaryCard(context, scouts),
+                      const SizedBox(height: 16),
+                      ...grouped.entries.map((entry) =>
+                          _AllergenSection(type: entry.key, scouts: entry.value)),
+                    ],
                   );
-                }
-
-                // アレルゲンごとにスカウトをグループ化
-                final Map<AllergyType, List<Scout>> grouped = {};
-                for (final type in AllergyType.values) {
-                  final matched = scouts.where((s) => s.allergies.contains(type)).toList()
-                    ..sort((a, b) => a.name.compareTo(b.name));
-                  if (matched.isNotEmpty) grouped[type] = matched;
-                }
-
-                return ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    // 全員のアレルギーまとめカード
-                    _summaryCard(context, scouts),
-                    const SizedBox(height: 16),
-                    // アレルゲン別
-                    ...grouped.entries.map((entry) =>
-                        _AllergenSection(type: entry.key, scouts: entry.value)),
-                  ],
-                );
-              },
-            ),
+                },
+              ),
+      ]),
     );
   }
 

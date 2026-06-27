@@ -77,6 +77,12 @@ class UserRepository {
         .map(AppUser.fromMap).toList();
   }
 
+  Future<AppUser?> getById(String id) async {
+    final db = await _db.database;
+    final rows = await db.query('leaders', where: 'id = ?', whereArgs: [id]);
+    return rows.isEmpty ? null : AppUser.fromMap(rows.first);
+  }
+
   Future<AppUser> create({
     required String troopId, required String name, required String email,
     required UserRole role, String? gender, String? phone,
@@ -229,6 +235,23 @@ class ScoutRepository {
 class GuardianRepository {
   final _db = DatabaseHelper.instance;
 
+  Future<Guardian?> getById(String id) async {
+    final db = await _db.database;
+    final rows = await db.query('guardians', where: 'id = ?', whereArgs: [id]);
+    return rows.isEmpty ? null : Guardian.fromMap(rows.first);
+  }
+
+  Future<List<Scout>> getScoutsByGuardian(String guardianId) async {
+    final db = await _db.database;
+    final rows = await db.rawQuery('''
+      SELECT s.* FROM scouts s
+      JOIN scout_guardians sg ON sg.scout_id = s.id
+      WHERE sg.guardian_id = ?
+      ORDER BY s.name
+    ''', [guardianId]);
+    return rows.map(Scout.fromMap).toList();
+  }
+
   Future<List<Guardian>> getAll({String? troopId}) async {
     final db = await _db.database;
     if (troopId != null) {
@@ -325,6 +348,12 @@ class CommitteeRepository {
     final db = await _db.database;
     return (await db.query('committee_members', where: 'troop_id = ?', whereArgs: [troopId], orderBy: 'name'))
         .map(CommitteeMember.fromMap).toList();
+  }
+
+  Future<CommitteeMember?> getById(String id) async {
+    final db = await _db.database;
+    final rows = await db.query('committee_members', where: 'id = ?', whereArgs: [id]);
+    return rows.isEmpty ? null : CommitteeMember.fromMap(rows.first);
   }
 
   Future<CommitteeMember> create({

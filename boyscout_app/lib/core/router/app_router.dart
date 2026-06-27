@@ -19,6 +19,9 @@ import '../../features/settings/users_list_page.dart';
 import '../../features/settings/guardians_list_page.dart';
 import '../../features/settings/committee_list_page.dart';
 import '../../features/settings/committee_form_page.dart';
+import '../../features/settings/user_detail_page.dart';
+import '../../features/settings/guardian_detail_page.dart';
+import '../../features/settings/committee_detail_page.dart';
 import '../../features/settings/phonebook_page.dart';
 import '../../features/settings/allergy_list_page.dart';
 import '../../features/settings/onboarding_page.dart';
@@ -119,8 +122,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(path: 'new', builder: (c, s) => const UserFormPage()),
                   GoRoute(
-                    path: ':id/edit',
-                    builder: (c, s) => UserFormPage(userId: s.pathParameters['id']),
+                    path: ':id',
+                    builder: (c, s) => UserDetailPage(id: s.pathParameters['id']!),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (c, s) => UserFormPage(userId: s.pathParameters['id']),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -130,8 +139,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(path: 'new', builder: (c, s) => const GuardianFormPage()),
                   GoRoute(
-                    path: ':id/edit',
-                    builder: (c, s) => GuardianFormPage(guardianId: s.pathParameters['id']),
+                    path: ':id',
+                    builder: (c, s) => GuardianDetailPage(id: s.pathParameters['id']!),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (c, s) => GuardianFormPage(guardianId: s.pathParameters['id']),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -141,8 +156,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 routes: [
                   GoRoute(path: 'new', builder: (c, s) => const CommitteeFormPage()),
                   GoRoute(
-                    path: ':id/edit',
-                    builder: (c, s) => CommitteeFormPage(memberId: s.pathParameters['id']),
+                    path: ':id',
+                    builder: (c, s) => CommitteeDetailPage(id: s.pathParameters['id']!),
+                    routes: [
+                      GoRoute(
+                        path: 'edit',
+                        builder: (c, s) => CommitteeFormPage(memberId: s.pathParameters['id']),
+                      ),
+                    ],
                   ),
                 ],
               ),

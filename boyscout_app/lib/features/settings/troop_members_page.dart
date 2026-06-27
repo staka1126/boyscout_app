@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../core/wood_grain_background.dart';
 import '../../core/supabase_config.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../auth/auth_service.dart';
@@ -79,6 +80,7 @@ class TroopMembersPage extends ConsumerWidget {
     final async = ref.watch(troopMembersProvider);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         title: const Text('利用者管理'),
         actions: [
@@ -88,25 +90,28 @@ class TroopMembersPage extends ConsumerWidget {
           ),
         ],
       ),
-      body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('エラー: $e')),
-        data: (members) {
-          if (members.isEmpty) {
-            return const Center(child: Text('メンバーがいません'));
-          }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: members.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) => _MemberCard(
-              member: members[i],
-              ref: ref,
-              onChanged: () => ref.invalidate(troopMembersProvider),
-            ),
-          );
-        },
-      ),
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        async.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (e, _) => Center(child: Text('エラー: $e')),
+          data: (members) {
+            if (members.isEmpty) {
+              return const Center(child: Text('メンバーがいません'));
+            }
+            return ListView.separated(
+              padding: const EdgeInsets.all(16),
+              itemCount: members.length,
+              separatorBuilder: (_, __) => const SizedBox(height: 8),
+              itemBuilder: (_, i) => _MemberCard(
+                member: members[i],
+                ref: ref,
+                onChanged: () => ref.invalidate(troopMembersProvider),
+              ),
+            );
+          },
+        ),
+      ]),
     );
   }
 }

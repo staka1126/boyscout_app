@@ -5,6 +5,7 @@ import '../../core/constants/app_constants.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
+import '../../core/wood_grain_background.dart';
 import '../dashboard/dashboard_page.dart';
 
 // スカウトリストと共通の分類順
@@ -30,7 +31,7 @@ class _GuardianWithScout {
   _GuardianWithScout({required this.guardian, this.linkedScout});
 }
 
-final _guardiansProvider = FutureProvider<List<_GuardianWithScout>>((ref) async {
+final guardiansProvider = FutureProvider<List<_GuardianWithScout>>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
   if (troopId == null) return [];
 
@@ -104,14 +105,15 @@ class _GuardiansListPageState extends ConsumerState<GuardiansListPage> {
 
   @override
   Widget build(BuildContext context) {
-    final async = ref.watch(_guardiansProvider);
+    final async = ref.watch(guardiansProvider);
     final troopId = ref.watch(currentTroopIdProvider);
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('保護者管理')),
-      body: troopId == null
-          ? _NoTroopView()
-          : async.when(
+      body: Stack(children: [
+        const WoodGrainBackground(),
+        troopId == null ? _NoTroopView() : async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('エラー: $e')),
         data: (items) {
@@ -160,32 +162,20 @@ class _GuardiansListPageState extends ConsumerState<GuardiansListPage> {
                   ),
                   title: Text(g.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                   subtitle: Text(subtitle.isEmpty ? '連絡先未登録' : subtitle),
-                  trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-                    IconButton(
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () async {
-                        await context.push('/settings/guardians/${g.id}/edit');
-                        ref.invalidate(_guardiansProvider);
-                        ref.invalidate(dashboardProvider);
-                      },
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.delete_outline,
-                          color: Theme.of(context).colorScheme.error),
-                      onPressed: () => _confirmDelete(context, ref, g),
-                    ),
-                  ]),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/settings/guardians/${g.id}'),
                 ),
               );
             },
           );
         },
       ),
+      ]),
       floatingActionButton: troopId != null
           ? FloatingActionButton(
               onPressed: () async {
                 await context.push('/settings/guardians/new');
-                ref.invalidate(_guardiansProvider);
+                ref.invalidate(guardiansProvider);
               },
               tooltip: '保護者を追加',
               child: const Icon(Icons.person_add_outlined),
@@ -194,36 +184,6 @@ class _GuardiansListPageState extends ConsumerState<GuardiansListPage> {
     );
   }
 
-  Future<void> _confirmDelete(
-      BuildContext context, WidgetRef ref, Guardian guardian) async {
-    final canDelete = await ref.read(guardianRepositoryProvider).canDelete(guardian.id);
-    if (!context.mounted) return;
-
-    if (!canDelete) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('スカウトと紐付いているため削除できません')));
-      return;
-    }
-
-    final ok = await showDialog<bool>(context: context,
-      builder: (dlgCtx) => AlertDialog(
-        title: const Text('保護者を削除'),
-        content: Text('${guardian.name} を削除しますか？'),
-        actions: [
-          TextButton(onPressed: () => Navigator.of(dlgCtx).pop(false), child: const Text('キャンセル')),
-          FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () => Navigator.of(dlgCtx).pop(true),
-            child: const Text('削除'),
-          ),
-        ],
-      ));
-
-    if (ok == true && context.mounted) {
-      await ref.read(guardianRepositoryProvider).delete(guardian.id);
-      ref.invalidate(_guardiansProvider);
-    }
-  }
 }
 
 class _NoTroopView extends StatelessWidget {
