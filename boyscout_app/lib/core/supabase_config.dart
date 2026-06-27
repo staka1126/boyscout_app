@@ -19,12 +19,11 @@ class SupabaseConfig {
   static Future<void> initialize() async {
     assert(supabaseUrl.isNotEmpty, 'SUPABASE_URL が設定されていません');
     assert(supabaseAnonKey.isNotEmpty, 'SUPABASE_ANON_KEY が設定されていません');
-
     await Supabase.initialize(
       url: supabaseUrl,
       anonKey: supabaseAnonKey,
       authOptions: const FlutterAuthClientOptions(
-        authFlowType: AuthFlowType.implicit,
+        authFlowType: AuthFlowType.pkce,
       ),
     );
   }

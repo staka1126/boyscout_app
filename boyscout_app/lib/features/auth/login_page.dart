@@ -201,7 +201,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
         password: password,
       );
       if (mounted) {
-        _showMessage('登録が完了しました。ログインしてください。');
+        _showMessage('確認メールを送信しました。メール内のリンクをクリックして登録を完了してください。');
         _tabController.animateTo(0);
       }
     } catch (e) {
