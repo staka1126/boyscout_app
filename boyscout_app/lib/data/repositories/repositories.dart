@@ -534,14 +534,6 @@ class AttendanceRepository {
   Future<void> updateStatus(String id, AttendanceStatus status) async {
     final db = await _db.database;
     await db.update('attendances', {'status': status.value}, where: 'id = ?', whereArgs: [id]);
-    // attendance から event → troop を辿って同期
-    final rows = await db.query('attendances', where: 'id = ?', whereArgs: [id]);
-    if (rows.isNotEmpty) {
-      final eventId = rows.first['event_id'] as String;
-      final eventRows = await db.query('events', where: 'id = ?', whereArgs: [eventId]);
-      final troopId = eventRows.isNotEmpty ? eventRows.first['troop_id'] as String? : null;
-      if (troopId != null) await _syncIfNeeded(troopId);
-    }
   }
 
   Future<void> remove(String id) async {

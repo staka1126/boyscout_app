@@ -442,6 +442,7 @@ ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DE
 
 - `troop_members`：自分の行のみSELECT可（再帰防止）
 - `leaders/scouts/events`等：SELECT は所属団のデータ全員可、INSERT/UPDATE/DELETE は admin・member のみ
+- `attendances`：SELECT は全員可、INSERT/UPDATE/DELETE は admin・member・limited 可（出欠入力のため）
 - `profiles`：自分 OR 同じ団のメンバーが参照可
 - 管理者操作（メンバー一覧・ロール変更・退会）はすべて `SECURITY DEFINER` のRPC関数経由
 
@@ -472,15 +473,17 @@ ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DE
 - **Supabaseがマスター**、ローカルSQLiteはオフラインキャッシュ（Last-Write-Wins）
 - Supabase → ローカル：`syncFromSupabase`
 - ローカル → Supabase：`syncToSupabase`（各リポジトリの CRUD 操作後に自動呼び出し）
+- **limited ロールは `syncToSupabase` で `attendances` のみアップロード**（他テーブルはRLSで拒否されるためスキップ）
 
 ### 同期タイミング一覧
 
-#### Supabase → ローカル（syncFromSupabase）
+#### Supabase → ローカル（syncFromSupabase / イベント詳細同期）
 | タイミング | 場所 |
 |---|---|
 | アプリ起動時（ログイン済み） | `initTroopProvider` |
 | 招待コードで団に参加したとき | `OnboardingPage._showInviteCodeDialog` |
-| ダッシュボードの更新ボタン押下 | `DashboardPage` AppBar |
+| ダッシュボードの更新ボタン押下（force） | `DashboardPage` AppBar |
+| イベント詳細を開いたとき（該当イベントのみ） | `EventDetailPage.initState` |
 | DEVモード: DBリセット＋同期ボタン | `_dev_reset_patch.dart`（kDebugModeのみ） |
 
 #### ローカル → Supabase（syncToSupabase）
@@ -494,12 +497,14 @@ ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DE
 | committee_members | create / update / delete |
 | events | create / update / delete |
 | event_leaf_badges | upsert |
-| attendances | createDefaults / add / updateStatus |
+| attendances | createDefaults / add |
+| attendances（出欠変更） | イベント詳細を**閉じるとき**に一括アップロード |
 | event_stats | saveForEvent（イベント確定時） |
 
 - ログイン済み（`SupabaseConfig.isSignedIn`）の場合のみ実行。未ログイン時はスキップ
-- アップロード失敗はローカル操作に影響しない（エラーを握り潰す）
+- アップロード失敗はローカル操作に影響しない（テーブルごとに個別 try-catch）
 - `syncFromSupabase` は `_isSyncing` フラグで多重実行を防止
+- イベント詳細の出欠変更は画面を閉じるときに一括アップロード（操作ごとの同期なし）
 - リアルタイム（プッシュ型）同期は未実装。他ユーザーの変更はダッシュボードの更新ボタンで手動取得する
 
 ### ログイン時の処理

@@ -11,6 +11,7 @@ import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/supabase_config.dart';
+import '../../data/sync/sync_service.dart';
 import '../dashboard/dashboard_page.dart';
 import '../badges/badges_page.dart';
 import 'events_page.dart';
@@ -22,40 +23,6 @@ Map<String, dynamic> _normalizeRow(Map<String, dynamic> row) =>
 
 final _eventDetailProvider =
     FutureProvider.autoDispose.family<_EventDetailData?, String>((ref, id) async {
-  // 該当イベントのデータだけSupabaseから同期
-  if (SupabaseConfig.isSignedIn) {
-    try {
-      final db = await DatabaseHelper.instance.database;
-      // attendances
-      final attRows = await SupabaseConfig.client
-          .from('attendances')
-          .select()
-          .eq('event_id', id);
-      for (final row in attRows as List) {
-        await db.insert('attendances', _normalizeRow(row),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      }
-      // event_leaf_badges
-      final badgeRows = await SupabaseConfig.client
-          .from('event_leaf_badges')
-          .select()
-          .eq('event_id', id);
-      for (final row in badgeRows as List) {
-        await db.insert('event_leaf_badges', _normalizeRow(row),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      }
-      // event自体
-      final eventRows = await SupabaseConfig.client
-          .from('events')
-          .select()
-          .eq('id', id);
-      for (final row in eventRows as List) {
-        await db.insert('events', _normalizeRow(row),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      }
-    } catch (_) {}
-  }
-
   final event = await ref.read(eventRepositoryProvider).getById(id);
   if (event == null) return null;
   final badges = await ref.read(eventRepositoryProvider).getLeafBadges(id);
@@ -121,12 +88,60 @@ class _EventDetailData {
   List<Attendance> get others => [...guardians, ...committees];
 }
 
-class EventDetailPage extends ConsumerWidget {
+class EventDetailPage extends ConsumerStatefulWidget {
   final String id;
   const EventDetailPage({super.key, required this.id});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<EventDetailPage> createState() => _EventDetailPageState();
+}
+
+class _EventDetailPageState extends ConsumerState<EventDetailPage> {
+  String get id => widget.id;
+  String? _troopId;
+
+  @override
+  void initState() {
+    super.initState();
+    _syncOnOpen();
+  }
+
+  @override
+  void dispose() {
+    _syncOnClose();
+    super.dispose();
+  }
+
+  void _syncOnClose() {
+    if (!SupabaseConfig.isSignedIn || _troopId == null) return;
+    SyncService.instance.syncToSupabase(_troopId!).then((_) {}).catchError((_) {});
+  }
+
+  Future<void> _syncOnOpen() async {
+    if (!SupabaseConfig.isSignedIn) return;
+    try {
+      final db = await DatabaseHelper.instance.database;
+      final eventRows = await SupabaseConfig.client.from('events').select().eq('id', id);
+      for (final row in eventRows as List) {
+        await db.insert('events', _normalizeRow(row), conflictAlgorithm: ConflictAlgorithm.replace);
+        _troopId ??= (row as Map)['troop_id'] as String?;
+      }
+      // attendances
+      final attRows = await SupabaseConfig.client.from('attendances').select().eq('event_id', id);
+      for (final row in attRows as List) {
+        await db.insert('attendances', _normalizeRow(row), conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      // event_leaf_badges
+      final badgeRows = await SupabaseConfig.client.from('event_leaf_badges').select().eq('event_id', id);
+      for (final row in badgeRows as List) {
+        await db.insert('event_leaf_badges', _normalizeRow(row), conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      if (mounted) ref.invalidate(_eventDetailProvider(id));
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final async = ref.watch(_eventDetailProvider(id));
     return async.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
