@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/local/database_helper.dart';
 import '../../data/local/event_stats_service.dart';
+import 'package:sqflite/sqflite.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
@@ -16,8 +17,45 @@ import 'events_page.dart';
 
 const _uuid = Uuid();
 
+Map<String, dynamic> _normalizeRow(Map<String, dynamic> row) =>
+    row.map((k, v) => v is bool ? MapEntry(k, v ? 1 : 0) : MapEntry(k, v));
+
 final _eventDetailProvider =
     FutureProvider.autoDispose.family<_EventDetailData?, String>((ref, id) async {
+  // 該当イベントのデータだけSupabaseから同期
+  if (SupabaseConfig.isSignedIn) {
+    try {
+      final db = await DatabaseHelper.instance.database;
+      // attendances
+      final attRows = await SupabaseConfig.client
+          .from('attendances')
+          .select()
+          .eq('event_id', id);
+      for (final row in attRows as List) {
+        await db.insert('attendances', _normalizeRow(row),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      // event_leaf_badges
+      final badgeRows = await SupabaseConfig.client
+          .from('event_leaf_badges')
+          .select()
+          .eq('event_id', id);
+      for (final row in badgeRows as List) {
+        await db.insert('event_leaf_badges', _normalizeRow(row),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      // event自体
+      final eventRows = await SupabaseConfig.client
+          .from('events')
+          .select()
+          .eq('id', id);
+      for (final row in eventRows as List) {
+        await db.insert('events', _normalizeRow(row),
+            conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+    } catch (_) {}
+  }
+
   final event = await ref.read(eventRepositoryProvider).getById(id);
   if (event == null) return null;
   final badges = await ref.read(eventRepositoryProvider).getLeafBadges(id);

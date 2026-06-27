@@ -9,6 +9,8 @@ import '../../data/models/models.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/sync/sync_service.dart';
+import '../../features/events/events_page.dart';
+import '../../features/scouts/scouts_page.dart';
 
 final _dashboardRoleProvider = FutureProvider.autoDispose<String?>((ref) async {
   final user = SupabaseConfig.currentUser;
@@ -104,6 +106,8 @@ class DashboardPage extends ConsumerWidget {
               await SyncService.instance.syncFromSupabase(troopId, force: true);
             } catch (_) {}
             ref.invalidate(dashboardProvider);
+            ref.invalidate(eventsProvider);
+            ref.invalidate(scoutsProvider);
           }),
         ],
       ),
