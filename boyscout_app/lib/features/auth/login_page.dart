@@ -289,60 +289,65 @@ class _LoginPageState extends ConsumerState<LoginPage>
             child: Center(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(24),
-                child: Card(
-                  elevation: 4,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.nature_people,
-                            size: 56, color: Colors.brown),
-                        const SizedBox(height: 8),
-                        Text(
-                          'ビーバーログ',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall
-                              ?.copyWith(fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 24),
-                        TabBar(
-                          controller: _tabController,
-                          tabs: const [
-                            Tab(text: 'ログイン'),
-                            Tab(text: '新規登録'),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Card(
+                      elevation: 4,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.nature_people,
+                                size: 56, color: Colors.brown),
+                            const SizedBox(height: 8),
+                            Text(
+                              'ビーバーログ',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .headlineSmall
+                                  ?.copyWith(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 24),
+                            TabBar(
+                              controller: _tabController,
+                              tabs: const [
+                                Tab(text: 'ログイン'),
+                                Tab(text: '新規登録'),
+                              ],
+                            ),
+                            const SizedBox(height: 24),
+                            SizedBox(
+                              height: kDebugMode ? 340 : 280,
+                              child: TabBarView(
+                                controller: _tabController,
+                                children: [
+                                  _buildLoginForm(),
+                                  _buildSignupForm(),
+                                ],
+                              ),
+                            ),
                           ],
                         ),
-                        const SizedBox(height: 24),
-                        SizedBox(
-                          height: kDebugMode ? 340 : 280,
-                          child: TabBarView(
-                            controller: _tabController,
-                            children: [
-                              _buildLoginForm(),
-                              _buildSignupForm(),
-                            ],
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextButton.icon(
-                  onPressed: () => launchUrl(
-                    Uri.parse('https://staka1126.github.io/boyscout_app/'),
-                    mode: LaunchMode.externalApplication,
-                  ),
-                  icon: const Icon(Icons.help_outline, size: 16),
-                  label: const Text('使い方'),
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white70,
-                  ),
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: () => launchUrl(
+                        Uri.parse('https://staka1126.github.io/boyscout_app/'),
+                        mode: LaunchMode.externalApplication,
+                      ),
+                      icon: const Icon(Icons.help_outline, size: 16),
+                      label: const Text('使い方'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white70,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
