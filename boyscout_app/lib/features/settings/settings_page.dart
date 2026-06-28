@@ -192,20 +192,19 @@ class SettingsPage extends ConsumerWidget {
               ),  
             ),
             const Divider(),
-
-            ListTile(
-              leading: const Icon(Icons.help_outline),
-              title: const Text('使い方'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => launchUrl(
-                Uri.parse('https://staka1126.github.io/boyscout_app/manual/index.html'),
-                mode: LaunchMode.externalApplication,
-              ),
-            ),
-            const Divider(),
           ],
 
-          if (isAdmin) ...[
+          ListTile(
+            leading: const Icon(Icons.help_outline),
+            title: const Text('使い方'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => launchUrl(
+              Uri.parse('https://staka1126.github.io/boyscout_app/manual/index.html'),
+              mode: LaunchMode.externalApplication,
+            ),
+          ),
+
+          const Divider(),          if (isAdmin) ...[
             _tile(context, Icons.supervised_user_circle_outlined, '利用者管理', '/settings/members'),
             _tile(context, Icons.vpn_key_outlined, '招待コード', '/settings/invite-codes'),
             _LongPressBatchTile(context: context),
