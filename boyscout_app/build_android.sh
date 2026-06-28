@@ -18,30 +18,59 @@ if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
   exit 1
 fi
 
-echo "=== Android APK ビルド開始 ==="
-flutter build apk --release \
-  --dart-define=SUPABASE_URL="$SUPABASE_URL" \
-  --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+# オプション解析
+BUILD_AAB=false
+for arg in "$@"; do
+  case "$arg" in
+    --release) BUILD_AAB=true ;;
+  esac
+done
 
-APK_PATH="$SCRIPT_DIR/build/app/outputs/flutter-apk/app-release.apk"
+if [ "$BUILD_AAB" = true ]; then
+  echo "=== Android AAB ビルド開始 (Play Store用) ==="
+  flutter build appbundle --release \
+    --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+    --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
 
-if [ ! -f "$APK_PATH" ]; then
-  echo "エラー: APKが見つかりません: $APK_PATH"
-  exit 1
-fi
+  AAB_PATH="$SCRIPT_DIR/build/app/outputs/bundle/release/app-release.aab"
 
-echo ""
-echo "=== ビルド完了 ==="
-ls -lh "$APK_PATH"
+  if [ ! -f "$AAB_PATH" ]; then
+    echo "エラー: AABが見つかりません: $AAB_PATH"
+    exit 1
+  fi
 
-# ADB転送（デバイスが接続されていれば）
-if adb devices | grep -q "device$"; then
   echo ""
-  echo "=== デバイスへインストール中 ==="
-  adb install -r --no-streaming "$APK_PATH"
-  echo "=== インストール完了 ==="
+  echo "=== ビルド完了 ==="
+  ls -lh "$AAB_PATH"
+  echo ""
+  echo "Play Console にアップロードしてください："
+  echo "  $AAB_PATH"
 else
+  echo "=== Android APK ビルド開始 ==="
+  flutter build apk --release \
+    --dart-define=SUPABASE_URL="$SUPABASE_URL" \
+    --dart-define=SUPABASE_ANON_KEY="$SUPABASE_ANON_KEY"
+
+  APK_PATH="$SCRIPT_DIR/build/app/outputs/flutter-apk/app-release.apk"
+
+  if [ ! -f "$APK_PATH" ]; then
+    echo "エラー: APKが見つかりません: $APK_PATH"
+    exit 1
+  fi
+
   echo ""
-  echo "デバイスが接続されていません。APKは以下にあります："
-  echo "  $APK_PATH"
+  echo "=== ビルド完了 ==="
+  ls -lh "$APK_PATH"
+
+  # ADB転送（デバイスが接続されていれば）
+  if adb devices | grep -q "device$"; then
+    echo ""
+    echo "=== デバイスへインストール中 ==="
+    adb install -r --no-streaming "$APK_PATH"
+    echo "=== インストール完了 ==="
+  else
+    echo ""
+    echo "デバイスが接続されていません。APKは以下にあります："
+    echo "  $APK_PATH"
+  fi
 fi

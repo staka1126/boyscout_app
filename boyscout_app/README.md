@@ -16,10 +16,19 @@ flutter pub get
 ```bash
 # Android実機 or エミュレータ
 flutter run
-
-# リリースビルド
-flutter build apk --release
 ```
+
+### Androidビルド（build_android.sh）
+```bash
+# APKビルド（デバイスへ直接インストール）
+./build_android.sh
+
+# AABビルド（Google Play Store公開用）
+./build_android.sh --release
+# → build/app/outputs/bundle/release/app-release.aab
+```
+
+Supabase の接続情報は `.env` から自動読み込み。
 
 ---
 

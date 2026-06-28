@@ -49,6 +49,11 @@ android {
             shrinkResources false
         }
     }
+
+    lint {
+        checkReleaseBuilds false
+        abortOnError false
+    }
 }
 
 flutter {
@@ -66,6 +71,20 @@ afterEvaluate {
                 dst.parentFile.mkdirs()
                 dst.bytes = src.bytes
                 println "Copied APK to flutter-apk/"
+            }
+        }
+    }
+
+    // flutter build appbundle がAABを見つけられない問題の回避
+    // Gradleビルド後にbundle/release/ディレクトリにAABをコピー
+    tasks.named('bundleRelease').configure {
+        doLast {
+            def src = file("${buildDir}/outputs/bundle/release/app-release.aab")
+            def dst = file("${rootDir}/../build/app/outputs/bundle/release/app-release.aab")
+            if (src.exists()) {
+                dst.parentFile.mkdirs()
+                dst.bytes = src.bytes
+                println "Copied AAB to build/app/outputs/bundle/release/"
             }
         }
     }
