@@ -189,7 +189,7 @@ class SettingsPage extends ConsumerWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const ReportPage()),
-              ),
+              ),  
             ),
             const Divider(),
 
@@ -198,7 +198,7 @@ class SettingsPage extends ConsumerWidget {
               title: const Text('使い方'),
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
-                final uri = Uri.parse('https://staka1126.github.io/boyscout_app/manual/');
+                final uri = Uri.parse('https://staka1126.github.io/boyscout_app/manual/index.html');
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
                 }

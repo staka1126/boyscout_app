@@ -338,7 +338,7 @@ class _LoginPageState extends ConsumerState<LoginPage>
                     const SizedBox(height: 16),
                     TextButton.icon(
                       onPressed: () => launchUrl(
-                        Uri.parse('https://staka1126.github.io/boyscout_app/'),
+                        Uri.parse('https://staka1126.github.io/boyscout_app/manual/index.html'),
                         mode: LaunchMode.externalApplication,
                       ),
                       icon: const Icon(Icons.help_outline, size: 16),
