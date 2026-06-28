@@ -15,7 +15,7 @@ import '../auth/auth_service.dart';
 import '../auth/auth_provider.dart';
 import 'excel_import_page.dart';
 import 'batch_register_page.dart';
-import '../dashboard/help_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'report_page.dart';
 
 final _currentProfileProvider = FutureProvider<Map<String, String?>>((ref) async {
@@ -197,9 +197,12 @@ class SettingsPage extends ConsumerWidget {
               leading: const Icon(Icons.help_outline),
               title: const Text('使い方'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const HelpPage()),
-              ),
+              onTap: () async {
+                final uri = Uri.parse('https://staka1126.github.io/boyscout_app/manual/');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
             ),
             const Divider(),
           ],

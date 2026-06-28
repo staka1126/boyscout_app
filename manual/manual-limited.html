@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>制限ユーザーマニュアル - ビーバーログ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #f5f5f5; color: #333; line-height: 1.7; }
+  header { background: #2e7d32; color: white; padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+  header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: 0.85; }
+  header a:hover { opacity: 1; }
+  header h1 { font-size: 1.2rem; }
+  .badge { display: inline-block; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px; background: #c8e6c9; color: #333; margin-left: 8px; vertical-align: middle; }
+  nav { background: white; border-bottom: 1px solid #e0e0e0; padding: 0 20px; position: sticky; top: 0; z-index: 10; overflow-x: auto; white-space: nowrap; }
+  nav a { display: inline-block; padding: 12px 16px; font-size: 0.85rem; color: #2e7d32; text-decoration: none; border-bottom: 2px solid transparent; }
+  nav a:hover { border-bottom-color: #2e7d32; }
+  main { max-width: 800px; margin: 0 auto; padding: 32px 20px 64px; }
+  section { margin-bottom: 48px; }
+  h2 { font-size: 1.3rem; color: #2e7d32; border-left: 4px solid #2e7d32; padding-left: 12px; margin-bottom: 20px; scroll-margin-top: 60px; }
+  h3 { font-size: 1.05rem; margin: 24px 0 10px; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
+  p { margin-bottom: 12px; }
+  ul, ol { padding-left: 1.5em; margin-bottom: 12px; }
+  li { margin-bottom: 6px; }
+  .note { background: #e8f5e9; border-left: 4px solid #2e7d32; padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; margin: 12px 0; }
+  .warn { background: #fff3e0; border-left: 4px solid #f57c00; padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; margin: 12px 0; }
+  .img-placeholder { background: #e0e0e0; border: 2px dashed #bbb; border-radius: 8px; padding: 40px; text-align: center; color: #999; font-size: 0.85rem; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 12px 0; }
+  th { background: #2e7d32; color: white; padding: 8px 12px; text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e0e0e0; }
+  tr:nth-child(even) td { background: #f9f9f9; }
+  .limit-box { background: #fce4ec; border: 1px solid #e57373; border-radius: 8px; padding: 16px 20px; margin: 16px 0; font-size: 0.9rem; }
+  .limit-box h4 { color: #c62828; margin-bottom: 8px; }
+  footer { text-align: center; margin-top: 48px; font-size: 0.8rem; color: #999; }
+</style>
+</head>
+<body>
+<header>
+  <a href="index.html">← 戻る</a>
+  <h1>制限ユーザーマニュアル <span class="badge">limited</span></h1>
+</header>
+<nav>
+  <a href="#overview">概要</a>
+  <a href="#dashboard">ホーム</a>
+  <a href="#scouts">スカウト</a>
+  <a href="#events">イベント</a>
+  <a href="#badges">表彰</a>
+  <a href="#settings">設定</a>
+</nav>
+<main>
+
+<section id="overview">
+  <h2>概要</h2>
+  <p>制限ユーザー（limited）は保護者・団委員など、閲覧と出欠入力を主な目的とするユーザー向けのロールです。</p>
+
+  <div class="limit-box">
+    <h4>⚠️ このロールでできないこと</h4>
+    <ul>
+      <li>スカウト・リーダー・保護者・団委員の追加・編集・削除</li>
+      <li>イベントの追加・編集・削除</li>
+      <li>イベントステータスの変更（予定→確定など）</li>
+      <li>木の葉章配布設定の変更</li>
+      <li>小枝章の授与</li>
+      <li>保護者の紐付け操作</li>
+    </ul>
+  </div>
+
+  <div class="note">出欠ステータス（出席・欠席・未定）の変更は行えます。</div>
+</section>
+
+<section id="dashboard">
+  <h2>ホーム（ダッシュボード）</h2>
+  <div class="img-placeholder">📸 ダッシュボード画面のスクリーンショット</div>
+  <p>アプリ起動時に表示されるトップ画面です。以下の情報を確認できます。</p>
+  <ul>
+    <li>今月のイベント数・スカウト数・平均出席率・小枝章授与待ち数</li>
+    <li>直近2ヶ月のイベント一覧</li>
+    <li>今月誕生日のスカウト</li>
+  </ul>
+  <div class="note">イベント追加ボタン（＋）は表示されません。</div>
+</section>
+
+<section id="scouts">
+  <h2>スカウト（閲覧のみ）</h2>
+  <div class="img-placeholder">📸 スカウト一覧画面のスクリーンショット</div>
+  <p>スカウトの情報を閲覧できます。</p>
+  <ul>
+    <li>氏名検索・分類フィルタで絞り込み可能</li>
+    <li>スカウト詳細（基本情報・木の葉章・アレルギー情報）を確認可能</li>
+  </ul>
+  <div class="warn">スカウトの追加・編集・削除ボタンは表示されません。</div>
+</section>
+
+<section id="events">
+  <h2>イベント（出欠入力のみ）</h2>
+  <div class="img-placeholder">📸 イベント一覧画面のスクリーンショット</div>
+  <p>イベントの情報を確認し、出欠ステータスを変更できます。</p>
+
+  <h3>出欠ステータスを変更する</h3>
+  <ol>
+    <li>イベント一覧から対象のイベントをタップ</li>
+    <li>出欠管理セクションで自分（または担当スカウト）の行を確認</li>
+    <li>アイコンをタップして <strong>出席（✓）・欠席（×）・未定（—）</strong> を切り替え</li>
+  </ol>
+  <div class="img-placeholder">📸 出欠管理セクションのスクリーンショット</div>
+
+  <div class="warn">イベントの追加・編集・削除、ステータス変更（確定・非開催）、木の葉章配布設定の変更はできません。</div>
+
+  <h3>ステータスの見方</h3>
+  <table>
+    <tr><th>ステータス</th><th>説明</th></tr>
+    <tr><td>予定</td><td>開催予定のイベント</td></tr>
+    <tr><td>確定</td><td>実施済み。木の葉章が反映されています</td></tr>
+    <tr><td>非開催</td><td>中止・延期になったイベント</td></tr>
+  </table>
+</section>
+
+<section id="badges">
+  <h2>表彰（閲覧のみ）</h2>
+  <div class="img-placeholder">📸 表彰画面のスクリーンショット</div>
+  <p>スカウトの表彰状況を確認できます。</p>
+  <ul>
+    <li><strong>入隊タブ</strong>：入隊日未入力のスカウト一覧</li>
+    <li><strong>小枝章タブ</strong>：小枝章授与待ちのスカウト一覧</li>
+    <li><strong>木の葉章タブ</strong>：木の葉章の取得枚数・進捗</li>
+    <li><strong>皆勤賞タブ</strong>：年度ごとの皆勤賞該当スカウト</li>
+  </ul>
+  <div class="warn">小枝章の授与操作はできません。</div>
+</section>
+
+<section id="settings">
+  <h2>設定</h2>
+  <p>設定画面の上部に団名・ログインユーザー名・ロールバッジが表示されます。ログアウトは右上のアイコンボタンから行います。</p>
+
+  <h3>利用できる設定メニュー</h3>
+  <table>
+    <tr><th>メニュー</th><th>内容</th></tr>
+    <tr><td>団情報</td><td>団名・場所・連絡先の確認（編集不可）</td></tr>
+    <tr><td>リーダー</td><td>リーダー一覧の確認（編集不可）</td></tr>
+    <tr><td>保護者</td><td>保護者一覧の確認（編集不可）</td></tr>
+    <tr><td>団委員ほか</td><td>団委員等の確認（編集不可）</td></tr>
+    <tr><td>電話帳</td><td>全員の連絡先一覧（電話・メール起動可）</td></tr>
+    <tr><td>アレルギー情報</td><td>アレルギーのあるスカウトのサマリー</td></tr>
+    <tr><td>アカウントを削除する</td><td>自分のアカウントを削除</td></tr>
+  </table>
+  <div class="note">電話帳では電話・メールボタンでそれぞれのアプリを起動して連絡できます。</div>
+</section>
+
+</main>
+<footer>ビーバーログ 取り扱い説明書 | <a href="index.html">ロール選択に戻る</a></footer>
+</body>
+</html>

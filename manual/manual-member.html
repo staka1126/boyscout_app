@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メンバーマニュアル - ビーバーログ</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #f5f5f5; color: #333; line-height: 1.7; }
+  header { background: #1565c0; color: white; padding: 16px 20px; display: flex; align-items: center; gap: 12px; }
+  header a { color: white; text-decoration: none; font-size: 0.9rem; opacity: 0.85; }
+  header a:hover { opacity: 1; }
+  header h1 { font-size: 1.2rem; }
+  .badge { display: inline-block; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px; background: #90caf9; color: #333; margin-left: 8px; vertical-align: middle; }
+  nav { background: white; border-bottom: 1px solid #e0e0e0; padding: 0 20px; position: sticky; top: 0; z-index: 10; overflow-x: auto; white-space: nowrap; }
+  nav a { display: inline-block; padding: 12px 16px; font-size: 0.85rem; color: #1565c0; text-decoration: none; border-bottom: 2px solid transparent; }
+  nav a:hover { border-bottom-color: #1565c0; }
+  main { max-width: 800px; margin: 0 auto; padding: 32px 20px 64px; }
+  section { margin-bottom: 48px; }
+  h2 { font-size: 1.3rem; color: #1565c0; border-left: 4px solid #1565c0; padding-left: 12px; margin-bottom: 20px; scroll-margin-top: 60px; }
+  h3 { font-size: 1.05rem; margin: 24px 0 10px; color: #333; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; }
+  p { margin-bottom: 12px; }
+  ul, ol { padding-left: 1.5em; margin-bottom: 12px; }
+  li { margin-bottom: 6px; }
+  .note { background: #e3f2fd; border-left: 4px solid #1565c0; padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; margin: 12px 0; }
+  .warn { background: #fff3e0; border-left: 4px solid #f57c00; padding: 12px 16px; border-radius: 4px; font-size: 0.9rem; margin: 12px 0; }
+  .img-placeholder { background: #e0e0e0; border: 2px dashed #bbb; border-radius: 8px; padding: 40px; text-align: center; color: #999; font-size: 0.85rem; margin: 16px 0; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin: 12px 0; }
+  th { background: #1565c0; color: white; padding: 8px 12px; text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #e0e0e0; }
+  tr:nth-child(even) td { background: #f9f9f9; }
+  footer { text-align: center; margin-top: 48px; font-size: 0.8rem; color: #999; }
+</style>
+</head>
+<body>
+<header>
+  <a href="index.html">← 戻る</a>
+  <h1>メンバーマニュアル <span class="badge">member</span></h1>
+</header>
+<nav>
+  <a href="#overview">概要</a>
+  <a href="#dashboard">ホーム</a>
+  <a href="#scouts">スカウト</a>
+  <a href="#events">イベント</a>
+  <a href="#badges">表彰</a>
+  <a href="#settings">設定</a>
+</nav>
+<main>
+
+<section id="overview">
+  <h2>概要</h2>
+  <p>メンバー（member）はスカウト・イベント・表彰の登録・編集など主要な操作が行えます。利用者管理・招待コード発行などの管理者専用機能は使用できません。</p>
+  <div class="note">管理者との違いは「利用者管理」と「招待コード」メニューが表示されない点のみです。その他の操作は同じです。</div>
+</section>
+
+<section id="dashboard">
+  <h2>ホーム（ダッシュボード）</h2>
+  <p>アプリ起動時に表示されるトップ画面です。</p>
+  <div class="img-placeholder">📸 ダッシュボード画面のスクリーンショット</div>
+  <h3>表示内容</h3>
+  <ul>
+    <li><strong>今月のイベント数</strong>・<strong>スカウト数</strong>・<strong>平均出席率</strong>・<strong>小枝章授与待ち数</strong></li>
+    <li>直近2ヶ月のイベント一覧（日付・タイトル・場所・開始時間・ステータス）</li>
+    <li>小枝章授与待ちのスカウトがいる場合はカードで通知</li>
+    <li>今月誕生日のスカウト（氏名・日付・年齢）</li>
+  </ul>
+  <h3>イベントを追加する</h3>
+  <p>画面右下の <strong>＋ボタン（FAB）</strong> をタップしてイベント作成画面へ移動できます。</p>
+</section>
+
+<section id="scouts">
+  <h2>スカウト管理</h2>
+  <div class="img-placeholder">📸 スカウト一覧画面のスクリーンショット</div>
+  <h3>一覧・検索</h3>
+  <ul>
+    <li>氏名検索・分類フィルタで絞り込みができます</li>
+    <li>一覧には氏名・分類・木の葉章枚数・小枝章授与待ちが表示されます</li>
+  </ul>
+  <h3>スカウトを追加する</h3>
+  <ol>
+    <li>右下の <strong>＋ボタン</strong> をタップ</li>
+    <li>氏・名（両方必須）、性別、学年、誕生日、アレルギー、特記事項を入力</li>
+    <li>右上の <strong>保存アイコン</strong> をタップして保存</li>
+  </ol>
+  <div class="note">氏名は「氏」「名」を別フィールドで入力します。保存時にスペースで結合されます。</div>
+
+  <h3>スカウトを編集・削除する</h3>
+  <p>スカウト詳細画面から編集・削除ができます。</p>
+  <div class="warn">出欠履歴または保護者紐付けがある場合は削除できません。</div>
+
+  <h3>スカウト分類</h3>
+  <table>
+    <tr><th>分類</th><th>デフォルト出席</th><th>小枝章対象</th></tr>
+    <tr><td>ビッグビーバー</td><td>○</td><td>○</td></tr>
+    <tr><td>ビーバー</td><td>○</td><td>○</td></tr>
+    <tr><td>仮入隊</td><td>○</td><td>×</td></tr>
+    <tr><td>体験</td><td>○</td><td>×</td></tr>
+    <tr><td>兄弟姉妹</td><td>○</td><td>×</td></tr>
+    <tr><td>上進・退団・入隊せず</td><td>×</td><td>×</td></tr>
+  </table>
+
+  <h3>保護者の紐付け</h3>
+  <p>スカウト詳細画面の「保護者」セクションから保護者を紐付け・解除できます。</p>
+</section>
+
+<section id="events">
+  <h2>イベント管理</h2>
+  <div class="img-placeholder">📸 イベント一覧画面のスクリーンショット</div>
+  <h3>一覧</h3>
+  <p>年度（4月始まり）ドロップダウンとステータスフィルタで絞り込みができます。</p>
+
+  <h3>イベントを追加する</h3>
+  <ol>
+    <li>右下の <strong>＋ボタン</strong> をタップ</li>
+    <li>タイトル・開催日・開始時間・終了時間・場所・備考を入力</li>
+    <li>右上の <strong>保存アイコン</strong> をタップして保存</li>
+  </ol>
+  <div class="note">デフォルトの時間は開始09:30・終了12:00です。</div>
+
+  <h3>イベント詳細・出欠管理</h3>
+  <div class="img-placeholder">📸 イベント詳細画面のスクリーンショット</div>
+  <ul>
+    <li><strong>ステータス</strong>：「予定」「確定」「非開催」の3ボタンで切り替え</li>
+    <li><strong>木の葉章配布設定</strong>：健康・表現・生活・自然・社会の5種別をON/OFF</li>
+    <li><strong>出欠管理</strong>：出席（✓）・欠席（×）・未定（—）をトグル</li>
+    <li><strong>出席者追加</strong>：右下のFABからリーダー・スカウト・保護者・団委員ほかの4タブで追加</li>
+  </ul>
+
+  <h3>イベントを「確定」にする</h3>
+  <ol>
+    <li>ステータスを「確定」に変更</li>
+    <li>確認ダイアログで「OK」</li>
+    <li>出席スカウト全員に木の葉章が自動加算されます</li>
+  </ol>
+  <div class="warn">確定後は出欠の編集・削除・木の葉章設定の変更ができません。</div>
+
+  <h3>ステータスについて</h3>
+  <table>
+    <tr><th>ステータス</th><th>説明</th></tr>
+    <tr><td>予定</td><td>デフォルト。編集可能</td></tr>
+    <tr><td>確定</td><td>木の葉章を反映済み。編集不可</td></tr>
+    <tr><td>非開催</td><td>木の葉章に影響なし。確定済みからは変更不可</td></tr>
+  </table>
+</section>
+
+<section id="badges">
+  <h2>表彰管理</h2>
+  <div class="img-placeholder">📸 表彰画面のスクリーンショット</div>
+
+  <h3>入隊タブ</h3>
+  <p>入隊日が未入力のビーバー・ビッグビーバーを表示します。スカウト詳細から入隊日を入力してください。</p>
+
+  <h3>小枝章タブ</h3>
+  <p>木の葉章10枚ごとに小枝章の権利が発生します。授与待ちスカウトの「授与」ボタンをタップして授与してください。</p>
+
+  <h3>木の葉章タブ</h3>
+  <p>デフォルト出席対象スカウトを木の葉章合計枚数の降順で表示します。</p>
+
+  <h3>皆勤賞タブ</h3>
+  <p>年度内の確定済みイベント全てに出席したビーバー・ビッグビーバーを表示します。</p>
+</section>
+
+<section id="settings">
+  <h2>設定</h2>
+  <p>設定画面の上部に団名・ログインユーザー名・ロールバッジが表示されます。ログアウトは右上のアイコンボタンから行います。</p>
+
+  <h3>利用できる設定メニュー</h3>
+  <table>
+    <tr><th>メニュー</th><th>内容</th></tr>
+    <tr><td>団情報</td><td>団名・場所・連絡先の確認・編集</td></tr>
+    <tr><td>リーダー</td><td>リーダーの追加・編集・削除</td></tr>
+    <tr><td>保護者</td><td>保護者の追加・編集・削除</td></tr>
+    <tr><td>団委員ほか</td><td>団委員等の追加・編集・削除</td></tr>
+    <tr><td>電話帳</td><td>全員の連絡先一覧</td></tr>
+    <tr><td>アレルギー情報</td><td>アレルギーのあるスカウトのサマリー</td></tr>
+    <tr><td>アカウントを削除する</td><td>自分のアカウントを削除</td></tr>
+  </table>
+  <div class="note">「利用者管理」と「招待コード」は管理者のみ表示されます。</div>
+</section>
+
+</main>
+<footer>ビーバーログ 取り扱い説明書 | <a href="index.html">ロール選択に戻る</a></footer>
+</body>
+</html>

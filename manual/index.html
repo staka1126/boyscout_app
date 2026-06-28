@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ビーバーログ 取り扱い説明書</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic", sans-serif; background: #f5f5f5; color: #333; }
+  header { background: #4a7c59; color: white; padding: 24px 20px; text-align: center; }
+  header h1 { font-size: 1.6rem; margin-bottom: 6px; }
+  header p { font-size: 0.9rem; opacity: 0.85; }
+  main { max-width: 600px; margin: 40px auto; padding: 0 20px; }
+  h2 { font-size: 1.1rem; color: #555; margin-bottom: 24px; text-align: center; }
+  .cards { display: flex; flex-direction: column; gap: 16px; }
+  .card { background: white; border-radius: 12px; padding: 24px 28px; text-decoration: none; color: inherit; border: 2px solid transparent; transition: border-color 0.2s, box-shadow 0.2s; display: flex; align-items: center; gap: 20px; }
+  .card:hover { border-color: #4a7c59; box-shadow: 0 4px 12px rgba(74,124,89,0.15); }
+  .card-icon { font-size: 2.4rem; flex-shrink: 0; }
+  .card-body h3 { font-size: 1.15rem; margin-bottom: 4px; }
+  .card-body p { font-size: 0.85rem; color: #666; }
+  .badge { display: inline-block; font-size: 0.7rem; padding: 2px 8px; border-radius: 99px; margin-left: 8px; vertical-align: middle; }
+  .badge-admin { background: #ffd700; color: #555; }
+  .badge-member { background: #90caf9; color: #333; }
+  .badge-limited { background: #c8e6c9; color: #333; }
+  .note { font-size: 0.8rem; color: #e65100; margin-top: 6px; }
+  footer { text-align: center; margin: 48px 0 24px; font-size: 0.8rem; color: #999; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🦫 ビーバーログ</h1>
+  <p>取り扱い説明書</p>
+</header>
+<main>
+  <h2>あなたのロールを選んでください</h2>
+  <div class="cards">
+    <a class="card" href="manual-admin.html">
+      <div class="card-icon">👑</div>
+      <div class="card-body">
+        <h3>管理者 <span class="badge badge-admin">admin</span></h3>
+        <p>団の管理者向け。全機能＋利用者管理・招待コード発行など管理者専用操作を含みます。</p>
+      </div>
+    </a>
+    <a class="card" href="manual-member.html">
+      <div class="card-icon">🙋</div>
+      <div class="card-body">
+        <h3>メンバー <span class="badge badge-member">member</span></h3>
+        <p>一般リーダー向け。スカウト・イベント・表彰の登録・編集など主要操作が可能です。</p>
+        <p class="note">※ 団への参加には管理者からの招待コードが必要です。</p>
+      </div>
+    </a>
+    <a class="card" href="manual-limited.html">
+      <div class="card-icon">👀</div>
+      <div class="card-body">
+        <h3>制限ユーザー <span class="badge badge-limited">limited</span></h3>
+        <p>保護者・団委員向け。閲覧と出欠入力のみ。データの追加・編集はできません。</p>
+        <p class="note">※ 団への参加には管理者からの招待コードが必要です。</p>
+      </div>
+    </a>
+  </div>
+</main>
+<footer>ビーバーログ &copy; 杉並第3団ビーバー隊</footer>
+</body>
+</html>

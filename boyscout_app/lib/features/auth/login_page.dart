@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/wood_grain_background.dart';
 import '../../core/supabase_config.dart';
 import '../../data/sync/sync_service.dart';
@@ -329,6 +330,18 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         ),
                       ],
                     ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton.icon(
+                  onPressed: () => launchUrl(
+                    Uri.parse('https://staka1126.github.io/boyscout_app/'),
+                    mode: LaunchMode.externalApplication,
+                  ),
+                  icon: const Icon(Icons.help_outline, size: 16),
+                  label: const Text('使い方'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white70,
                   ),
                 ),
               ),

@@ -258,10 +258,9 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('使い方'));
-      await tester.pumpAndSettle();
-
-      expect(find.text('使い方'), findsWidgets);
+      // '使い方'はGitHub Pagesを外部ブラウザで開く（url_launcher）
+      // タップしてもアプリ内番面遷移は発生しないので、ボタンの存在のみ確認
+      expect(find.text('使い方'), findsOneWidget);
     });
 
     testWidgets('利用者管理画面に遷移できる（adminのみ）', (tester) async {
