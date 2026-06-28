@@ -620,4 +620,447 @@ void main() {
       expect(progress, 0.0);
     });
   });
+
+  // ─── ロール別UI表示制御 ────────────────────────────────────
+  // 設定画面・FAB・詳細画面の編集削除ボタンをロール別にWidgetで検証。
+  // Supabase不要：ロール文字列を直接渡してUIを構築する。
+
+  // 設定メニューの表示制御を再現するヘルパーWidget
+  Widget _settingsMenu(String role) {
+    final isAdmin = role == 'admin';
+    final isLimited = role == 'limited';
+    return _wrap(Scaffold(
+      body: ListView(children: [
+        if (!isLimited) const ListTile(title: Text('団情報')),
+        const ListTile(title: Text('リーダー')),
+        if (!isLimited) ...[
+          const ListTile(title: Text('保護者')),
+          const ListTile(title: Text('団委員ほか')),
+          const ListTile(title: Text('電話帳')),
+          const ListTile(title: Text('アレルギー情報')),
+          const ListTile(title: Text('レポート出力')),
+          const ListTile(title: Text('使い方')),
+        ],
+        if (isAdmin) ...[
+          const ListTile(title: Text('利用者管理')),
+          const ListTile(title: Text('招待コード')),
+          const ListTile(title: Text('バッチ登録')),
+        ],
+        const ListTile(title: Text('アカウントを削除する')),
+        const ListTile(title: Text('バージョン情報')),
+      ]),
+    ));
+  }
+
+  // FABの表示制御を再現するヘルパーWidget
+  Widget _scoutPageFab(String role) {
+    final isLimited = role == 'limited';
+    return _wrap(Scaffold(
+      body: const SizedBox(),
+      floatingActionButton: !isLimited
+          ? const FloatingActionButton(onPressed: null, child: Icon(Icons.add))
+          : null,
+    ));
+  }
+
+  // 詳細画面右上の編集・削除ボタンを再現するヘルパーWidget
+  Widget _detailAppBar(String role) {
+    final isLimited = role == 'limited';
+    return _wrap(Scaffold(
+      appBar: AppBar(
+        title: const Text('詳細'),
+        actions: [
+          if (!isLimited) ...[
+            IconButton(icon: const Icon(Icons.edit_outlined), onPressed: null),
+            IconButton(icon: const Icon(Icons.delete_outline), onPressed: null),
+          ],
+        ],
+      ),
+    ));
+  }
+
+  group('ロール別UI: 設定メニュー', () {
+    testWidgets('admin: 全メニューが表示される', (tester) async {
+      await tester.pumpWidget(_settingsMenu('admin'));
+      expect(find.text('団情報'), findsOneWidget);
+      expect(find.text('リーダー'), findsOneWidget);
+      expect(find.text('保護者'), findsOneWidget);
+      expect(find.text('団委員ほか'), findsOneWidget);
+      expect(find.text('電話帳'), findsOneWidget);
+      expect(find.text('アレルギー情報'), findsOneWidget);
+      expect(find.text('レポート出力'), findsOneWidget);
+      expect(find.text('使い方'), findsOneWidget);
+      expect(find.text('利用者管理'), findsOneWidget);
+      expect(find.text('招待コード'), findsOneWidget);
+      expect(find.text('バッチ登録'), findsOneWidget);
+    });
+
+    testWidgets('member: 管理者専用メニューが非表示', (tester) async {
+      await tester.pumpWidget(_settingsMenu('member'));
+      expect(find.text('団情報'), findsOneWidget);
+      expect(find.text('リーダー'), findsOneWidget);
+      expect(find.text('保護者'), findsOneWidget);
+      expect(find.text('電話帳'), findsOneWidget);
+      expect(find.text('利用者管理'), findsNothing);
+      expect(find.text('招待コード'), findsNothing);
+      expect(find.text('バッチ登録'), findsNothing);
+    });
+
+    testWidgets('limited: 閲覧限定メニューのみ表示', (tester) async {
+      await tester.pumpWidget(_settingsMenu('limited'));
+      expect(find.text('リーダー'), findsOneWidget);
+      expect(find.text('団情報'), findsNothing);
+      expect(find.text('保護者'), findsNothing);
+      expect(find.text('団委員ほか'), findsNothing);
+      expect(find.text('電話帳'), findsNothing);
+      expect(find.text('アレルギー情報'), findsNothing);
+      expect(find.text('レポート出力'), findsNothing);
+      expect(find.text('使い方'), findsNothing);
+      expect(find.text('利用者管理'), findsNothing);
+      expect(find.text('招待コード'), findsNothing);
+      expect(find.text('バッチ登録'), findsNothing);
+    });
+  });
+
+  group('ロール別UI: FAB', () {
+    testWidgets('admin: FABが表示される', (tester) async {
+      await tester.pumpWidget(_scoutPageFab('admin'));
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+    });
+
+    testWidgets('member: FABが表示される', (tester) async {
+      await tester.pumpWidget(_scoutPageFab('member'));
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+    });
+
+    testWidgets('limited: FABが非表示', (tester) async {
+      await tester.pumpWidget(_scoutPageFab('limited'));
+      expect(find.byType(FloatingActionButton), findsNothing);
+    });
+  });
+
+  group('ロール別UI: 詳細画面の編集・削除ボタン', () {
+    testWidgets('admin: 編集・削除ボタンが表示される', (tester) async {
+      await tester.pumpWidget(_detailAppBar('admin'));
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    });
+
+    testWidgets('member: 編集・削除ボタンが表示される', (tester) async {
+      await tester.pumpWidget(_detailAppBar('member'));
+      expect(find.byIcon(Icons.edit_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.delete_outline), findsOneWidget);
+    });
+
+    testWidgets('limited: 編集・削除ボタンが非表示', (tester) async {
+      await tester.pumpWidget(_detailAppBar('limited'));
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+    });
+  });
+
+  // ─── ロール別UI: タップ反応 ───────────────────────────────────────
+  // 編集・削除ボタンは表示の有無だけでなく、タップで実際にコールバックが呼ばれるかも検証する。
+  // FABの onPressed も同様に検証する。
+
+  // 編集・削除ボタンのタップ反応を検証するヘルパーWidget
+  Widget _detailAppBarWithCallbacks(String role, {
+    required VoidCallback onEdit,
+    required VoidCallback onDelete,
+  }) {
+    final isLimited = role == 'limited';
+    return _wrap(Scaffold(
+      appBar: AppBar(
+        title: const Text('詳細'),
+        actions: [
+          if (!isLimited) ...[
+            IconButton(
+              icon: const Icon(Icons.edit_outlined),
+              onPressed: onEdit,
+            ),
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: onDelete,
+            ),
+          ],
+        ],
+      ),
+    ));
+  }
+
+  // FABのタップ反応を検証するヘルパーWidget
+  Widget _scoutPageFabWithCallback(String role, {required VoidCallback onTap}) {
+    final isLimited = role == 'limited';
+    return _wrap(Scaffold(
+      body: const SizedBox(),
+      floatingActionButton: !isLimited
+          ? FloatingActionButton(onPressed: onTap, child: const Icon(Icons.add))
+          : null,
+    ));
+  }
+
+  group('ロール別UI: タップ反応', () {
+    testWidgets('admin: 編集ボタンタップでコールバックが呼ばれる', (tester) async {
+      bool editCalled = false;
+      bool deleteCalled = false;
+      await tester.pumpWidget(_detailAppBarWithCallbacks(
+        'admin',
+        onEdit: () => editCalled = true,
+        onDelete: () => deleteCalled = true,
+      ));
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      expect(editCalled, isTrue);
+      expect(deleteCalled, isTrue);
+    });
+
+    testWidgets('member: 編集ボタンタップでコールバックが呼ばれる', (tester) async {
+      bool editCalled = false;
+      bool deleteCalled = false;
+      await tester.pumpWidget(_detailAppBarWithCallbacks(
+        'member',
+        onEdit: () => editCalled = true,
+        onDelete: () => deleteCalled = true,
+      ));
+      await tester.tap(find.byIcon(Icons.edit_outlined));
+      await tester.tap(find.byIcon(Icons.delete_outline));
+      expect(editCalled, isTrue);
+      expect(deleteCalled, isTrue);
+    });
+
+    testWidgets('limited: ボタンがないのでタップしてもコールバックが呼ばれない', (tester) async {
+      bool editCalled = false;
+      bool deleteCalled = false;
+      await tester.pumpWidget(_detailAppBarWithCallbacks(
+        'limited',
+        onEdit: () => editCalled = true,
+        onDelete: () => deleteCalled = true,
+      ));
+      // ボタン自体が存在しないのでタップが発生しない
+      expect(find.byIcon(Icons.edit_outlined), findsNothing);
+      expect(find.byIcon(Icons.delete_outline), findsNothing);
+      expect(editCalled, isFalse);
+      expect(deleteCalled, isFalse);
+    });
+
+    testWidgets('admin: FABタップでコールバックが呼ばれる', (tester) async {
+      bool tapped = false;
+      await tester.pumpWidget(_scoutPageFabWithCallback(
+        'admin',
+        onTap: () => tapped = true,
+      ));
+      await tester.tap(find.byType(FloatingActionButton));
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('member: FABタップでコールバックが呼ばれる', (tester) async {
+      bool tapped = false;
+      await tester.pumpWidget(_scoutPageFabWithCallback(
+        'member',
+        onTap: () => tapped = true,
+      ));
+      await tester.tap(find.byType(FloatingActionButton));
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('limited: FABがないのでタップしてもコールバックが呼ばれない', (tester) async {
+      bool tapped = false;
+      await tester.pumpWidget(_scoutPageFabWithCallback(
+        'limited',
+        onTap: () => tapped = true,
+      ));
+      // FAB自体が存在しないのでタップが発生しない
+      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(tapped, isFalse);
+    });
+
+    testWidgets('limited: 設定メニューの非表示項目はタップできない', (tester) async {
+      bool troopTapped = false;
+      bool guardianTapped = false;
+      final isLimited = true;
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: ListView(children: [
+          if (!isLimited)
+            ListTile(
+              title: const Text('団情報'),
+              onTap: () => troopTapped = true,
+            ),
+          const ListTile(title: Text('リーダー')),
+          if (!isLimited)
+            ListTile(
+              title: const Text('保護者'),
+              onTap: () => guardianTapped = true,
+            ),
+        ]),
+      )));
+      // limitedでは団情報・保護者自体が表示されない
+      expect(find.text('団情報'), findsNothing);
+      expect(find.text('保護者'), findsNothing);
+      expect(troopTapped, isFalse);
+      expect(guardianTapped, isFalse);
+      // limitedでもリーダーは表示される
+      expect(find.text('リーダー'), findsOneWidget);
+    });
+  });
+
+  // ─── イベント: ステータスボタン ──────────────────────────────────
+  // _StatusSelectorのロジックをWidgetとして検証する
+  // 選択中・ disabled時はコールバックが呼ばれない
+
+  // _StatusSelector相当のWidgetヘルパー
+  Widget _statusSelector({
+    required EventStatus current,
+    required bool enabled,
+    required ValueChanged<EventStatus> onChanged,
+  }) {
+    return _wrap(Scaffold(
+      body: Row(
+        children: EventStatus.values.map((s) {
+          final isSelected = s == current;
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: GestureDetector(
+                onTap: (isSelected || !enabled) ? null : () => onChanged(s),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 9),
+                  child: Text(s.label, textAlign: TextAlign.center),
+                ),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    ));
+  }
+
+  group('イベント: ステータスボタン', () {
+    testWidgets('く当初「予定」が選択中の場合、他ボタンタップでコールバックが呼ばれる', (tester) async {
+      EventStatus? changed;
+      await tester.pumpWidget(_statusSelector(
+        current: EventStatus.planned,
+        enabled: true,
+        onChanged: (s) => changed = s,
+      ));
+      // 「実施済」タップ → コールバック呼び出し
+      await tester.tap(find.text('実施済'));
+      expect(changed, EventStatus.completed);
+    });
+
+    testWidgets('「予定」が選択中の場合、「予定」タップではコールバックが呼ばれない', (tester) async {
+      EventStatus? changed;
+      await tester.pumpWidget(_statusSelector(
+        current: EventStatus.planned,
+        enabled: true,
+        onChanged: (s) => changed = s,
+      ));
+      // 同じボタン（選択中）をタップしてもコールバックは呼ばれない
+      await tester.tap(find.text('予定'));
+      expect(changed, isNull);
+    });
+
+    testWidgets('enabled=falseの場合、タップしてもコールバックが呼ばれない（limitedロール相当）', (tester) async {
+      EventStatus? changed;
+      await tester.pumpWidget(_statusSelector(
+        current: EventStatus.planned,
+        enabled: false,
+        onChanged: (s) => changed = s,
+      ));
+      await tester.tap(find.text('実施済'));
+      await tester.tap(find.text('非開催'));
+      expect(changed, isNull);
+    });
+
+    testWidgets('全ステータスラベルが表示される', (tester) async {
+      await tester.pumpWidget(_statusSelector(
+        current: EventStatus.planned,
+        enabled: true,
+        onChanged: (_) {},
+      ));
+      expect(find.text('予定'), findsOneWidget);
+      expect(find.text('実施済'), findsOneWidget);
+      expect(find.text('非開催'), findsOneWidget);
+    });
+  });
+
+  // ─── イベント: 出席トグル ──────────────────────────────────────
+  // _ToggleGroup / _BtnのロジックをWidgetとして検証する
+  // onChanged==null（実施済）の場合はタップ不可
+
+  // _ToggleGroup相当のWidgetヘルパー
+  Widget _attendanceToggle({
+    required AttendanceStatus current,
+    ValueChanged<AttendanceStatus>? onChanged,
+  }) {
+    return _wrap(Scaffold(
+      body: Row(mainAxisSize: MainAxisSize.min, children: [
+        GestureDetector(
+          onTap: onChanged == null ? null : () => onChanged(AttendanceStatus.present),
+          child: const Icon(Icons.check, key: ValueKey('present')),
+        ),
+        GestureDetector(
+          onTap: onChanged == null ? null : () => onChanged(AttendanceStatus.absent),
+          child: const Icon(Icons.close, key: ValueKey('absent')),
+        ),
+        GestureDetector(
+          onTap: onChanged == null ? null : () => onChanged(AttendanceStatus.pending),
+          child: const Icon(Icons.remove, key: ValueKey('pending')),
+        ),
+      ]),
+    ));
+  }
+
+  group('イベント: 出席トグル', () {
+    testWidgets('出席ボタンタップで present に変更される', (tester) async {
+      AttendanceStatus? changed;
+      await tester.pumpWidget(_attendanceToggle(
+        current: AttendanceStatus.pending,
+        onChanged: (s) => changed = s,
+      ));
+      await tester.tap(find.byKey(const ValueKey('present')));
+      expect(changed, AttendanceStatus.present);
+    });
+
+    testWidgets('欠席ボタンタップで absent に変更される', (tester) async {
+      AttendanceStatus? changed;
+      await tester.pumpWidget(_attendanceToggle(
+        current: AttendanceStatus.pending,
+        onChanged: (s) => changed = s,
+      ));
+      await tester.tap(find.byKey(const ValueKey('absent')));
+      expect(changed, AttendanceStatus.absent);
+    });
+
+    testWidgets('未定ボタンタップで pending に変更される', (tester) async {
+      AttendanceStatus? changed;
+      await tester.pumpWidget(_attendanceToggle(
+        current: AttendanceStatus.present,
+        onChanged: (s) => changed = s,
+      ));
+      await tester.tap(find.byKey(const ValueKey('pending')));
+      expect(changed, AttendanceStatus.pending);
+    });
+
+    testWidgets('onChanged==null（実施済イベント）はタップしても変更されない', (tester) async {
+      AttendanceStatus? changed;
+      await tester.pumpWidget(_attendanceToggle(
+        current: AttendanceStatus.present,
+        onChanged: null, // 実施済は null
+      ));
+      await tester.tap(find.byKey(const ValueKey('absent')));
+      await tester.tap(find.byKey(const ValueKey('pending')));
+      expect(changed, isNull);
+    });
+
+    testWidgets('limitedロール（onChanged==null）でも同様にタップ不可', (tester) async {
+      AttendanceStatus? changed;
+      // limitedは isCompletedと同様に onChanged=null として渡す
+      await tester.pumpWidget(_attendanceToggle(
+        current: AttendanceStatus.pending,
+        onChanged: null,
+      ));
+      await tester.tap(find.byKey(const ValueKey('present')));
+      expect(changed, isNull);
+    });
+  });
 }
