@@ -197,12 +197,10 @@ class SettingsPage extends ConsumerWidget {
               leading: const Icon(Icons.help_outline),
               title: const Text('使い方'),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () async {
-                final uri = Uri.parse('https://staka1126.github.io/boyscout_app/manual/index.html');
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-              },
+              onTap: () => launchUrl(
+                Uri.parse('https://staka1126.github.io/boyscout_app/manual/index.html'),
+                mode: LaunchMode.externalApplication,
+              ),
             ),
             const Divider(),
           ],
