@@ -1,9 +1,11 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import '../../data/import/batch_import_service.dart';
 import '../../data/local/database_helper.dart';
 import '../../data/providers/app_state_provider.dart';
@@ -47,19 +49,41 @@ class _BatchRegisterPageState extends ConsumerState<BatchRegisterPage> {
   }
 
   Future<void> _saveTemplateFile(Uint8List bytes) async {
-    // FilePicker でファイル保存ダイアログ（Android / Linux 対応）
-    final path = await FilePicker.platform.saveFile(
-      dialogTitle: 'テンプレートの保存先を選択',
-      fileName: 'batch_register_template.xlsx',
-      bytes: bytes,
-    );
-    if (path != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('テンプレートを保存しました'),
-          action: SnackBarAction(label: '閉じる', onPressed: () {}),
-        ),
-      );
+    const fileName = 'batch_register_template.xlsx';
+    try {
+      if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
+        // デスクトップ: Downloads フォルダに直接書き出す
+        final dir = await getDownloadsDirectory() ??
+            await getApplicationDocumentsDirectory();
+        final file = File('${dir.path}/$fileName');
+        await file.writeAsBytes(bytes);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text('テンプレートを保存しました: ${file.path}'),
+            action: SnackBarAction(label: '閉じる', onPressed: () {}),
+          ));
+        }
+      } else {
+        // Android / iOS: FilePicker のダイアログ
+        final path = await FilePicker.platform.saveFile(
+          dialogTitle: 'テンプレートの保存先を選択',
+          fileName: fileName,
+          bytes: bytes,
+        );
+        if (path != null && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: const Text('テンプレートを保存しました'),
+            action: SnackBarAction(label: '閉じる', onPressed: () {}),
+          ));
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('保存に失敗しました: $e'),
+          backgroundColor: Theme.of(context).colorScheme.error,
+        ));
+      }
     }
   }
 
