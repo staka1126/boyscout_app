@@ -342,9 +342,9 @@ class _LoginPageState extends ConsumerState<LoginPage>
                         mode: LaunchMode.externalApplication,
                       ),
                       icon: const Icon(Icons.help_outline, size: 16),
-                      label: const Text('使い方'),
+                      label: const Text('初めての利用者の方へ'),
                       style: TextButton.styleFrom(
-                        foregroundColor: Colors.white70,
+                        foregroundColor: const Color.fromARGB(179, 0, 0, 0),
                       ),
                     ),
                   ],
