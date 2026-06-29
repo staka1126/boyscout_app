@@ -27,6 +27,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
   final _titleCtrl = TextEditingController();
   final _locationCtrl = TextEditingController();
   final _notesCtrl = TextEditingController();
+  final _planUrlCtrl = TextEditingController();
   DateTime? _eventDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
@@ -51,6 +52,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
         _titleCtrl.text = e.title;
         _locationCtrl.text = e.location ?? '';
         _notesCtrl.text = e.notes ?? '';
+        _planUrlCtrl.text = e.planUrl ?? '';
         _eventDate = e.eventDate;
         if (e.startTime != null) {
           final parts = e.startTime!.split(':');
@@ -96,6 +98,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
           startTime: _startTime != null ? _fmtTime(_startTime!) : null,
           endTime: _endTime != null ? _fmtTime(_endTime!) : null,
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          planUrl: _planUrlCtrl.text.trim().isEmpty ? null : _planUrlCtrl.text.trim(),
         );
         try {
           final users = await ref.read(userRepositoryProvider).getByTroop(troopId);
@@ -139,6 +142,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
           startTime: _startTime != null ? _fmtTime(_startTime!) : null,
           endTime: _endTime != null ? _fmtTime(_endTime!) : null,
           notes: _notesCtrl.text.trim().isEmpty ? null : _notesCtrl.text.trim(),
+          planUrl: _planUrlCtrl.text.trim().isEmpty ? null : _planUrlCtrl.text.trim(),
         );
         await eventRepo.update(updated);
         saved = updated;
@@ -255,6 +259,16 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
                         decoration: const InputDecoration(labelText: '備考'),
                         maxLines: 3,
                       ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: _planUrlCtrl,
+                        decoration: const InputDecoration(
+                          labelText: '活動計画書URL',
+                          prefixIcon: Icon(Icons.link_outlined),
+                          hintText: 'https://...',
+                        ),
+                        keyboardType: TextInputType.url,
+                      ),
                       const SizedBox(height: 16),
                     ]),
                   ),
@@ -267,6 +281,7 @@ class _EventFormPageState extends ConsumerState<EventFormPage> {
     _titleCtrl.dispose();
     _locationCtrl.dispose();
     _notesCtrl.dispose();
+    _planUrlCtrl.dispose();
     super.dispose();
   }
 }

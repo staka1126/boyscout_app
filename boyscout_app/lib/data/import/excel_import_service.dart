@@ -211,6 +211,7 @@ class ExcelImportService {
           final startTime = _str(row[5]);
           final endTime = _str(row[6]);
           final notes = _str(row[7]);
+          final planUrl = _str(row[8]);
           final dbId = _uuid.v4();
           eventIdMap[excelId] = dbId;
 
@@ -223,7 +224,7 @@ class ExcelImportService {
             'id': dbId, 'troop_id': troopId, 'title': title, 'event_type': 'other',
             'status': status, 'event_date': eventDate,
             'location': location, 'start_time': startTime, 'end_time': endTime,
-            'notes': notes, 'completed_at': completedAt,
+            'notes': notes, 'plan_url': planUrl, 'completed_at': completedAt,
             'created_at': now, 'updated_at': now,
           });
 

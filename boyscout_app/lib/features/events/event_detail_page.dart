@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:uuid/uuid.dart';
 import '../../data/local/database_helper.dart';
 import '../../data/local/event_stats_service.dart';
@@ -187,6 +188,8 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
                       _row(context, Icons.schedule_outlined, '時間', '${event.startTime}${event.endTime != null ? " ~ ${event.endTime}" : ""}'),
                     if (event.location != null) _row(context, Icons.place_outlined, '場所', event.location!),
                     if (event.notes != null) _row(context, Icons.notes_outlined, '備考', event.notes!),
+                    if (event.planUrl != null)
+                      _urlRow(context, Icons.link_outlined, '計画書', event.planUrl!),
                   ]))),
                 const SizedBox(height: 12),
                 Card(child: Padding(padding: const EdgeInsets.all(16),
@@ -274,6 +277,25 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
           const SizedBox(width: 8),
           SizedBox(width: 60, child: Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
           Expanded(child: Text(value, style: const TextStyle(fontSize: 14))),
+        ]));
+
+  Widget _urlRow(BuildContext context, IconData icon, String label, String url) =>
+      Padding(padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(children: [
+          Icon(icon, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          const SizedBox(width: 8),
+          SizedBox(width: 60, child: Text(label, style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.onSurfaceVariant))),
+          Expanded(child: GestureDetector(
+            onTap: () async {
+              final uri = Uri.tryParse(url);
+              if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+            },
+            child: Text(url,
+              style: TextStyle(fontSize: 14, color: Theme.of(context).colorScheme.primary,
+                  decoration: TextDecoration.underline),
+              overflow: TextOverflow.ellipsis,
+            ),
+          )),
         ]));
 
   void _invalidateAll(WidgetRef ref) {

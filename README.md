@@ -15,7 +15,7 @@
 | 状態管理 | flutter_riverpod |
 | ルーティング | go_router |
 | 電話・メール起動 | url_launcher |
-| DBバージョン | 8 |
+| DBバージョン | 9 |
 
 ---
 
@@ -192,6 +192,7 @@ chmod +x test_integration.sh
 | v6 | scouts に other_badges カラム追加 |
 | v7 | event_stats テーブル追加 |
 | v8 | event_stats に各分類の欠席数カラム追加 |
+| v9 | events に plan_url カラム追加 |
 
 `onUpgrade` は try-catch で重複エラーを吸収。
 

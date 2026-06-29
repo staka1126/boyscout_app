@@ -119,6 +119,11 @@ class DatabaseHelper {
         try { await db.execute(sql); } catch (_) {}
       }
     }
+    if (oldVersion < 9) {
+      try {
+        await db.execute('ALTER TABLE events ADD COLUMN plan_url TEXT');
+      } catch (_) {}
+    }
   }
 
   Future<void> _create(Database db, int version) async {
@@ -228,6 +233,7 @@ class DatabaseHelper {
         start_time TEXT,
         end_time TEXT,
         notes TEXT,
+        plan_url TEXT,
         completed_at TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL,

@@ -430,12 +430,12 @@ class EventRepository {
 
   Future<Event> create({
     required String troopId, required String title, required EventType eventType,
-    required DateTime eventDate, String? location, String? startTime, String? endTime, String? notes,
+    required DateTime eventDate, String? location, String? startTime, String? endTime, String? notes, String? planUrl,
   }) async {
     final now = DateTime.now();
     final e = Event(id: _uuid.v4(), troopId: troopId, title: title, eventType: eventType,
         status: EventStatus.planned, eventDate: eventDate, location: location,
-        startTime: startTime, endTime: endTime, notes: notes, createdAt: now, updatedAt: now);
+        startTime: startTime, endTime: endTime, notes: notes, planUrl: planUrl, createdAt: now, updatedAt: now);
     final db = await _db.database;
     await db.insert('events', e.toMap());
     await _syncIfNeeded(troopId);

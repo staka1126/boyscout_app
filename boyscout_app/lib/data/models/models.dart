@@ -275,6 +275,7 @@ class Event {
   final String? startTime;
   final String? endTime;
   final String? notes;
+  final String? planUrl;
   final DateTime? completedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -282,7 +283,7 @@ class Event {
   const Event({
     required this.id, required this.troopId, required this.title,
     required this.eventType, required this.status, required this.eventDate,
-    this.location, this.startTime, this.endTime, this.notes, this.completedAt,
+    this.location, this.startTime, this.endTime, this.notes, this.planUrl, this.completedAt,
     required this.createdAt, required this.updatedAt,
   });
 
@@ -294,6 +295,7 @@ class Event {
         eventDate: DateTime.parse(m['event_date'] as String),
         location: m['location'] as String?, startTime: m['start_time'] as String?,
         endTime: m['end_time'] as String?, notes: m['notes'] as String?,
+        planUrl: m['plan_url'] as String?,
         completedAt: m['completed_at'] != null ? DateTime.parse(m['completed_at'] as String) : null,
         createdAt: DateTime.parse(m['created_at'] as String),
         updatedAt: DateTime.parse(m['updated_at'] as String));
@@ -302,18 +304,19 @@ class Event {
         'id': id, 'troop_id': troopId, 'title': title, 'event_type': eventType.value,
         'status': status.value, 'event_date': eventDate.toIso8601String().split('T').first,
         'location': location, 'start_time': startTime, 'end_time': endTime, 'notes': notes,
+        'plan_url': planUrl,
         'completed_at': completedAt?.toIso8601String(),
         'created_at': createdAt.toIso8601String(), 'updated_at': updatedAt.toIso8601String()};
 
   Event copyWith({
     String? title, EventType? eventType, EventStatus? status, DateTime? eventDate,
-    String? location, String? startTime, String? endTime, String? notes, DateTime? completedAt,
+    String? location, String? startTime, String? endTime, String? notes, String? planUrl, DateTime? completedAt,
   }) => Event(
         id: id, troopId: troopId, title: title ?? this.title,
         eventType: eventType ?? this.eventType, status: status ?? this.status,
         eventDate: eventDate ?? this.eventDate, location: location ?? this.location,
         startTime: startTime ?? this.startTime, endTime: endTime ?? this.endTime,
-        notes: notes ?? this.notes, completedAt: completedAt ?? this.completedAt,
+        notes: notes ?? this.notes, planUrl: planUrl ?? this.planUrl, completedAt: completedAt ?? this.completedAt,
         createdAt: createdAt, updatedAt: DateTime.now());
 }
 

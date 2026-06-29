@@ -85,12 +85,12 @@ BottomNavigationBar で以下の5タブを切り替える。
 - イベント追加FAB（右下）
 - 新規作成時のデフォルト時間：開始09:30・終了 12:00
 - イベントフォーム：
-  - タイトル・開催日・開始時間・終了時間・場所・備考を入力
+  - タイトル・開催日・開始時間・終了時間・場所・備考・活動計画書URLを入力
   - event_type はUI上に存在せず、新規作成時は `other` を固定値として保存
   - 保存は画面下部のFAB（`Icons.save_outlined` + 「保存」ラベル）。保存中はインジケーター表示
 - イベント詳細：
   - ステータス選択（予定・実施済・非開催の3ボタン）
-  - 基本情報（日付・時間・場所・備考）
+  - 基本情報（日付・時間・場所・備考・活動計画書URL）
   - 木の葉章配布設定（5種別をON/OFFで設定）
   - 出欠管理（リーダー・スカウト・その他セクション）
   - 出席者追加FAB（右下、確定済みは非表示）
@@ -336,6 +336,7 @@ UI上の表示ラベルと DB 格納値は異なる。
 | start_time | TEXT | 開始時間（HH:MM） |
 | end_time | TEXT | 終了時間（HH:MM） |
 | notes | TEXT | 備考 |
+| plan_url | TEXT | 活動計画書URL |
 | completed_at | TEXT | 確定日時 |
 | created_at | TEXT | 作成日時 |
 | updated_at | TEXT | 更新日時 |
@@ -435,9 +436,11 @@ ALTER TABLE event_stats ADD COLUMN beaver_male_absent INTEGER NOT NULL DEFAULT 0
 ALTER TABLE event_stats ADD COLUMN beaver_female_absent INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE event_stats ADD COLUMN provisional_male_absent INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DEFAULT 0;
+-- v9
+ALTER TABLE events ADD COLUMN plan_url TEXT;
 ```
 
-`onUpgrade` は try-catch で重複エラーを吸収。DBバージョンは現在 **8**。
+`onUpgrade` は try-catch で重複エラーを吸収。DBバージョンは現在 **9**。
 
 ### 5.5 RLSポリシー概要
 
@@ -589,3 +592,19 @@ ALTER TABLE event_stats ADD COLUMN provisional_female_absent INTEGER NOT NULL DE
 - **デバッグ用**：ログイン画面に `[DEV] DBリセット＋同期` ボタン（`kDebugMode` のみ表示）
 - **applicationId**：`jp.tshub.beaverlog`
 - **プライバシーポリシー**：`https://staka1126.github.io/boyscout_app/`
+
+### Excelインポート（活動マスタシート）列構成
+
+`活動マスタ` シートの列順：
+
+| 列 | 内容 |
+|---|---|
+| 0 | イベントID（内部管理用） |
+| 1 | 開催日 |
+| 2 | タイトル |
+| 3 | 場所 |
+| 4 | 木の葉章枚数 |
+| 5 | 開始時間 |
+| 6 | 終了時間 |
+| 7 | 備考 |
+| 8 | 活動計画書 |
