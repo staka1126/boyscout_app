@@ -20,7 +20,7 @@ class AuthService {
     final res = await _client.auth.signUp(
       email: email,
       password: password,
-      data: {'name': name}, // userMetadataに名前を保存
+      data: {'name': name},
     );
 
     if (res.user != null) {
@@ -31,8 +31,6 @@ class AuthService {
           'email': email,
         });
       } catch (e) {
-        // メール確認が必要な場合はセッションがないためINSERTできないことがある
-        // signIn時にupsertでフォールバック
         debugPrint('profiles insert skipped: $e');
       }
     }
@@ -51,7 +49,6 @@ class AuthService {
       email: email,
       password: password,
     );
-    // ログイン成功後、profilesが存在しない場合は作成（新規登録時にメール認証でスキップされた場合のフォールバック）
     if (res.user != null) {
       try {
         await _client.from('profiles').upsert({
@@ -107,13 +104,11 @@ class AuthService {
     final user = currentUser;
     if (user == null) throw Exception('ログインが必要です');
 
-
     final invite = await _client
         .from('invite_codes')
         .select('id, troop_id, expires_at, used_by, role')
         .eq('code', code.toUpperCase())
         .maybeSingle();
-
 
     if (invite == null) throw Exception('招待コードが見つかりません');
     if (invite['used_by'] != null) throw Exception('この招待コードはすでに使用されています');
@@ -124,6 +119,15 @@ class AuthService {
     final troopId = invite['troop_id'] as String;
     final inviteId = invite['id'] as String;
     final role = invite['role'] as String? ?? 'member';
+
+    // すでに同じ団に所属していないか確認
+    final existing = await _client
+        .from('troop_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('troop_id', troopId)
+        .maybeSingle();
+    if (existing != null) throw Exception('すでにこの団に参加しています');
 
     // profilesが存在しない場合に備えてupsertで保証
     await _client.from('profiles').upsert({
@@ -138,12 +142,10 @@ class AuthService {
       'role': role,
     });
 
-
     await _client.from('invite_codes').update({
       'used_by': user.id,
       'used_at': DateTime.now().toIso8601String(),
     }).eq('id', inviteId);
-
 
     return troopId;
   }

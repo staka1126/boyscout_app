@@ -91,6 +91,12 @@ class _LoginPageState extends ConsumerState<LoginPage>
         context.go('/onboarding');
       }
     } catch (e) {
+      // 認証キャッシュが壊れている可能性があるためクリアする
+      try {
+        await SupabaseConfig.client.auth.signOut();
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('troop_id');
+      } catch (_) {}
       if (mounted) _showError('ログインに失敗しました。メールアドレスとパスワードを確認してください。');
     } finally {
       if (mounted) setState(() => _isLoading = false);

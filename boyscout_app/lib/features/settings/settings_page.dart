@@ -181,19 +181,19 @@ class SettingsPage extends ConsumerWidget {
             _tile(context, Icons.contact_phone_outlined, '電話帳', '/settings/phonebook'),
             _tile(context, Icons.no_food_outlined, 'アレルギー情報', '/settings/allergy'),
             const Divider(),
-
-            // レポート出力
-            ListTile(
-              leading: const Icon(Icons.bar_chart_outlined),
-              title: const Text('レポート出力'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const ReportPage()),
-              ),  
-            ),
-            const Divider(),
           ],
-
+          
+          // レポート出力
+          ListTile(
+            leading: const Icon(Icons.bar_chart_outlined),
+            title: const Text('レポート出力'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.of(context).push(
+              MaterialPageRoute(builder: (_) => const ReportPage()),
+            ),  
+          ),
+          const Divider(),
+          
           ListTile(
             leading: const Icon(Icons.help_outline),
             title: const Text('使い方'),

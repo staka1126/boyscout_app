@@ -21,7 +21,9 @@ class ReportExporter {
     }
 
     final troopName = records.isNotEmpty ? records.first.troopName : 'report';
-    final fileName = '${troopName}_活動統計レポート.csv';
+    final now = DateTime.now();
+    final prefix = '${now.year.toString()}${now.month.toString().padLeft(2, '0')}${now.day.toString().padLeft(2, '0')}';
+    final fileName = '${prefix}_${troopName}_活動統計レポート.csv';
     final bytes = utf8.encode(buf.toString());
 
     if (Platform.isLinux || Platform.isWindows || Platform.isMacOS) {
