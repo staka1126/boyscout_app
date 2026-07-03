@@ -20,6 +20,9 @@ class SyncService {
   bool _isSyncing = false;
   final Set<String> _syncedTroopIds = {};
 
+  /// inFilter バッチ取得時のチャンクサイズ（1000行上限回避のため控えめに設定）
+  static const _idChunkSize = 30;
+
   /// セッション中の同期済みフラグをリセット（ログアウト時に呼ぶ）
   void resetSyncedFlag() => _syncedTroopIds.clear();
 
@@ -36,20 +39,38 @@ class SyncService {
       return;
     }
     _isSyncing = true;
+    final sw = Stopwatch()..start();
     try {
       final db = await _dbHelper.database;
 
+      // troops → 他テーブルの前提となるため先に単独実行
+      final t0 = sw.elapsedMilliseconds;
       await _syncTroop(db, troopId);
-      await _syncUsers(db, troopId);
-      await _syncScouts(db, troopId);
-      await _syncGuardians(db, troopId);
-      await _syncScoutGuardians(db, troopId);
-      await _syncCommitteeMembers(db, troopId);
-      await _syncEvents(db, troopId);
-      await _syncEventLeafBadges(db, troopId);
-      await _syncAttendances(db, troopId);
-      await _syncEventStats(db, troopId);
+      debugPrint('[sync] troop: ${sw.elapsedMilliseconds - t0}ms');
+
+      // troop_id で直接絞り込める独立テーブルは並列取得
+      final t1 = sw.elapsedMilliseconds;
+      await Future.wait([
+        _syncUsers(db, troopId),
+        _syncScouts(db, troopId),
+        _syncCommitteeMembers(db, troopId),
+        _syncEvents(db, troopId),
+      ]);
+      debugPrint('[sync] group1(users/scouts/committee/events): ${sw.elapsedMilliseconds - t1}ms');
+
+      // scouts/events 経由で取得するテーブル（Supabase側は都度取得のため互いに独立）も並列取得
+      final t2 = sw.elapsedMilliseconds;
+      await Future.wait([
+        _syncGuardians(db, troopId),
+        _syncScoutGuardians(db, troopId),
+        _syncEventLeafBadges(db, troopId),
+        _syncAttendances(db, troopId),
+        _syncEventStats(db, troopId),
+      ]);
+      debugPrint('[sync] group2(guardians/leafbadges/attendances/stats): ${sw.elapsedMilliseconds - t2}ms');
+
       _syncedTroopIds.add(troopId);
+      debugPrint('[sync] TOTAL: ${sw.elapsedMilliseconds}ms');
     } catch (e) {
       rethrow;
     } finally {
@@ -132,16 +153,12 @@ class SyncService {
     final scoutIds = (scoutRows as List).map((r) => r['id'] as String).toList();
     if (scoutIds.isEmpty) return;
 
-    final sgRows = await _client.from('scout_guardians')
-        .select()
-        .inFilter('scout_id', scoutIds);
-    final guardianIds = (sgRows as List).map((r) => r['guardian_id'] as String).toSet().toList();
+    final sgRows = await _fetchByIdsChunked('scout_guardians', 'scout_id', scoutIds);
+    final guardianIds = sgRows.map((r) => r['guardian_id'] as String).toSet().toList();
     if (guardianIds.isEmpty) return;
 
-    final gRows = await _client.from('guardians')
-        .select()
-        .inFilter('id', guardianIds);
-    for (final row in gRows as List) {
+    final gRows = await _fetchByIdsChunked('guardians', 'id', guardianIds);
+    for (final row in gRows) {
       await db.insert('guardians', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -152,10 +169,8 @@ class SyncService {
     final scoutIds = (scoutRows as List).map((r) => r['id'] as String).toList();
     if (scoutIds.isEmpty) return;
 
-    final rows = await _client.from('scout_guardians')
-        .select()
-        .inFilter('scout_id', scoutIds);
-    for (final row in rows as List) {
+    final rows = await _fetchByIdsChunked('scout_guardians', 'scout_id', scoutIds);
+    for (final row in rows) {
       await db.insert('scout_guardians', _normalize(row),
           conflictAlgorithm: ConflictAlgorithm.replace);
     }
@@ -178,54 +193,36 @@ class SyncService {
   }
 
   Future<void> _syncEventLeafBadges(Database db, String troopId) async {
-    final eventRows = await _client.from('events').select('id').eq('troop_id', troopId);
-    final eventIds = (eventRows as List).map((r) => r['id'] as String).toList();
+    final eventIds = await _fetchEventIds(troopId);
     if (eventIds.isEmpty) return;
 
-    // 1000件上限回避のためイベントごとに個別取得
-    for (final eventId in eventIds) {
-      final rows = await _client.from('event_leaf_badges')
-          .select()
-          .eq('event_id', eventId);
-      for (final row in rows as List) {
-        await db.insert('event_leaf_badges', _normalize(row),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+    final rows = await _fetchByIdsChunked('event_leaf_badges', 'event_id', eventIds);
+    for (final row in rows) {
+      await db.insert('event_leaf_badges', _normalize(row),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
   Future<void> _syncAttendances(Database db, String troopId) async {
-    final eventRows = await _client.from('events').select('id').eq('troop_id', troopId);
-    final eventIds = (eventRows as List).map((r) => r['id'] as String).toList();
+    final eventIds = await _fetchEventIds(troopId);
     if (eventIds.isEmpty) return;
 
-    // 1000件上限回避のためイベントごとに個別取得
-    for (final eventId in eventIds) {
-      final rows = await _client.from('attendances')
-          .select()
-          .eq('event_id', eventId);
-      for (final row in rows as List) {
-        await db.insert('attendances', _normalize(row),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+    final rows = await _fetchByIdsChunked('attendances', 'event_id', eventIds);
+    for (final row in rows) {
+      await db.insert('attendances', _normalize(row),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
   /// event_stats を Supabase → ローカルに同期
   Future<void> _syncEventStats(Database db, String troopId) async {
-    final eventRows = await _client.from('events').select('id').eq('troop_id', troopId);
-    final eventIds = (eventRows as List).map((r) => r['id'] as String).toList();
+    final eventIds = await _fetchEventIds(troopId);
     if (eventIds.isEmpty) return;
 
-    // 1000件上限回避のためイベントごとに個別取得
-    for (final eventId in eventIds) {
-      final rows = await _client.from('event_stats')
-          .select()
-          .eq('event_id', eventId);
-      for (final row in rows as List) {
-        await db.insert('event_stats', _normalizeEventStats(row),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+    final rows = await _fetchByIdsChunked('event_stats', 'event_id', eventIds);
+    for (final row in rows) {
+      await db.insert('event_stats', _normalizeEventStats(row),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
@@ -234,15 +231,10 @@ class SyncService {
     final scoutIds = (scoutRows as List).map((r) => r['id'] as String).toList();
     if (scoutIds.isEmpty) return;
 
-    // 1000件上限回避のためスカウトごとに個別取得
-    for (final scoutId in scoutIds) {
-      final rows = await _client.from('twig_badge_history')
-          .select()
-          .eq('scout_id', scoutId);
-      for (final row in rows as List) {
-        await db.insert('twig_badge_history', _normalize(row),
-            conflictAlgorithm: ConflictAlgorithm.replace);
-      }
+    final rows = await _fetchByIdsChunked('twig_badge_history', 'scout_id', scoutIds);
+    for (final row in rows) {
+      await db.insert('twig_badge_history', _normalize(row),
+          conflictAlgorithm: ConflictAlgorithm.replace);
     }
   }
 
@@ -329,6 +321,39 @@ class SyncService {
   // ─────────────────────────────────────────────────────────
   // ヘルパー
   // ─────────────────────────────────────────────────────────
+
+  /// troop 配下のイベントID一覧を取得（event_leaf_badges/attendances/event_stats の絞り込みに使用）
+  Future<List<String>> _fetchEventIds(String troopId) async {
+    final eventRows = await _client.from('events').select('id').eq('troop_id', troopId);
+    return (eventRows as List).map((r) => r['id'] as String).toList();
+  }
+
+  /// ids を _idChunkSize ごとに分割し、各チャンクを inFilter で取得（1000行上限に達した場合は range でページング）
+  Future<List<Map<String, dynamic>>> _fetchByIdsChunked(
+    String table,
+    String column,
+    List<String> ids,
+  ) async {
+    final result = <Map<String, dynamic>>[];
+    for (var i = 0; i < ids.length; i += _idChunkSize) {
+      final end = (i + _idChunkSize < ids.length) ? i + _idChunkSize : ids.length;
+      final chunk = ids.sublist(i, end);
+
+      var offset = 0;
+      while (true) {
+        final rows = await _client
+            .from(table)
+            .select()
+            .inFilter(column, chunk)
+            .range(offset, offset + 999);
+        final list = (rows as List).cast<Map<String, dynamic>>();
+        result.addAll(list);
+        if (list.length < 1000) break;
+        offset += 1000;
+      }
+    }
+    return result;
+  }
 
   Map<String, dynamic> _troopFromSupabase(Map<String, dynamic> row) {
     final now = DateTime.now().toIso8601String();
