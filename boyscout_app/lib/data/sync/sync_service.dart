@@ -21,7 +21,7 @@ class SyncService {
   final Set<String> _syncedTroopIds = {};
 
   /// inFilter バッチ取得時のチャンクサイズ（1000行上限回避のため控えめに設定）
-  static const _idChunkSize = 30;
+  static const _idChunkSize = 100;
 
   /// セッション中の同期済みフラグをリセット（ログアウト時に呼ぶ）
   void resetSyncedFlag() => _syncedTroopIds.clear();
@@ -39,27 +39,21 @@ class SyncService {
       return;
     }
     _isSyncing = true;
-    final sw = Stopwatch()..start();
     try {
       final db = await _dbHelper.database;
 
       // troops → 他テーブルの前提となるため先に単独実行
-      final t0 = sw.elapsedMilliseconds;
       await _syncTroop(db, troopId);
-      debugPrint('[sync] troop: ${sw.elapsedMilliseconds - t0}ms');
 
       // troop_id で直接絞り込める独立テーブルは並列取得
-      final t1 = sw.elapsedMilliseconds;
       await Future.wait([
         _syncUsers(db, troopId),
         _syncScouts(db, troopId),
         _syncCommitteeMembers(db, troopId),
         _syncEvents(db, troopId),
       ]);
-      debugPrint('[sync] group1(users/scouts/committee/events): ${sw.elapsedMilliseconds - t1}ms');
 
       // scouts/events 経由で取得するテーブル（Supabase側は都度取得のため互いに独立）も並列取得
-      final t2 = sw.elapsedMilliseconds;
       await Future.wait([
         _syncGuardians(db, troopId),
         _syncScoutGuardians(db, troopId),
@@ -67,10 +61,8 @@ class SyncService {
         _syncAttendances(db, troopId),
         _syncEventStats(db, troopId),
       ]);
-      debugPrint('[sync] group2(guardians/leafbadges/attendances/stats): ${sw.elapsedMilliseconds - t2}ms');
 
       _syncedTroopIds.add(troopId);
-      debugPrint('[sync] TOTAL: ${sw.elapsedMilliseconds}ms');
     } catch (e) {
       rethrow;
     } finally {
@@ -126,26 +118,17 @@ class SyncService {
 
   Future<void> _syncTroop(Database db, String troopId) async {
     final rows = await _client.from('troops').select().eq('id', troopId);
-    for (final row in rows as List) {
-      await db.insert('troops', _troopFromSupabase(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'troops', (rows as List).map((r) => _troopFromSupabase(r)).toList());
   }
 
   Future<void> _syncUsers(Database db, String troopId) async {
     final rows = await _client.from('leaders').select().eq('troop_id', troopId);
-    for (final row in rows as List) {
-      await db.insert('leaders', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'leaders', (rows as List).map((r) => _normalize(r)).toList());
   }
 
   Future<void> _syncScouts(Database db, String troopId) async {
     final rows = await _client.from('scouts').select().eq('troop_id', troopId);
-    for (final row in rows as List) {
-      await db.insert('scouts', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'scouts', (rows as List).map((r) => _normalize(r)).toList());
   }
 
   Future<void> _syncGuardians(Database db, String troopId) async {
@@ -158,10 +141,7 @@ class SyncService {
     if (guardianIds.isEmpty) return;
 
     final gRows = await _fetchByIdsChunked('guardians', 'id', guardianIds);
-    for (final row in gRows) {
-      await db.insert('guardians', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'guardians', gRows.map((r) => _normalize(r)).toList());
   }
 
   Future<void> _syncScoutGuardians(Database db, String troopId) async {
@@ -170,26 +150,17 @@ class SyncService {
     if (scoutIds.isEmpty) return;
 
     final rows = await _fetchByIdsChunked('scout_guardians', 'scout_id', scoutIds);
-    for (final row in rows) {
-      await db.insert('scout_guardians', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'scout_guardians', rows.map((r) => _normalize(r)).toList());
   }
 
   Future<void> _syncCommitteeMembers(Database db, String troopId) async {
     final rows = await _client.from('committee_members').select().eq('troop_id', troopId);
-    for (final row in rows as List) {
-      await db.insert('committee_members', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'committee_members', (rows as List).map((r) => _normalize(r)).toList());
   }
 
   Future<void> _syncEvents(Database db, String troopId) async {
     final rows = await _client.from('events').select().eq('troop_id', troopId);
-    for (final row in rows as List) {
-      await db.insert('events', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'events', (rows as List).map((r) => _normalize(r)).toList());
   }
 
   Future<void> _syncEventLeafBadges(Database db, String troopId) async {
@@ -197,10 +168,7 @@ class SyncService {
     if (eventIds.isEmpty) return;
 
     final rows = await _fetchByIdsChunked('event_leaf_badges', 'event_id', eventIds);
-    for (final row in rows) {
-      await db.insert('event_leaf_badges', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'event_leaf_badges', rows.map((r) => _normalize(r)).toList());
   }
 
   Future<void> _syncAttendances(Database db, String troopId) async {
@@ -208,10 +176,7 @@ class SyncService {
     if (eventIds.isEmpty) return;
 
     final rows = await _fetchByIdsChunked('attendances', 'event_id', eventIds);
-    for (final row in rows) {
-      await db.insert('attendances', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'attendances', rows.map((r) => _normalize(r)).toList());
   }
 
   /// event_stats を Supabase → ローカルに同期
@@ -220,10 +185,7 @@ class SyncService {
     if (eventIds.isEmpty) return;
 
     final rows = await _fetchByIdsChunked('event_stats', 'event_id', eventIds);
-    for (final row in rows) {
-      await db.insert('event_stats', _normalizeEventStats(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'event_stats', rows.map((r) => _normalizeEventStats(r)).toList());
   }
 
   Future<void> _syncTwigBadgeHistory(Database db, String troopId) async {
@@ -232,10 +194,7 @@ class SyncService {
     if (scoutIds.isEmpty) return;
 
     final rows = await _fetchByIdsChunked('twig_badge_history', 'scout_id', scoutIds);
-    for (final row in rows) {
-      await db.insert('twig_badge_history', _normalize(row),
-          conflictAlgorithm: ConflictAlgorithm.replace);
-    }
+    await _bulkInsert(db, 'twig_badge_history', rows.map((r) => _normalize(r)).toList());
   }
 
   // ─────────────────────────────────────────────────────────
@@ -334,25 +293,45 @@ class SyncService {
     String column,
     List<String> ids,
   ) async {
-    final result = <Map<String, dynamic>>[];
+    final chunks = <List<String>>[];
     for (var i = 0; i < ids.length; i += _idChunkSize) {
       final end = (i + _idChunkSize < ids.length) ? i + _idChunkSize : ids.length;
-      final chunk = ids.sublist(i, end);
+      chunks.add(ids.sublist(i, end));
+    }
 
-      var offset = 0;
-      while (true) {
-        final rows = await _client
-            .from(table)
-            .select()
-            .inFilter(column, chunk)
-            .range(offset, offset + 999);
-        final list = (rows as List).cast<Map<String, dynamic>>();
-        result.addAll(list);
-        if (list.length < 1000) break;
-        offset += 1000;
-      }
+    final results = await Future.wait(chunks.map((chunk) => _fetchChunk(table, column, chunk)));
+    return results.expand((r) => r).toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchChunk(
+    String table,
+    String column,
+    List<String> chunk,
+  ) async {
+    final result = <Map<String, dynamic>>[];
+    var offset = 0;
+    while (true) {
+      final rows = await _client
+          .from(table)
+          .select()
+          .inFilter(column, chunk)
+          .range(offset, offset + 999);
+      final list = (rows as List).cast<Map<String, dynamic>>();
+      result.addAll(list);
+      if (list.length < 1000) break;
+      offset += 1000;
     }
     return result;
+  }
+
+  /// 複数行を db.batch() で一括コミット（行ごとの await を無くしてSQLite書き込みを高速化）
+  Future<void> _bulkInsert(Database db, String table, List<Map<String, dynamic>> rows) async {
+    if (rows.isEmpty) return;
+    final batch = db.batch();
+    for (final row in rows) {
+      batch.insert(table, row, conflictAlgorithm: ConflictAlgorithm.replace);
+    }
+    await batch.commit(noResult: true);
   }
 
   Map<String, dynamic> _troopFromSupabase(Map<String, dynamic> row) {

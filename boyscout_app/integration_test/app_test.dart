@@ -33,8 +33,8 @@ Future<void> _login(WidgetTester tester) async {
   );
   await tester.tap(find.widgetWithText(FilledButton, 'ログイン'));
 
-  // ログイン完了＋同期完了まで待つ（最大10秒）
-  for (int i = 0; i < 100; i++) {
+  // ログイン完了＋同期完了まで待つ（最大3秒。同期はバッチ化により高速化済み）
+  for (int i = 0; i < 30; i++) {
     await tester.pump(const Duration(milliseconds: 100));
     if (find.byType(BottomNavigationBar).evaluate().isNotEmpty) break;
   }
@@ -57,12 +57,12 @@ Future<void> _setupTroopAndLaunch(WidgetTester tester) async {
   // ログイン画面が出たらログインする
   await _login(tester);
 
-  // BottomNavigationBarが出るまで待つ（同期完了込みで最大20秒）
-  for (int i = 0; i < 200; i++) {
+  // BottomNavigationBarが出るまで待つ（同期完了込みで最大5秒）
+  for (int i = 0; i < 50; i++) {
     await tester.pump(const Duration(milliseconds: 100));
     if (find.byType(BottomNavigationBar).evaluate().isNotEmpty) break;
   }
-  await tester.pumpAndSettle(const Duration(seconds: 3));
+  await tester.pumpAndSettle(const Duration(seconds: 1));
 }
 
 // ─── 設定タブへ移動するヘルパー ────────────────────────────────
