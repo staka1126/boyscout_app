@@ -23,6 +23,8 @@ fi
 
 DART_DEFINES="--dart-define=SUPABASE_URL=$SUPABASE_URL --dart-define=SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY"
 
+security unlock-keychain ~/Library/Keychains/login.keychain-db
+
 # --- App Store Connect 用 IPA ビルド ---
 if [ "$1" = "--store" ]; then
   echo "=== App Store Connect 用 IPA ビルド開始 ==="
