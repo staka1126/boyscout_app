@@ -310,15 +310,20 @@ class Event {
 
   Event copyWith({
     String? title, EventType? eventType, EventStatus? status, DateTime? eventDate,
-    String? location, String? startTime, String? endTime, String? notes, String? planUrl, DateTime? completedAt,
+    String? location, String? startTime, String? endTime, String? notes, String? planUrl,
+    Object? completedAt = _unset,
   }) => Event(
         id: id, troopId: troopId, title: title ?? this.title,
         eventType: eventType ?? this.eventType, status: status ?? this.status,
         eventDate: eventDate ?? this.eventDate, location: location ?? this.location,
         startTime: startTime ?? this.startTime, endTime: endTime ?? this.endTime,
-        notes: notes ?? this.notes, planUrl: planUrl ?? this.planUrl, completedAt: completedAt ?? this.completedAt,
+        notes: notes ?? this.notes, planUrl: planUrl ?? this.planUrl,
+        completedAt: identical(completedAt, _unset) ? this.completedAt : completedAt as DateTime?,
         createdAt: createdAt, updatedAt: DateTime.now());
 }
+
+/// copyWith で null を明示的に渡せるようにするためのセンチネル値
+const _unset = Object();
 
 // ─── EventLeafBadge ──────────────────────────────────────────
 class EventLeafBadge {

@@ -334,8 +334,9 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
         final presentScoutIds = data.attendances
             .where((a) => a.memberType == MemberType.scout && a.status == AttendanceStatus.present && a.memberId != null)
             .map((a) => a.memberId!).toList();
+        final scoutRepo = ref.read(scoutRepositoryProvider);
         for (final sid in presentScoutIds) {
-          await ref.read(scoutRepositoryProvider).subtractLeafBadges(sid, totalBadges);
+          await scoutRepo.subtractLeafBadges(sid, totalBadges, sync: false);
         }
       }
     }
@@ -422,7 +423,12 @@ class _EventDetailPageState extends ConsumerState<EventDetailPage> {
           .where((a) => a.memberType == MemberType.scout && a.status == AttendanceStatus.present && a.memberId != null)
           .map((a) => a.memberId!).toList();
       for (final sid in presentScoutIds) {
-        await scoutRepo.addLeafBadges(sid, totalBadges);
+        await scoutRepo.addLeafBadges(sid, totalBadges, sync: false);
+      }
+      if (presentScoutIds.isNotEmpty && SupabaseConfig.isSignedIn) {
+        try {
+          await SyncService.instance.syncToSupabase(event.troopId);
+        } catch (_) {}
       }
     }
 

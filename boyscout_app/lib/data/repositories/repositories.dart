@@ -190,21 +190,23 @@ class ScoutRepository {
     if (troopId != null) await _syncIfNeeded(troopId);
   }
 
-  Future<void> addLeafBadges(String scoutId, int count) async {
+  Future<void> addLeafBadges(String scoutId, int count, {bool sync = true}) async {
     final db = await _db.database;
     await db.rawUpdate(
         'UPDATE scouts SET leaf_badges = leaf_badges + ?, updated_at = ? WHERE id = ?',
         [count, DateTime.now().toIso8601String(), scoutId]);
+    if (!sync) return;
     final rows = await db.query('scouts', where: 'id = ?', whereArgs: [scoutId]);
     final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
     if (troopId != null) await _syncIfNeeded(troopId);
   }
 
-  Future<void> subtractLeafBadges(String scoutId, int count) async {
+  Future<void> subtractLeafBadges(String scoutId, int count, {bool sync = true}) async {
     final db = await _db.database;
     await db.rawUpdate(
         'UPDATE scouts SET leaf_badges = MAX(0, leaf_badges - ?), updated_at = ? WHERE id = ?',
         [count, DateTime.now().toIso8601String(), scoutId]);
+    if (!sync) return;
     final rows = await db.query('scouts', where: 'id = ?', whereArgs: [scoutId]);
     final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
     if (troopId != null) await _syncIfNeeded(troopId);
