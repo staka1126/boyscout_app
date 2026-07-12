@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/local/database_helper.dart';
 import '../../data/models/models.dart';
@@ -467,6 +468,15 @@ class _LongPressVersionTile extends StatefulWidget {
 class _LongPressVersionTileState extends State<_LongPressVersionTile> {
   Timer? _timer;
   bool _pressing = false;
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    PackageInfo.fromPlatform().then((info) {
+      if (mounted) setState(() => _version = '${info.version}+${info.buildNumber}');
+    });
+  }
 
   @override
   void dispose() {
@@ -505,7 +515,7 @@ class _LongPressVersionTileState extends State<_LongPressVersionTile> {
         ),
         title: const Text('バージョン情報'),
         trailing: Text(
-          '1.0.0',
+          _version,
           style: TextStyle(
             color: _pressing ? Theme.of(context).colorScheme.error : Colors.grey,
           ),

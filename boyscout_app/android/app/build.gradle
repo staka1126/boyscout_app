@@ -66,7 +66,7 @@ afterEvaluate {
     tasks.named('assembleRelease').configure {
         doLast {
             def src = file("${buildDir}/outputs/apk/release/app-release.apk")
-            def dst = file("${buildDir}/outputs/flutter-apk/app-release.apk")
+            def dst = file("${rootDir}/../build/app/outputs/flutter-apk/app-release.apk")
             if (src.exists()) {
                 dst.parentFile.mkdirs()
                 dst.bytes = src.bytes
