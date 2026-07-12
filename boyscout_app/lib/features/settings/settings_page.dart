@@ -199,7 +199,7 @@ class SettingsPage extends ConsumerWidget {
             title: const Text('使い方'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => launchUrl(
-              Uri.parse('https://staka1126.github.io/boyscout_app/manual/index.html'),
+              Uri.parse('https://jetter.sakura.ne.jp/beaverlog/manual/index.html'),
               mode: LaunchMode.externalApplication,
             ),
           ),
