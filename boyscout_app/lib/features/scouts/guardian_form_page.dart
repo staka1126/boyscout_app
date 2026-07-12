@@ -202,7 +202,7 @@ class _GuardianFormPageState extends ConsumerState<GuardianFormPage> {
                   Icon(Icons.info_outline, size: 16, color: cs.onSurfaceVariant),
                   const SizedBox(width: 8),
                   Expanded(child: Text(
-                    'スカウトとの紐付けは、スカウト側の詳細画面から行ってください。',
+                    'スカウトとの紐付けは、いったんデータを確定後に行ってください。',
                     style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant),
                   )),
                 ]),
