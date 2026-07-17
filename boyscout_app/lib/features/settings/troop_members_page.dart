@@ -61,7 +61,7 @@ final troopMembersProvider = FutureProvider.autoDispose<List<TroopMember>>((ref)
     }
 
     result.sort((a, b) {
-      const order = {'admin': 0, 'member': 1, 'readonly': 2};
+      const order = {'admin': 0, 'member': 1, 'limited': 2};
       return (order[a.role] ?? 9).compareTo(order[b.role] ?? 9);
     });
 
@@ -321,17 +321,17 @@ class _RoleBadge extends StatelessWidget {
     final cs = Theme.of(context).colorScheme;
     final label = switch (role) {
       'admin' => '管理者',
-      'readonly' => '参照のみ',
+      'limited' => '制限',
       _ => 'メンバー',
     };
     final color = switch (role) {
       'admin' => cs.primaryContainer,
-      'readonly' => cs.surfaceContainerHighest,
+      'limited' => cs.surfaceContainerHighest,
       _ => cs.secondaryContainer,
     };
     final textColor = switch (role) {
       'admin' => cs.onPrimaryContainer,
-      'readonly' => cs.onSurfaceVariant,
+      'limited' => cs.onSurfaceVariant,
       _ => cs.onSecondaryContainer,
     };
 

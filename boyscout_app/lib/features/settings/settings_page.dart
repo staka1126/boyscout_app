@@ -142,25 +142,35 @@ class SettingsPage extends ConsumerWidget {
                 ),
                 title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
                 subtitle: Text(email),
-                trailing: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: p['role'] == 'admin'
-                        ? cs.primaryContainer
-                        : p['role'] == 'limited'
-                            ? cs.tertiaryContainer
-                            : cs.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(role,
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: p['role'] == 'admin'
-                              ? cs.onPrimaryContainer
-                              : p['role'] == 'limited'
-                                  ? cs.onTertiaryContainer
-                                  : cs.onSurfaceVariant)),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: p['role'] == 'admin'
+                            ? cs.primaryContainer
+                            : p['role'] == 'limited'
+                                ? cs.tertiaryContainer
+                                : cs.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(role,
+                          style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: p['role'] == 'admin'
+                                  ? cs.onPrimaryContainer
+                                  : p['role'] == 'limited'
+                                      ? cs.onTertiaryContainer
+                                      : cs.onSurfaceVariant)),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      tooltip: '表示名を編集',
+                      onPressed: () => _editDisplayName(context, ref, name),
+                    ),
+                  ],
                 ),
               );
             },
@@ -235,6 +245,49 @@ class SettingsPage extends ConsumerWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: () => context.go(path),
       );
+
+  Future<void> _editDisplayName(BuildContext context, WidgetRef ref, String currentName) async {
+    final controller = TextEditingController(text: currentName);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (dlgCtx) => AlertDialog(
+        title: const Text('表示名を編集'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(labelText: '氏名'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dlgCtx).pop(),
+            child: const Text('キャンセル'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dlgCtx).pop(controller.text.trim()),
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+
+    if (newName == null || newName.isEmpty || !context.mounted) return;
+
+    try {
+      await AuthService.instance.updateDisplayName(newName);
+      ref.invalidate(_currentProfileProvider);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('表示名を更新しました')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('更新に失敗しました: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
 
   Future<void> _confirmLogout(BuildContext context, WidgetRef ref) async {
     final ok = await showDialog<bool>(

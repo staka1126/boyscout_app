@@ -51,11 +51,25 @@ class AuthService {
     );
     if (res.user != null) {
       try {
-        await _client.from('profiles').upsert({
-          'id': res.user!.id,
-          'name': res.user!.userMetadata?['name'] ?? email.split('@').first,
-          'email': email,
-        }, onConflict: 'id');
+        final existing = await _client
+            .from('profiles')
+            .select('name')
+            .eq('id', res.user!.id)
+            .maybeSingle();
+
+        if (existing == null) {
+          // プロフィール未作成の場合のみ、メタデータ名 or メールの@左側で補完
+          await _client.from('profiles').upsert({
+            'id': res.user!.id,
+            'name': res.user!.userMetadata?['name'] ?? email.split('@').first,
+            'email': email,
+          }, onConflict: 'id');
+        } else {
+          // 既存の登録名は上書きしない。emailのみ最新化
+          await _client
+              .from('profiles')
+              .update({'email': email}).eq('id', res.user!.id);
+        }
       } catch (e) {
         debugPrint('profiles upsert error: $e');
       }
@@ -97,6 +111,24 @@ class AuthService {
     return data?['name'] as String?;
   }
 
+  // ──────────────────────────────────────
+  // 表示名の編集
+  // ──────────────────────────────────────
+  Future<void> updateDisplayName(String name) async {
+    final user = currentUser;
+    if (user == null) throw Exception('ログインが必要です');
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) throw Exception('氏名を入力してください');
+
+    await _client.from('profiles').update({'name': trimmed}).eq('id', user.id);
+
+    try {
+      await _client.auth.updateUser(UserAttributes(data: {'name': trimmed}));
+    } catch (e) {
+      debugPrint('updateUser metadata error: $e');
+    }
+  }
+
   // ─────────────────────────────────────────────
   // 招待コード使用
   // ─────────────────────────────────────────────
@@ -129,12 +161,19 @@ class AuthService {
         .maybeSingle();
     if (existing != null) throw Exception('すでにこの団に参加しています');
 
-    // profilesが存在しない場合に備えてupsertで保証
-    await _client.from('profiles').upsert({
-      'id': user.id,
-      'name': user.email?.split('@').first ?? 'user',
-      'email': user.email,
-    }, onConflict: 'id');
+    // profilesが存在しない場合に備えてinsertで保証（既存の登録名は上書きしない）
+    final existingProfile = await _client
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+    if (existingProfile == null) {
+      await _client.from('profiles').upsert({
+        'id': user.id,
+        'name': user.userMetadata?['name'] ?? user.email?.split('@').first ?? 'user',
+        'email': user.email,
+      }, onConflict: 'id');
+    }
 
     await _client.from('troop_members').insert({
       'user_id': user.id,
