@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../data/models/models.dart';
+import '../../core/constants/app_constants.dart';
 import '../../data/repositories/repositories.dart';
 import '../../core/supabase_config.dart';
 import '../badges/badges_page.dart';
@@ -24,13 +25,15 @@ final _scoutDetailProvider =
     FutureProvider.family<_ScoutDetailData, String>((ref, id) async {
   final scout = await ref.read(scoutRepositoryProvider).getById(id);
   final guardians = await ref.read(guardianRepositoryProvider).getByScout(id);
-  return _ScoutDetailData(scout: scout, guardians: guardians);
+  final attendanceHistory = await ref.read(attendanceRepositoryProvider).getByScout(id);
+  return _ScoutDetailData(scout: scout, guardians: guardians, attendanceHistory: attendanceHistory);
 });
 
 class _ScoutDetailData {
   final Scout? scout;
   final List<Guardian> guardians;
-  _ScoutDetailData({required this.scout, required this.guardians});
+  final List<ScoutAttendanceRecord> attendanceHistory;
+  _ScoutDetailData({required this.scout, required this.guardians, this.attendanceHistory = const []});
 }
 
 class ScoutDetailPage extends ConsumerWidget {
@@ -201,11 +204,49 @@ class ScoutDetailPage extends ConsumerWidget {
                       ]),
                     )),
                 ]))),
+              const SizedBox(height: 12),
+
+              Card(child: Padding(padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('参加履歴', style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(color: cs.primary)),
+                  const SizedBox(height: 8),
+                  if (data.attendanceHistory.isEmpty)
+                    const Text('参加履歴はありません', style: TextStyle(color: Colors.grey))
+                  else
+                    ...data.attendanceHistory.map((r) => InkWell(
+                      onTap: () => context.push('/events/${r.eventId}'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(children: [
+                          SizedBox(width: 88, child: Text(
+                              DateFormat('yyyy/MM/dd').format(r.eventDate),
+                              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
+                          Expanded(child: Text(r.title,
+                              style: const TextStyle(fontSize: 14),
+                              overflow: TextOverflow.ellipsis)),
+                          const SizedBox(width: 8),
+                          _attendanceIcon(cs, r.attendanceStatus),
+                        ]),
+                      ),
+                    )),
+                ]))),
             ],
           ),
         );
       },
     );
+  }
+
+  Widget _attendanceIcon(ColorScheme cs, AttendanceStatus status) {
+    switch (status) {
+      case AttendanceStatus.present:
+        return Icon(Icons.check_circle, size: 18, color: cs.primary);
+      case AttendanceStatus.absent:
+        return Icon(Icons.cancel, size: 18, color: cs.error);
+      case AttendanceStatus.pending:
+        return Icon(Icons.remove_circle_outline, size: 18, color: cs.onSurfaceVariant);
+    }
   }
 
   Widget _chip(BuildContext context, String label, Color bg, Color fg) =>

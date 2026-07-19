@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../data/models/models.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
@@ -39,14 +40,16 @@ List<Scout> _sortScouts(List<Scout> scouts) {
 
 final badgesProvider = FutureProvider<_BadgesData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
-  if (troopId == null) return _BadgesData(scouts: []);
+  if (troopId == null) return _BadgesData(scouts: [], history: []);
   final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
-  return _BadgesData(scouts: scouts);
+  final history = await ref.read(scoutRepositoryProvider).getAwardHistory(troopId);
+  return _BadgesData(scouts: scouts, history: history);
 });
 
 class _BadgesData {
   final List<Scout> scouts;
-  _BadgesData({required this.scouts});
+  final List<TwigBadgeHistory> history;
+  _BadgesData({required this.scouts, this.history = const []});
 
   List<_PendingTwig> get pendingList {
     final result = <_PendingTwig>[];
@@ -295,39 +298,72 @@ class _TwigBadgeTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final pending = data.pendingList;
-    if (pending.isEmpty) {
+    final historyGroups = _groupAwardHistory(data.history);
+    final cs = Theme.of(context).colorScheme;
+
+    if (pending.isEmpty && historyGroups.isEmpty) {
       return const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
         Icon(Icons.military_tech_outlined, size: 48, color: Colors.grey),
         SizedBox(height: 8),
         Text('授与待ちのスカウトはいません'),
       ]));
     }
-    return ListView.separated(
+
+    return ListView(
       padding: const EdgeInsets.all(16),
-      itemCount: pending.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (_, i) {
-        final p = pending[i];
-        return Card(child: Padding(padding: const EdgeInsets.all(14),
-          child: Row(children: [
-            CircleAvatar(backgroundColor: Theme.of(context).colorScheme.tertiaryContainer,
-              child: Icon(Icons.military_tech, color: Theme.of(context).colorScheme.onTertiaryContainer)),
-            const SizedBox(width: 12),
-            Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(p.scout.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-              const SizedBox(height: 2),
-              Text('${p.scout.category.label} ／ 木の葉章 ${p.scout.totalLeafBadges}枚 → 小枝章 ${p.count}本 授与待ち',
-                  style: const TextStyle(fontSize: 12)),
-            ])),
-            FilledButton(
-              style: FilledButton.styleFrom(minimumSize: const Size(0, 36),
-                  padding: const EdgeInsets.symmetric(horizontal: 14)),
-              onPressed: () => _awardTwig(context, ref, p.scout, p.count),
-              child: const Text('授与'),
-            ),
-          ]),
-        ));
-      },
+      children: [
+        if (pending.isEmpty)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 12),
+            child: Text('授与待ちのスカウトはいません', style: TextStyle(color: Colors.grey)),
+          )
+        else
+          ...pending.map((p) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Card(child: Padding(padding: const EdgeInsets.all(14),
+              child: Row(children: [
+                CircleAvatar(backgroundColor: cs.tertiaryContainer,
+                  child: Icon(Icons.military_tech, color: cs.onTertiaryContainer)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(p.scout.name, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+                  const SizedBox(height: 2),
+                  Text('${p.scout.category.label} ／ 木の葉章 ${p.scout.totalLeafBadges}枚 → 小枝章 ${p.count}本 授与待ち',
+                      style: const TextStyle(fontSize: 12)),
+                ])),
+                FilledButton(
+                  style: FilledButton.styleFrom(minimumSize: const Size(0, 36),
+                      padding: const EdgeInsets.symmetric(horizontal: 14)),
+                  onPressed: () => _awardTwig(context, ref, p.scout, p.count),
+                  child: const Text('授与'),
+                ),
+              ]),
+            )),
+          )),
+        const SizedBox(height: 16),
+        Text('表彰履歴', style: Theme.of(context).textTheme.labelLarge?.copyWith(color: cs.primary)),
+        const SizedBox(height: 8),
+        if (historyGroups.isEmpty)
+          const Text('表彰履歴はありません', style: TextStyle(color: Colors.grey))
+        else
+          ...historyGroups.map((g) => Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: Card(child: Padding(padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(children: [
+                CircleAvatar(radius: 18, backgroundColor: cs.surfaceContainerHighest,
+                  child: Icon(Icons.military_tech, size: 18, color: cs.onSurfaceVariant)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(g.scoutName, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  Text(DateFormat('yyyy/MM/dd').format(g.awardedAt),
+                      style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant)),
+                ])),
+                Text('${g.count}本',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: cs.primary)),
+              ]),
+            )),
+          )),
+      ],
     );
   }
 
@@ -347,9 +383,33 @@ class _TwigBadgeTab extends ConsumerWidget {
     } else {
       await ref.read(scoutRepositoryProvider).addOtherBadges(scout.id, count);
     }
+    await ref.read(scoutRepositoryProvider).insertTwigBadgeHistory(
+        scoutId: scout.id, scoutName: scout.name, count: count, troopId: scout.troopId);
     ref.invalidate(dashboardProvider);
     onRefresh();
   }
+}
+
+class _AwardGroup {
+  final String scoutName;
+  final DateTime awardedAt;
+  final int count;
+  _AwardGroup({required this.scoutName, required this.awardedAt, required this.count});
+}
+
+/// スカウトごと・授与日時ごとに件数をまとめる（一度の授与操作で複数本まとめて記録されるため）
+List<_AwardGroup> _groupAwardHistory(List<TwigBadgeHistory> history) {
+  final map = <String, _AwardGroup>{};
+  for (final h in history) {
+    final awardedAt = h.awardedAt;
+    if (awardedAt == null) continue;
+    final key = '${h.scoutId}_${awardedAt.toIso8601String()}';
+    final existing = map[key];
+    map[key] = _AwardGroup(
+        scoutName: h.scoutName, awardedAt: awardedAt, count: (existing?.count ?? 0) + 1);
+  }
+  final list = map.values.toList()..sort((a, b) => b.awardedAt.compareTo(a.awardedAt));
+  return list;
 }
 
 class _LeafBadgeTab extends StatelessWidget {

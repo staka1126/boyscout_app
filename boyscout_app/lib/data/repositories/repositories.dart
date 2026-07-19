@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:uuid/uuid.dart';
@@ -230,6 +231,37 @@ class ScoutRepository {
     final rows = await db.query('scouts', where: 'id = ?', whereArgs: [scoutId]);
     final troopId = rows.isNotEmpty ? rows.first['troop_id'] as String? : null;
     if (troopId != null) await _syncIfNeeded(troopId);
+  }
+
+  /// 小枝章（または他の表彰）の授与履歴を twig_badge_history に記録（count本分）
+  Future<void> insertTwigBadgeHistory({
+    required String scoutId, required String scoutName, required int count,
+    required String troopId, bool sync = true,
+  }) async {
+    final db = await _db.database;
+    final now = DateTime.now().toIso8601String();
+    final batch = db.batch();
+    for (var i = 0; i < count; i++) {
+      batch.insert('twig_badge_history', {
+        'id': _uuid.v4(), 'scout_id': scoutId, 'scout_name': scoutName, 'event_id': null,
+        'status': 'awarded', 'awarded_at': now, 'created_at': now, 'updated_at': now,
+      });
+    }
+    await batch.commit(noResult: true);
+    if (!sync) return;
+    await _syncIfNeeded(troopId);
+  }
+
+  /// 団内の表彰（授与済み）履歴を新しい日付順で取得
+  Future<List<TwigBadgeHistory>> getAwardHistory(String troopId) async {
+    final db = await _db.database;
+    final rows = await db.rawQuery('''
+      SELECT h.* FROM twig_badge_history h
+      JOIN scouts s ON s.id = h.scout_id
+      WHERE s.troop_id = ? AND h.status = 'awarded'
+      ORDER BY h.awarded_at DESC
+    ''', [troopId]);
+    return rows.map(TwigBadgeHistory.fromMap).toList();
   }
 }
 
@@ -498,6 +530,62 @@ class AttendanceRepository {
         .map(Attendance.fromMap).toList();
   }
 
+  /// スカウトの参加履歴（イベント情報＋出欠状態）を新しい日付順で取得
+  Future<List<ScoutAttendanceRecord>> getByScout(String scoutId) async {
+    final db = await _db.database;
+    final rows = await db.rawQuery('''
+      SELECT e.id AS event_id, e.title AS title, e.event_date AS event_date,
+             e.status AS event_status, a.status AS attendance_status
+      FROM attendances a
+      JOIN events e ON e.id = a.event_id
+      WHERE a.member_type = 'scout' AND a.member_id = ?
+      ORDER BY e.event_date DESC
+    ''', [scoutId]);
+    return rows.map(ScoutAttendanceRecord.fromMap).toList();
+  }
+
+  /// リーダーの参加履歴（イベント情報＋出欠状態）を新しい日付順で取得
+  Future<List<ScoutAttendanceRecord>> getByUser(String userId) async {
+    final db = await _db.database;
+    final rows = await db.rawQuery('''
+      SELECT e.id AS event_id, e.title AS title, e.event_date AS event_date,
+             e.status AS event_status, a.status AS attendance_status
+      FROM attendances a
+      JOIN events e ON e.id = a.event_id
+      WHERE a.member_type = 'user' AND a.member_id = ?
+      ORDER BY e.event_date DESC
+    ''', [userId]);
+    return rows.map(ScoutAttendanceRecord.fromMap).toList();
+  }
+
+  /// 保護者の参加履歴（イベント情報＋出欠状態）を新しい日付順で取得
+  Future<List<ScoutAttendanceRecord>> getByGuardian(String guardianId) async {
+    final db = await _db.database;
+    final rows = await db.rawQuery('''
+      SELECT e.id AS event_id, e.title AS title, e.event_date AS event_date,
+             e.status AS event_status, a.status AS attendance_status
+      FROM attendances a
+      JOIN events e ON e.id = a.event_id
+      WHERE a.member_type = 'guardian' AND a.member_id = ?
+      ORDER BY e.event_date DESC
+    ''', [guardianId]);
+    return rows.map(ScoutAttendanceRecord.fromMap).toList();
+  }
+
+  /// 団委員の参加履歴（イベント情報＋出欠状態）を新しい日付順で取得
+  Future<List<ScoutAttendanceRecord>> getByCommittee(String committeeId) async {
+    final db = await _db.database;
+    final rows = await db.rawQuery('''
+      SELECT e.id AS event_id, e.title AS title, e.event_date AS event_date,
+             e.status AS event_status, a.status AS attendance_status
+      FROM attendances a
+      JOIN events e ON e.id = a.event_id
+      WHERE a.member_type = 'committee' AND a.member_id = ?
+      ORDER BY e.event_date DESC
+    ''', [committeeId]);
+    return rows.map(ScoutAttendanceRecord.fromMap).toList();
+  }
+
   Future<void> createDefaults({
     required String eventId, required List<AppUser> users, required List<Scout> scouts,
   }) async {
@@ -530,7 +618,8 @@ class AttendanceRepository {
     await db.insert('attendances', a.toMap(), conflictAlgorithm: ConflictAlgorithm.ignore);
     final eventRows = await db.query('events', where: 'id = ?', whereArgs: [a.eventId]);
     final troopId = eventRows.isNotEmpty ? eventRows.first['troop_id'] as String? : null;
-    if (troopId != null) await _syncIfNeeded(troopId);
+    // ローカル挿入のみ待ち、Supabase同期は投げっぱなしにしてUIをブロックしない
+    if (troopId != null) unawaited(_syncIfNeeded(troopId));
   }
 
   Future<void> updateStatus(String id, AttendanceStatus status) async {
@@ -622,6 +711,26 @@ class AttendanceRepository {
     final t = (rows.first['t'] as int?) ?? 0;
     return (present: p, total: t);
   }
+}
+
+// ─── ScoutAttendanceRecord ───────────────────────────────────
+class ScoutAttendanceRecord {
+  final String eventId;
+  final String title;
+  final DateTime eventDate;
+  final EventStatus eventStatus;
+  final AttendanceStatus attendanceStatus;
+  ScoutAttendanceRecord({
+    required this.eventId, required this.title, required this.eventDate,
+    required this.eventStatus, required this.attendanceStatus,
+  });
+
+  factory ScoutAttendanceRecord.fromMap(Map<String, dynamic> m) => ScoutAttendanceRecord(
+      eventId: m['event_id'] as String,
+      title: m['title'] as String,
+      eventDate: DateTime.parse(m['event_date'] as String),
+      eventStatus: EventStatus.fromValue(m['event_status'] as String),
+      attendanceStatus: AttendanceStatus.fromValue(m['attendance_status'] as String));
 }
 
 // ─── PerfectAttendance ───────────────────────────────────────

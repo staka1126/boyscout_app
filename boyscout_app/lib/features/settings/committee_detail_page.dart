@@ -1,15 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../data/models/models.dart';
+import '../../core/constants/app_constants.dart';
 import '../../data/repositories/repositories.dart';
 import '../dashboard/dashboard_page.dart';
 import 'committee_list_page.dart';
 
 final _committeeDetailProvider =
-    FutureProvider.family<CommitteeMember?, String>((ref, id) async {
-  return ref.read(committeeRepositoryProvider).getById(id);
+    FutureProvider.family<_CommitteeDetailData, String>((ref, id) async {
+  final member = await ref.read(committeeRepositoryProvider).getById(id);
+  final attendanceHistory = await ref.read(attendanceRepositoryProvider).getByCommittee(id);
+  return _CommitteeDetailData(member: member, attendanceHistory: attendanceHistory);
 });
+
+class _CommitteeDetailData {
+  final CommitteeMember? member;
+  final List<ScoutAttendanceRecord> attendanceHistory;
+  _CommitteeDetailData({required this.member, this.attendanceHistory = const []});
+}
 
 class CommitteeDetailPage extends ConsumerWidget {
   final String id;
@@ -22,7 +32,8 @@ class CommitteeDetailPage extends ConsumerWidget {
     return async.when(
       loading: () => const Scaffold(body: Center(child: CircularProgressIndicator())),
       error: (e, _) => Scaffold(body: Center(child: Text('エラー: $e'))),
-      data: (member) {
+      data: (data) {
+        final member = data.member;
         if (member == null) {
           return Scaffold(appBar: AppBar(), body: const Center(child: Text('団委員が見つかりません')));
         }
@@ -89,11 +100,49 @@ class CommitteeDetailPage extends ConsumerWidget {
                 if (member.gender != null)
                   _InfoRow('性別', member.gender == 'male' ? '男性' : member.gender == 'female' ? '女性' : 'その他'),
               ]),
+              const SizedBox(height: 12),
+
+              Card(child: Padding(padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('参加履歴', style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(color: cs.primary)),
+                  const SizedBox(height: 8),
+                  if (data.attendanceHistory.isEmpty)
+                    const Text('参加履歴はありません', style: TextStyle(color: Colors.grey))
+                  else
+                    ...data.attendanceHistory.map((r) => InkWell(
+                      onTap: () => context.push('/events/${r.eventId}'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(children: [
+                          SizedBox(width: 88, child: Text(
+                              DateFormat('yyyy/MM/dd').format(r.eventDate),
+                              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
+                          Expanded(child: Text(r.title,
+                              style: const TextStyle(fontSize: 14),
+                              overflow: TextOverflow.ellipsis)),
+                          const SizedBox(width: 8),
+                          _attendanceIcon(cs, r.attendanceStatus),
+                        ]),
+                      ),
+                    )),
+                ]))),
             ],
           ),
         );
       },
     );
+  }
+
+  Widget _attendanceIcon(ColorScheme cs, AttendanceStatus status) {
+    switch (status) {
+      case AttendanceStatus.present:
+        return Icon(Icons.check_circle, size: 18, color: cs.primary);
+      case AttendanceStatus.absent:
+        return Icon(Icons.cancel, size: 18, color: cs.error);
+      case AttendanceStatus.pending:
+        return Icon(Icons.remove_circle_outline, size: 18, color: cs.onSurfaceVariant);
+    }
   }
 
   Widget _infoCard(BuildContext context, String title, List<Widget> rows) {

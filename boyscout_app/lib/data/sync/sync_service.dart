@@ -60,6 +60,7 @@ class SyncService {
         _syncEventLeafBadges(db, troopId),
         _syncAttendances(db, troopId),
         _syncEventStats(db, troopId),
+        _syncTwigBadgeHistory(db, troopId),
       ]);
 
       _syncedTroopIds.add(troopId);
@@ -101,6 +102,7 @@ class SyncService {
       if (!isLimited) () => _uploadEventLeafBadges(db, troopId),
       () => _uploadAttendances(db, troopId),
       if (!isLimited) () => _uploadEventStats(db, troopId),
+      if (!isLimited) () => _uploadTwigBadgeHistory(db, troopId),
     ];
 
     for (final fn in fns) {
@@ -274,6 +276,21 @@ class SyncService {
 
     // ローカルの updated_at は ISO8601 文字列なので Supabase 向けにそのまま渡す
     await _client.from('event_stats').upsert(
+        rows.map((r) => Map<String, dynamic>.from(r)).toList());
+  }
+
+  /// twig_badge_history をローカル → Supabase にアップロード
+  Future<void> _uploadTwigBadgeHistory(Database db, String troopId) async {
+    final scoutRows = await db.query('scouts',
+        columns: ['id'], where: 'troop_id = ?', whereArgs: [troopId]);
+    final scoutIds = scoutRows.map((r) => r['id'] as String).toList();
+    if (scoutIds.isEmpty) return;
+
+    final placeholder = scoutIds.map((_) => '?').join(',');
+    final rows = await db.query('twig_badge_history',
+        where: 'scout_id IN ($placeholder)', whereArgs: scoutIds);
+    if (rows.isEmpty) return;
+    await _client.from('twig_badge_history').upsert(
         rows.map((r) => Map<String, dynamic>.from(r)).toList());
   }
 

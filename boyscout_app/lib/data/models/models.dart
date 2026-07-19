@@ -1,5 +1,35 @@
 import '../../core/constants/app_constants.dart';
 
+// ─── TwigBadgeHistory ────────────────────────────────
+class TwigBadgeHistory {
+  final String id;
+  final String scoutId;
+  final String scoutName;
+  final String? eventId;
+  final String status;
+  final DateTime? awardedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const TwigBadgeHistory({
+    required this.id, required this.scoutId, required this.scoutName, this.eventId,
+    this.status = 'pending', this.awardedAt, required this.createdAt, required this.updatedAt,
+  });
+
+  factory TwigBadgeHistory.fromMap(Map<String, dynamic> m) => TwigBadgeHistory(
+        id: m['id'] as String, scoutId: m['scout_id'] as String,
+        scoutName: m['scout_name'] as String, eventId: m['event_id'] as String?,
+        status: m['status'] as String? ?? 'pending',
+        awardedAt: m['awarded_at'] != null ? DateTime.parse(m['awarded_at'] as String) : null,
+        createdAt: DateTime.parse(m['created_at'] as String),
+        updatedAt: DateTime.parse(m['updated_at'] as String));
+
+  Map<String, dynamic> toMap() => {
+        'id': id, 'scout_id': scoutId, 'scout_name': scoutName, 'event_id': eventId,
+        'status': status, 'awarded_at': awardedAt?.toIso8601String(),
+        'created_at': createdAt.toIso8601String(), 'updated_at': updatedAt.toIso8601String()};
+}
+
 // ─── Troop ────────────────────────────────────────────────────
 class Troop {
   final String id;

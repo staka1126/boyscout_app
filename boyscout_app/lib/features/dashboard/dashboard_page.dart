@@ -46,22 +46,28 @@ final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   final scouts = await ref.read(scoutRepositoryProvider).getByTroop(troopId);
   final rates = await ref.read(attendanceRepositoryProvider).getRates(troopId);
   final now = DateTime.now();
-  final thisMonthCount = allEvents
-      .where((e) => e.eventDate.month == now.month && e.eventDate.year == now.year)
-      .length;
+  // 今年度（4月始まり）のイベントを集計
+  final fiscalYear = now.month >= 4 ? now.year : now.year - 1;
+  final fiscalYearEvents = allEvents.where((e) {
+    final fy = e.eventDate.month >= 4 ? e.eventDate.year : e.eventDate.year - 1;
+    return fy == fiscalYear;
+  }).toList();
+  final completedEventCount = fiscalYearEvents.where((e) => e.status == EventStatus.completed).length;
+  final totalEventCount = fiscalYearEvents.length;
   // トータル出席率：全スカウトの出席合計 / (出席+欠席)合計
   final double avgRate = rates.total == 0 ? 0.0 : rates.present / rates.total;
-  return _DashboardData(events: events, scouts: scouts, thisMonthCount: thisMonthCount, avgAttendanceRate: avgRate, troopName: troopName);
+  return _DashboardData(events: events, scouts: scouts, completedEventCount: completedEventCount, totalEventCount: totalEventCount, avgAttendanceRate: avgRate, troopName: troopName);
 });
 
 class _DashboardData {
   final List<Event> events;
   final List<Scout> scouts;
-  final int thisMonthCount;
+  final int completedEventCount;
+  final int totalEventCount;
   final double avgAttendanceRate;
   final String? troopName;
-  _DashboardData({required this.events, required this.scouts, required this.thisMonthCount, required this.avgAttendanceRate, this.troopName});
-  factory _DashboardData.empty() => _DashboardData(events: [], scouts: [], thisMonthCount: 0, avgAttendanceRate: 0);
+  _DashboardData({required this.events, required this.scouts, required this.completedEventCount, required this.totalEventCount, required this.avgAttendanceRate, this.troopName});
+  factory _DashboardData.empty() => _DashboardData(events: [], scouts: [], completedEventCount: 0, totalEventCount: 0, avgAttendanceRate: 0);
   int get pendingTwigScouts => scouts.where((s) =>
       s.isActive &&
       s.isTwigBadgeEligible &&
@@ -120,7 +126,7 @@ class DashboardPage extends ConsumerWidget {
           onRefresh: () => ref.refresh(dashboardProvider.future),
           child: ListView(padding: const EdgeInsets.all(16), children: [
             Row(children: [
-              Expanded(child: _MetricCard(label: '今月のイベント', value: '${data.thisMonthCount}件', icon: Icons.event, color: cs.primaryContainer, iconColor: cs.onPrimaryContainer)),
+              Expanded(child: _MetricCard(label: '開催済みイベント', value: '${data.completedEventCount}件', icon: Icons.event, color: cs.primaryContainer, iconColor: cs.onPrimaryContainer)),
               const SizedBox(width: 12),
               Expanded(child: _MetricCard(label: 'スカウト数', value: '${data.activeScouts}名', icon: Icons.people, color: cs.secondaryContainer, iconColor: cs.onSecondaryContainer)),
             ]),

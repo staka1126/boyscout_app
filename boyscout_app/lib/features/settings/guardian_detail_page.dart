@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import '../../data/models/models.dart';
+import '../../core/constants/app_constants.dart';
 import '../../data/repositories/repositories.dart';
 import '../../data/providers/app_state_provider.dart';
 import '../dashboard/dashboard_page.dart';
@@ -13,13 +15,15 @@ final _guardianDetailProvider =
   final scouts = guardian == null
       ? <Scout>[]
       : await ref.read(guardianRepositoryProvider).getScoutsByGuardian(id);
-  return _GuardianDetailData(guardian: guardian, scouts: scouts);
+  final attendanceHistory = await ref.read(attendanceRepositoryProvider).getByGuardian(id);
+  return _GuardianDetailData(guardian: guardian, scouts: scouts, attendanceHistory: attendanceHistory);
 });
 
 class _GuardianDetailData {
   final Guardian? guardian;
   final List<Scout> scouts;
-  _GuardianDetailData({required this.guardian, required this.scouts});
+  final List<ScoutAttendanceRecord> attendanceHistory;
+  _GuardianDetailData({required this.guardian, required this.scouts, this.attendanceHistory = const []});
 }
 
 class GuardianDetailPage extends ConsumerWidget {
@@ -130,11 +134,49 @@ class GuardianDetailPage extends ConsumerWidget {
                       ]),
                     )),
                 ]))),
+              const SizedBox(height: 12),
+
+              Card(child: Padding(padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('参加履歴', style: Theme.of(context).textTheme.labelLarge
+                      ?.copyWith(color: cs.primary)),
+                  const SizedBox(height: 8),
+                  if (data.attendanceHistory.isEmpty)
+                    const Text('参加履歴はありません', style: TextStyle(color: Colors.grey))
+                  else
+                    ...data.attendanceHistory.map((r) => InkWell(
+                      onTap: () => context.push('/events/${r.eventId}'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(children: [
+                          SizedBox(width: 88, child: Text(
+                              DateFormat('yyyy/MM/dd').format(r.eventDate),
+                              style: TextStyle(fontSize: 12, color: cs.onSurfaceVariant))),
+                          Expanded(child: Text(r.title,
+                              style: const TextStyle(fontSize: 14),
+                              overflow: TextOverflow.ellipsis)),
+                          const SizedBox(width: 8),
+                          _attendanceIcon(cs, r.attendanceStatus),
+                        ]),
+                      ),
+                    )),
+                ]))),
             ],
           ),
         );
       },
     );
+  }
+
+  Widget _attendanceIcon(ColorScheme cs, AttendanceStatus status) {
+    switch (status) {
+      case AttendanceStatus.present:
+        return Icon(Icons.check_circle, size: 18, color: cs.primary);
+      case AttendanceStatus.absent:
+        return Icon(Icons.cancel, size: 18, color: cs.error);
+      case AttendanceStatus.pending:
+        return Icon(Icons.remove_circle_outline, size: 18, color: cs.onSurfaceVariant);
+    }
   }
 
   Widget _infoCard(BuildContext context, String title, List<Widget> rows) {
