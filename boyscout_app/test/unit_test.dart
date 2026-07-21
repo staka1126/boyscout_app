@@ -1,6 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:boyscout_app/data/models/models.dart';
 import 'package:boyscout_app/core/constants/app_constants.dart';
+import 'package:boyscout_app/core/wbgt_prefecture_master.dart';
+
+// 熱中症危険度判定（heat-alerts-sync Edge Function の classifyLevel をDartで再現）
+String classifyHeatLevel(double wbgt) {
+  if (wbgt >= 31) return 'danger';
+  if (wbgt >= 28) return 'severe_caution';
+  if (wbgt >= 25) return 'caution_high';
+  if (wbgt >= 21) return 'caution';
+  return 'safe';
+}
 
 // fiscal year helper (copied from events_page.dart)
 int fiscalYear(DateTime date) =>
@@ -645,6 +655,128 @@ void main() {
 
     test('不明な値は pending にフォールバック', () {
       expect(AttendanceStatus.fromValue('unknown'), AttendanceStatus.pending);
+    });
+  });
+
+  // ─── 熱中症アラート： Troop toMap/fromMap ラウンドトリップ ───
+  group('Troop toMap/fromMap ラウンドトリップ（熱中症アラート項目）', () {
+    test('prefectureCode/pointCode が往復変換で一致する', () {
+      final now = DateTime(2026, 7, 1, 9, 0, 0);
+      final original = Troop(
+        id: 'troop-1',
+        name: '杉並第3団',
+        location: '東京都杉並区',
+        contact: '000-0000-0000',
+        prefectureCode: '44',
+        pointCode: '44132',
+        createdAt: now,
+        updatedAt: now,
+      );
+      final map = original.toMap();
+      final restored = Troop.fromMap(map);
+      expect(restored.prefectureCode, '44');
+      expect(restored.pointCode, '44132');
+    });
+
+    test('prefectureCode/pointCode が null でも往復変換できる（未設定団）', () {
+      final now = DateTime.now();
+      final original = Troop(
+        id: 'troop-2', name: '未設定団',
+        createdAt: now, updatedAt: now,
+      );
+      final map = original.toMap();
+      final restored = Troop.fromMap(map);
+      expect(restored.prefectureCode, isNull);
+      expect(restored.pointCode, isNull);
+    });
+
+    test('copyWith で prefectureCode/pointCode のみ更新できる', () {
+      final now = DateTime.now();
+      final original = Troop(
+        id: 'troop-3', name: 'テスト団',
+        createdAt: now, updatedAt: now,
+      );
+      final updated = original.copyWith(prefectureCode: '44', pointCode: '44172');
+      expect(updated.prefectureCode, '44');
+      expect(updated.pointCode, '44172');
+      expect(updated.name, original.name); // 他の項目は変化しない
+    });
+  });
+
+  // ─── 熱中症アラート： wbgtPrefectureMaster の整合性 ───
+  group('wbgtPrefectureMaster', () {
+    test('47都道府県すべてが含まれている', () {
+      expect(wbgtPrefectureMaster.length, 47);
+    });
+
+    test('prefCodeは重複しない', () {
+      final codes = wbgtPrefectureMaster.map((p) => p.prefCode).toList();
+      expect(codes.toSet().length, codes.length);
+    });
+
+    test('各都道府県に少なくとも1地点は存在する', () {
+      for (final pref in wbgtPrefectureMaster) {
+        expect(pref.points, isNotEmpty, reason: '${pref.prefName} に地点がない');
+      }
+    });
+
+    test('地点番号（pointCode）は全体で重複しない', () {
+      final allCodes = wbgtPrefectureMaster.expand((p) => p.points).map((pt) => pt.pointCode).toList();
+      expect(allCodes.toSet().length, allCodes.length);
+    });
+
+    test('東京都は本土・大島・八丈島・父島の4地点を持ち、デフォルトは東京（44132）', () {
+      final tokyo = wbgtPrefectureMaster.firstWhere((p) => p.prefName == '東京都');
+      expect(tokyo.points.length, 4);
+      expect(tokyo.points.first.pointCode, '44132');
+      expect(tokyo.points.map((pt) => pt.pointName), containsAll(['東京', '大島', '八丈島', '父島']));
+    });
+
+    test('埼玉県は単一地点（熊谷）のみ', () {
+      final saitama = wbgtPrefectureMaster.firstWhere((p) => p.prefName == '埼玉県');
+      expect(saitama.points.length, 1);
+      expect(saitama.points.first.pointName, '熊谷');
+    });
+
+    test('長崎県は本土・対馬・五島の3地点', () {
+      final nagasaki = wbgtPrefectureMaster.firstWhere((p) => p.prefName == '長崎県');
+      expect(nagasaki.points.length, 3);
+    });
+  });
+
+  // ─── 熱中症アラート： WBGT危険度判定（classifyHeatLevel） ───
+  group('classifyHeatLevel（WBGT危険度判定）', () {
+    test('31以上は danger', () {
+      expect(classifyHeatLevel(31.0), 'danger');
+      expect(classifyHeatLevel(35.0), 'danger');
+    });
+
+    test('28以上31未満は severe_caution', () {
+      expect(classifyHeatLevel(28.0), 'severe_caution');
+      expect(classifyHeatLevel(30.9), 'severe_caution');
+    });
+
+    test('25以上28未満は caution_high', () {
+      expect(classifyHeatLevel(25.0), 'caution_high');
+      expect(classifyHeatLevel(27.9), 'caution_high');
+    });
+
+    test('21以上25未満は caution', () {
+      expect(classifyHeatLevel(21.0), 'caution');
+      expect(classifyHeatLevel(24.9), 'caution');
+    });
+
+    test('21未満は safe', () {
+      expect(classifyHeatLevel(20.9), 'safe');
+      expect(classifyHeatLevel(0.0), 'safe');
+    });
+
+    test('境界値が正しく切り替わる（実データ式：東京2026年7月21日分）', () {
+      // 実際にデプロイ後に取得できた値（東京 34.0/35.0/33.0/26.0）で確認
+      expect(classifyHeatLevel(34.0), 'danger');
+      expect(classifyHeatLevel(35.0), 'danger');
+      expect(classifyHeatLevel(33.0), 'danger');
+      expect(classifyHeatLevel(26.0), 'caution_high');
     });
   });
 }

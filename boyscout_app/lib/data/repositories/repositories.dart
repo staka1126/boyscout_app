@@ -51,6 +51,8 @@ class TroopRepository {
     String? location,
     String? contact,
     String? troopCode,
+    String? prefectureCode,
+    String? pointCode,
   }) async {
     final now = DateTime.now();
     final troop = Troop(
@@ -59,6 +61,8 @@ class TroopRepository {
       location: location,
       contact: contact,
       troopCode: troopCode,
+      prefectureCode: prefectureCode,
+      pointCode: pointCode,
       createdAt: now,
       updatedAt: now,
     );

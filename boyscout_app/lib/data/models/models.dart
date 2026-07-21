@@ -37,30 +37,42 @@ class Troop {
   final String? location;
   final String? contact;
   final String? troopCode;
+  final String? prefectureCode; // 熱中症アラート用：環境省pref_cds相当
+  final String? pointCode; // 熱中症アラート用：環境省地点番号（wbgt_nos）
   final DateTime createdAt;
   final DateTime updatedAt;
 
   const Troop({
     required this.id, required this.name, this.location, this.contact,
-    this.troopCode, required this.createdAt, required this.updatedAt,
+    this.troopCode, this.prefectureCode, this.pointCode,
+    required this.createdAt, required this.updatedAt,
   });
 
   factory Troop.fromMap(Map<String, dynamic> m) => Troop(
         id: m['id'] as String, name: m['name'] as String,
         location: m['location'] as String?, contact: m['contact'] as String?,
         troopCode: m['troop_code'] as String?,
+        prefectureCode: m['prefecture_code'] as String?,
+        pointCode: m['point_code'] as String?,
         createdAt: DateTime.parse(m['created_at'] as String),
         updatedAt: DateTime.parse(m['updated_at'] as String));
 
   Map<String, dynamic> toMap() => {
         'id': id, 'name': name, 'location': location, 'contact': contact,
         'troop_code': troopCode,
+        'prefecture_code': prefectureCode,
+        'point_code': pointCode,
         'created_at': createdAt.toIso8601String(),
         'updated_at': updatedAt.toIso8601String()};
 
-  Troop copyWith({String? name, String? location, String? contact, String? troopCode}) =>
+  Troop copyWith({
+    String? name, String? location, String? contact, String? troopCode,
+    String? prefectureCode, String? pointCode,
+  }) =>
       Troop(id: id, name: name ?? this.name, location: location ?? this.location,
           contact: contact ?? this.contact, troopCode: troopCode ?? this.troopCode,
+          prefectureCode: prefectureCode ?? this.prefectureCode,
+          pointCode: pointCode ?? this.pointCode,
           createdAt: createdAt, updatedAt: DateTime.now());
 }
 

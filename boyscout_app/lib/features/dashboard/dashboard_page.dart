@@ -27,18 +27,21 @@ final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   final troopId = ref.watch(currentTroopIdProvider);
   if (troopId == null) return _DashboardData.empty();
 
-  // 団名はSupabaseから取得
+  // 団名・熱中症アラート用の地点はSupabaseから取得
   String? troopName;
+  String? pointCode;
   try {
     final troopData = await SupabaseConfig.client
         .from('troops')
-        .select('name')
+        .select('name, point_code')
         .eq('id', troopId)
         .maybeSingle();
     troopName = troopData?['name'] as String?;
+    pointCode = troopData?['point_code'] as String?;
   } catch (_) {
     final troop = await ref.read(troopRepositoryProvider).getFirst();
     troopName = troop?.name;
+    pointCode = troop?.pointCode;
   }
 
   final events = await ref.read(eventRepositoryProvider).getRecent(troopId);
@@ -56,7 +59,31 @@ final dashboardProvider = FutureProvider<_DashboardData>((ref) async {
   final totalEventCount = fiscalYearEvents.length;
   // トータル出席率：全スカウトの出席合計 / (出席+欠席)合計
   final double avgRate = rates.total == 0 ? 0.0 : rates.present / rates.total;
-  return _DashboardData(events: events, scouts: scouts, completedEventCount: completedEventCount, totalEventCount: totalEventCount, avgAttendanceRate: avgRate, troopName: troopName);
+
+  // 熱中症アラート：団の地点が設定されていれば、当日〜翌々日分を取得
+  final heatAlerts = <String, _HeatAlertInfo>{};
+  if (pointCode != null && pointCode.isNotEmpty) {
+    try {
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      final rows = await SupabaseConfig.client
+          .from('heat_alerts')
+          .select('target_date, max_wbgt, level, point_name')
+          .eq('point_code', pointCode)
+          .gte('target_date', todayStr);
+      for (final row in rows as List) {
+        final date = row['target_date'] as String;
+        heatAlerts[date] = _HeatAlertInfo(
+          level: row['level'] as String,
+          maxWbgt: (row['max_wbgt'] as num).toDouble(),
+          pointName: row['point_name'] as String?,
+        );
+      }
+    } catch (_) {
+      // 取得失敗時は何も表示しない（ダッシュボード全体は正常表示）
+    }
+  }
+
+  return _DashboardData(events: events, scouts: scouts, completedEventCount: completedEventCount, totalEventCount: totalEventCount, avgAttendanceRate: avgRate, troopName: troopName, heatAlerts: heatAlerts);
 });
 
 class _DashboardData {
@@ -66,8 +93,13 @@ class _DashboardData {
   final int totalEventCount;
   final double avgAttendanceRate;
   final String? troopName;
-  _DashboardData({required this.events, required this.scouts, required this.completedEventCount, required this.totalEventCount, required this.avgAttendanceRate, this.troopName});
+  final Map<String, _HeatAlertInfo> heatAlerts; // key: yyyy-MM-dd
+  _DashboardData({required this.events, required this.scouts, required this.completedEventCount, required this.totalEventCount, required this.avgAttendanceRate, this.troopName, this.heatAlerts = const {}});
   factory _DashboardData.empty() => _DashboardData(events: [], scouts: [], completedEventCount: 0, totalEventCount: 0, avgAttendanceRate: 0);
+
+  /// 指定日の熱中症アラート情報を返す（データがなければnull）
+  _HeatAlertInfo? heatAlertFor(DateTime date) =>
+      heatAlerts[DateFormat('yyyy-MM-dd').format(date)];
   int get pendingTwigScouts => scouts.where((s) =>
       s.isActive &&
       s.isTwigBadgeEligible &&
@@ -81,6 +113,84 @@ class _DashboardData {
         .where((s) => s.birthday != null && s.birthday!.month == now.month && s.isActive)
         .toList()
       ..sort((a, b) => a.birthday!.day.compareTo(b.birthday!.day));
+  }
+}
+
+class _HeatAlertInfo {
+  final String level; // safe / caution / caution_high / severe_caution / danger
+  final double maxWbgt;
+  final String? pointName; // 参照地点名（例：東京、大島）
+  const _HeatAlertInfo({required this.level, required this.maxWbgt, this.pointName});
+
+  String get label {
+    switch (level) {
+      case 'danger': return '危険';
+      case 'severe_caution': return '厳重警戒';
+      case 'caution_high': return '警戒';
+      case 'caution': return '注意';
+      default: return 'ほぼ安全';
+    }
+  }
+
+  Color get color {
+    switch (level) {
+      case 'danger': return const Color(0xFFD32F2F); // 赤
+      case 'severe_caution': return const Color(0xFFE65100); // 濃橘
+      case 'caution_high': return const Color(0xFFF9A825); // 黄
+      case 'caution': return const Color(0xFF64B5F6); // 淑青
+      default: return const Color(0xFF9E9E9E); // グレー（ほぼ安全）
+    }
+  }
+
+  /// ダッシュボードには「注意」以上のときのみアイコンを表示（ほぼ安全は非表示）
+  bool get shouldShow => level != 'safe';
+}
+
+/// AppBar直下に表示する、本日の熱中症アラート全幅バナー
+/// レベルが「注意」以上のときのみ呼び出される前提
+/// （shouldShowの判定はDashboardPage側で行う）
+class _HeatAlertBanner extends StatelessWidget {
+  final _HeatAlertInfo alert;
+  const _HeatAlertBanner({required this.alert});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: alert.color,
+      child: InkWell(
+        onTap: () => showDialog(
+          context: context,
+          builder: (dlgCtx) => AlertDialog(
+            title: Text('本日の熱中症危険度\n${alert.label}'),
+            content: Text(
+              '${alert.pointName != null ? '参照地点: ${alert.pointName}\n' : ''}'
+              'WBGT予想最高値: ${alert.maxWbgt.toStringAsFixed(1)}\n\n'
+              '屋外活動の実施可否を検討し、こまめな水分補給・休憩を心がけてください。',
+            ),
+            actions: [
+              FilledButton(onPressed: () => Navigator.of(dlgCtx).pop(), child: const Text('とじる')),
+            ],
+          ),
+        ),
+        child: SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            child: Row(children: [
+              const Icon(Icons.thermostat, color: Colors.white, size: 20),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '本日は熱中症${alert.label}です（WBGT ${alert.maxWbgt.toStringAsFixed(1)}）',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.white, size: 18),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -117,7 +227,16 @@ class DashboardPage extends ConsumerWidget {
           }),
         ],
       ),
-      body: Stack(children: [
+      body: Column(children: [
+        async.maybeWhen(
+          data: (data) {
+            final todayAlert = data.heatAlertFor(DateTime.now());
+            if (todayAlert == null || !todayAlert.shouldShow) return const SizedBox.shrink();
+            return _HeatAlertBanner(alert: todayAlert);
+          },
+          orElse: () => const SizedBox.shrink(),
+        ),
+        Expanded(child: Stack(children: [
         const WoodGrainBackground(),
         async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -154,7 +273,7 @@ class DashboardPage extends ConsumerWidget {
               Card(child: Column(children: [
                 for (int i = 0; i < data.events.take(5).length; i++) ...[
                   if (i > 0) const Divider(height: 0),
-                  _EventListTile(event: data.events[i]),
+                  _EventListTile(event: data.events[i], heatAlert: data.heatAlertFor(data.events[i].eventDate)),
                 ],
               ])),
             const SizedBox(height: 24),
@@ -199,6 +318,7 @@ class DashboardPage extends ConsumerWidget {
           ]),
         ),
       ),
+      ])),
       ]),
       floatingActionButton: isLimited ? null : FloatingActionButton(
             heroTag: 'add_event_fab',
@@ -261,7 +381,8 @@ class _MetricCard extends StatelessWidget {
 
 class _EventListTile extends StatelessWidget {
   final Event event;
-  const _EventListTile({required this.event});
+  final _HeatAlertInfo? heatAlert;
+  const _EventListTile({required this.event, this.heatAlert});
 
   @override
   Widget build(BuildContext context) {
@@ -272,7 +393,28 @@ class _EventListTile extends StatelessWidget {
       subtitle: Text(
         [if (event.location != null) event.location!, if (event.startTime != null) event.startTime!].join(' · '),
         style: const TextStyle(fontSize: 12)),
-      trailing: _StatusChip(status: event.status),
+      trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+        if (heatAlert != null && heatAlert!.shouldShow) ...[
+          Tooltip(
+            message: '熱中症${heatAlert!.label}（WBGT ${heatAlert!.maxWbgt.toStringAsFixed(1)}）',
+            child: Container(
+              margin: const EdgeInsets.only(right: 6),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+              decoration: BoxDecoration(
+                color: heatAlert!.color.withAlpha(40),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: heatAlert!.color, width: 1),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.thermostat, size: 14, color: heatAlert!.color),
+                const SizedBox(width: 2),
+                Text(heatAlert!.label, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: heatAlert!.color)),
+              ]),
+            ),
+          ),
+        ],
+        _StatusChip(status: event.status),
+      ]),
       onTap: () => context.go('/events/${event.id}'),
     );
   }

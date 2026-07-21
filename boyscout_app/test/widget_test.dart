@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:boyscout_app/data/models/models.dart';
 import 'package:boyscout_app/core/constants/app_constants.dart';
+import 'package:boyscout_app/core/wbgt_prefecture_master.dart';
 
 // ─── テスト用ヘルパー ─────────────────────────────────────────
 
@@ -126,6 +127,108 @@ class _TwigAwardDialogTest extends StatelessWidget {
 }
 
 // ─── テスト ───────────────────────────────────────────────────
+
+// ─── 熱中症アラート： 団情報画面の都道府県→地点 2段階ドロップダウンのテスト用ウィジェット ───
+// troop_setup_page.dartの選択ロジックを再現
+
+class _PrefPointDropdownTest extends StatefulWidget {
+  final String? initialPref;
+  final String? initialPoint;
+  const _PrefPointDropdownTest({this.initialPref, this.initialPoint});
+
+  @override
+  State<_PrefPointDropdownTest> createState() => _PrefPointDropdownTestState();
+}
+
+class _PrefPointDropdownTestState extends State<_PrefPointDropdownTest> {
+  String? _prefCode;
+  String? _pointCode;
+
+  @override
+  void initState() {
+    super.initState();
+    _prefCode = widget.initialPref;
+    _pointCode = widget.initialPoint;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final pref = wbgtPrefectureMaster.where((e) => e.prefCode == _prefCode);
+    final points = pref.isEmpty ? const <WbgtPoint>[] : pref.first.points;
+    final enabled = points.length > 1;
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      DropdownButtonFormField<String>(
+        key: const ValueKey('prefDropdown'),
+        value: _prefCode,
+        decoration: const InputDecoration(labelText: '都道府県'),
+        items: [
+          const DropdownMenuItem<String>(value: null, child: Text('未設定')),
+          ...wbgtPrefectureMaster.map(
+            (p) => DropdownMenuItem<String>(value: p.prefCode, child: Text(p.prefName)),
+          ),
+        ],
+        onChanged: (v) {
+          setState(() {
+            _prefCode = v;
+            final newPref = wbgtPrefectureMaster.where((e) => e.prefCode == v);
+            _pointCode = newPref.isEmpty ? null : newPref.first.points.first.pointCode;
+          });
+        },
+      ),
+      DropdownButtonFormField<String>(
+        key: const ValueKey('pointDropdown'),
+        value: _pointCode,
+        decoration: const InputDecoration(labelText: '地点'),
+        items: points
+            .map((pt) => DropdownMenuItem<String>(value: pt.pointCode, child: Text(pt.pointName)))
+            .toList(),
+        onChanged: enabled ? (v) => setState(() => _pointCode = v) : null,
+      ),
+      Text('pref:${_prefCode ?? "none"} point:${_pointCode ?? "none"}'),
+    ]);
+  }
+}
+
+// ─── 熱中症アラート： ダッシュボードの危険度バッジ表示ロジック ───
+// dashboard_page.dart の _HeatAlertInfo/_EventListTile の表示ロジックを再現
+
+Color _heatAlertColor(String level) {
+  switch (level) {
+    case 'danger': return const Color(0xFFD32F2F);
+    case 'severe_caution': return const Color(0xFFE65100);
+    case 'caution_high': return const Color(0xFFF9A825);
+    case 'caution': return const Color(0xFF64B5F6);
+    default: return const Color(0xFF9E9E9E);
+  }
+}
+
+String _heatAlertLabel(String level) {
+  switch (level) {
+    case 'danger': return '危険';
+    case 'severe_caution': return '厳重警戒';
+    case 'caution_high': return '警戒';
+    case 'caution': return '注意';
+    default: return 'ほぼ安全';
+  }
+}
+
+Widget _heatAlertBadge(String? level) {
+  if (level == null || level == 'safe') return const SizedBox.shrink();
+  final color = _heatAlertColor(level);
+  return Container(
+    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+    decoration: BoxDecoration(
+      color: color.withAlpha(40),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: color, width: 1),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(Icons.thermostat, size: 14, color: color),
+      const SizedBox(width: 2),
+      Text(_heatAlertLabel(level), style: TextStyle(fontSize: 10, color: color)),
+    ]),
+  );
+}
 
 void main() {
   // ─── 性別ラジオボタン ──────────────────────────────────────
@@ -1061,6 +1164,101 @@ void main() {
       ));
       await tester.tap(find.byKey(const ValueKey('present')));
       expect(changed, isNull);
+    });
+  });
+
+  // ─── 熱中症アラート： 団情報画面の都道府県→地点 2段階ドロップダウン ───
+  group('熱中症アラート： 都道府県→地点 2段階ドロップダウン', () {
+    testWidgets('初期状態では地点ドロップダウンが無効（都道府県未選択）', (tester) async {
+      await tester.pumpWidget(_wrap(const Scaffold(
+        body: _PrefPointDropdownTest(),
+      )));
+      final dropdown = tester.widget<DropdownButtonFormField<String>>(
+          find.byKey(const ValueKey('pointDropdown')));
+      expect(dropdown.onChanged, isNull);
+    });
+
+    testWidgets('東京都を選択すると地点がデフォルト（東京）になり、地点ドロップダウンが活性化する', (tester) async {
+      await tester.pumpWidget(_wrap(const Scaffold(
+        body: _PrefPointDropdownTest(initialPref: '44', initialPoint: '44132'),
+      )));
+      expect(find.text('pref:44 point:44132'), findsOneWidget);
+      final dropdown = tester.widget<DropdownButtonFormField<String>>(
+          find.byKey(const ValueKey('pointDropdown')));
+      expect(dropdown.onChanged, isNotNull); // 東京都は4地点あるので有効
+    });
+
+    testWidgets('埼玉県（単一地点）を選択すると地点ドロップダウンは無効のまま（選択肢が1つしかないため）', (tester) async {
+      await tester.pumpWidget(_wrap(const Scaffold(
+        body: _PrefPointDropdownTest(initialPref: '43', initialPoint: '43056'),
+      )));
+      expect(find.text('pref:43 point:43056'), findsOneWidget);
+      final dropdown = tester.widget<DropdownButtonFormField<String>>(
+          find.byKey(const ValueKey('pointDropdown')));
+      expect(dropdown.onChanged, isNull); // 埼玉県は1地点のみなので無効
+    });
+
+    testWidgets('都道府県を変えると地点は新しい都道府県のデフォルトにリセットされる', (tester) async {
+      await tester.pumpWidget(_wrap(const Scaffold(
+        body: _PrefPointDropdownTest(initialPref: '44', initialPoint: '44172'), // 東京都・大島選択中
+      )));
+      expect(find.text('pref:44 point:44172'), findsOneWidget);
+
+      // ドロップダウンは47都道府県分あり、実際のオーバーレイUIをタップで開くと
+      // 画面外の項目がビルドされずテストが不安定になるため、onChangedを直接呼び出す
+      final prefDropdown = tester.widget<DropdownButtonFormField<String>>(
+          find.byKey(const ValueKey('prefDropdown')));
+      prefDropdown.onChanged!('43'); // 埼玉県に変更
+      await tester.pumpAndSettle();
+
+      // 埼玉県に変えたら地点はデフォルト（熊谷）にリセットされる
+      expect(find.text('pref:43 point:43056'), findsOneWidget);
+    });
+  });
+
+  group('熱中症アラート： ダッシュボードの危険度バッジ', () {
+    testWidgets('level=danger で「危険」バッジが表示される', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: _heatAlertBadge('danger'),
+      )));
+      expect(find.text('危険'), findsOneWidget);
+      expect(find.byIcon(Icons.thermostat), findsOneWidget);
+    });
+
+    testWidgets('level=caution_high で「警戒」バッジが表示される', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: _heatAlertBadge('caution_high'),
+      )));
+      expect(find.text('警戒'), findsOneWidget);
+    });
+
+    testWidgets('level=safe のときは何も表示されない', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: _heatAlertBadge('safe'),
+      )));
+      expect(find.byIcon(Icons.thermostat), findsNothing);
+      expect(find.byType(Container), findsNothing);
+    });
+
+    testWidgets('level=null（データなし）のときは何も表示されない', (tester) async {
+      await tester.pumpWidget(_wrap(Scaffold(
+        body: _heatAlertBadge(null),
+      )));
+      expect(find.byIcon(Icons.thermostat), findsNothing);
+    });
+
+    testWidgets('全レベルのラベルが正しい', (tester) async {
+      for (final entry in {
+        'danger': '危険',
+        'severe_caution': '厳重警戒',
+        'caution_high': '警戒',
+        'caution': '注意',
+      }.entries) {
+        await tester.pumpWidget(_wrap(Scaffold(
+          body: _heatAlertBadge(entry.key),
+        )));
+        expect(find.text(entry.value), findsOneWidget, reason: 'level=${entry.key}');
+      }
     });
   });
 }

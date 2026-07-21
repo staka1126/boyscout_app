@@ -124,6 +124,14 @@ class DatabaseHelper {
         await db.execute('ALTER TABLE events ADD COLUMN plan_url TEXT');
       } catch (_) {}
     }
+    if (oldVersion < 10) {
+      for (final sql in [
+        'ALTER TABLE troops ADD COLUMN prefecture_code TEXT',
+        'ALTER TABLE troops ADD COLUMN point_code TEXT',
+      ]) {
+        try { await db.execute(sql); } catch (_) {}
+      }
+    }
   }
 
   Future<void> _create(Database db, int version) async {
@@ -134,6 +142,8 @@ class DatabaseHelper {
         location TEXT,
         contact TEXT,
         troop_code TEXT UNIQUE,
+        prefecture_code TEXT,
+        point_code TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       )

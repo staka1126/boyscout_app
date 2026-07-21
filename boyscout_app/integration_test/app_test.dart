@@ -1038,4 +1038,88 @@ void main() {
       expect(find.textContaining('イベントはありません'), findsOneWidget);
     });
   });
+
+  // ─── 熱中症アラート機能 ──────────────────────────────────────
+  group('熱中症アラート機能', () {
+    testWidgets('団情報画面に地域設定セクションが表示される', (tester) async {
+      await _setupTroopAndLaunch(tester);
+      await _goSettings(tester);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('団情報'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('熱中症アラートの地域設定'), findsOneWidget);
+      expect(find.text('都道府県'), findsOneWidget);
+      expect(find.text('地点'), findsOneWidget);
+    });
+
+    testWidgets('都道府県ドロップダウンをタップすると候補一覧が開く（選択・保存はしない）', (tester) async {
+      await _setupTroopAndLaunch(tester);
+      await _goSettings(tester);
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('団情報'));
+      await tester.pumpAndSettle();
+
+      final dropdowns = find.byType(DropdownButtonFormField<String>);
+      if (dropdowns.evaluate().isEmpty) return;
+      await tester.tap(dropdowns.first); // 都道府県ドロップダウン（先頭）
+      await tester.pumpAndSettle();
+
+      // 選択肢の中に「東京都」が含まれる（ボタン自体のラベルとプルダウン項目で複数ヒットする想定）
+      expect(find.text('東京都'), findsWidgets);
+
+      // 保存せずに戻る（実データは変更しない）
+      await tester.tap(find.byIcon(Icons.arrow_back));
+      await tester.pumpAndSettle();
+    });
+
+    testWidgets('ダッシュボードが熱中症アラートの有無に関わらず正常に表示される', (tester) async {
+      await _setupTroopAndLaunch(tester);
+      if (find.byType(BottomNavigationBar).evaluate().isEmpty) return;
+
+      await tester.tap(find.byIcon(Icons.home_outlined));
+      await tester.pumpAndSettle();
+
+      // クラッシュせずScaffoldが表示されていればOK
+      expect(find.byType(Scaffold), findsWidgets);
+    });
+
+    testWidgets('熱中症アラートバナーが表示されていれば、タップしてダイアログを開閉できる', (tester) async {
+      // 回帰テスト：以前、ダイアログを閉じる際にGoRouterのページスタックをpopしようとして
+      // クラッシュする不具合があった（dlgCtxではなくcontextを使っていたため）。
+      // 修正後も同様の不具合が発生しないことを確認する。
+      await _setupTroopAndLaunch(tester);
+      if (find.byType(BottomNavigationBar).evaluate().isEmpty) return;
+
+      await tester.tap(find.byIcon(Icons.home_outlined));
+      await tester.pumpAndSettle();
+
+      // バナーはIcons.thermostatを含むInkWell。アラートなしの日は見つからないのでスキップ
+      final bannerIcon = find.byIcon(Icons.thermostat);
+      if (bannerIcon.evaluate().isEmpty) return;
+
+      // バナー（InkWell）をタップ
+      final bannerInkWell = find.ancestor(
+        of: bannerIcon.first,
+        matching: find.byType(InkWell),
+      );
+      if (bannerInkWell.evaluate().isEmpty) return;
+      await tester.tap(bannerInkWell.first);
+      await tester.pumpAndSettle();
+
+      // ダイアログが開く
+      expect(find.textContaining('本日の熱中症危険度'), findsOneWidget);
+
+      // 「とじる」で閉じてもクラッシュしない（GoRouterページが残っている）
+      await tester.tap(find.text('とじる'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(BottomNavigationBar), findsOneWidget);
+      expect(find.textContaining('本日の熱中症危険度'), findsNothing);
+    });
+  });
 }
